@@ -33,8 +33,6 @@
             this.splitContainer = new System.Windows.Forms.SplitContainer();
             this.splitContainerTabControl = new System.Windows.Forms.SplitContainer();
             this.tabControl = new System.Windows.Forms.TabControl();
-            //this.tabWhatsNew = new System.Windows.Forms.TabPage();
-            //this.ucWhatsNew = new EntitySpaces.AddIn.ucWhatsNew();
             this.tabProjects = new System.Windows.Forms.TabPage();
             this.ucProjects = new EntitySpaces.AddIn.ucProjects();
             this.tabTemplates = new System.Windows.Forms.TabPage();
@@ -55,14 +53,15 @@
             this.tableLayoutPanel2 = new System.Windows.Forms.TableLayoutPanel();
             this.pictureBoxError = new System.Windows.Forms.PictureBox();
             this.imageList1 = new System.Windows.Forms.ImageList(this.components);
+            ((System.ComponentModel.ISupportInitialize)(this.splitContainer)).BeginInit();
             this.splitContainer.Panel1.SuspendLayout();
             this.splitContainer.Panel2.SuspendLayout();
             this.splitContainer.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.splitContainerTabControl)).BeginInit();
             this.splitContainerTabControl.Panel1.SuspendLayout();
             this.splitContainerTabControl.Panel2.SuspendLayout();
             this.splitContainerTabControl.SuspendLayout();
             this.tabControl.SuspendLayout();
-            //this.tabWhatsNew.SuspendLayout();
             this.tabProjects.SuspendLayout();
             this.tabTemplates.SuspendLayout();
             this.tabSettings.SuspendLayout();
@@ -117,7 +116,6 @@
             // tabControl
             // 
             this.tabControl.AllowDrop = true;
-            //this.tabControl.Controls.Add(this.tabWhatsNew);
             this.tabControl.Controls.Add(this.tabProjects);
             this.tabControl.Controls.Add(this.tabTemplates);
             this.tabControl.Controls.Add(this.tabSettings);
@@ -129,30 +127,6 @@
             this.tabControl.SelectedIndex = 0;
             this.tabControl.Size = new System.Drawing.Size(509, 636);
             this.tabControl.TabIndex = 0;
-            // 
-            // tabWhatsNew
-            // 
-            //this.tabWhatsNew.Controls.Add(this.ucWhatsNew);
-            //this.tabWhatsNew.Location = new System.Drawing.Point(4, 22);
-            //this.tabWhatsNew.Name = "tabWhatsNew";
-            //this.tabWhatsNew.Padding = new System.Windows.Forms.Padding(3);
-            //this.tabWhatsNew.Size = new System.Drawing.Size(501, 610);
-            //this.tabWhatsNew.TabIndex = 5;
-            //this.tabWhatsNew.Text = "Whats New";
-            //this.tabWhatsNew.UseVisualStyleBackColor = true;
-            //this.tabWhatsNew.Enter += new System.EventHandler(this.TabPage_Enter);
-            //// 
-            //// ucWhatsNew
-            //// 
-            //this.ucWhatsNew.BackgroundImage = ((System.Drawing.Image)(resources.GetObject("ucWhatsNew.BackgroundImage")));
-            //this.ucWhatsNew.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Stretch;
-            //this.ucWhatsNew.Dock = System.Windows.Forms.DockStyle.Fill;
-            //this.ucWhatsNew.Location = new System.Drawing.Point(3, 3);
-            //this.ucWhatsNew.MainWindow = null;
-            //this.ucWhatsNew.Margin = new System.Windows.Forms.Padding(2, 2, 2, 2);
-            //this.ucWhatsNew.Name = "ucWhatsNew";
-            //this.ucWhatsNew.Size = new System.Drawing.Size(495, 604);
-            //this.ucWhatsNew.TabIndex = 0;
             // 
             // tabProjects
             // 
@@ -220,6 +194,7 @@
             this.ucSettings.Margin = new System.Windows.Forms.Padding(4);
             this.ucSettings.Name = "ucSettings";
             this.ucSettings.Padding = new System.Windows.Forms.Padding(3);
+            this.ucSettings.Settings = null;
             this.ucSettings.Size = new System.Drawing.Size(495, 604);
             this.ucSettings.TabIndex = 0;
             // 
@@ -398,12 +373,13 @@
             this.Size = new System.Drawing.Size(509, 636);
             this.splitContainer.Panel1.ResumeLayout(false);
             this.splitContainer.Panel2.ResumeLayout(false);
+            ((System.ComponentModel.ISupportInitialize)(this.splitContainer)).EndInit();
             this.splitContainer.ResumeLayout(false);
             this.splitContainerTabControl.Panel1.ResumeLayout(false);
             this.splitContainerTabControl.Panel2.ResumeLayout(false);
+            ((System.ComponentModel.ISupportInitialize)(this.splitContainerTabControl)).EndInit();
             this.splitContainerTabControl.ResumeLayout(false);
             this.tabControl.ResumeLayout(false);
-            //this.tabWhatsNew.ResumeLayout(false);
             this.tabProjects.ResumeLayout(false);
             this.tabTemplates.ResumeLayout(false);
             this.tabSettings.ResumeLayout(false);

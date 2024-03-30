@@ -65,7 +65,7 @@ namespace EntitySpaces.MetadataEngine
                             attribute.Value == "2010.1.0628.0" ||
                             attribute.Value == "2010.1.1122.0" ||
                             attribute.Value == "2019.1.0725.0" ||
-                            attribute.Value == "2019.1.0725.0")
+                            attribute.Value == "2024.3.0001.1")
                         {
                             match = true;
                             break;

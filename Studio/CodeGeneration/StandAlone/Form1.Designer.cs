@@ -41,6 +41,7 @@
             this.mainWindow1.Dock = System.Windows.Forms.DockStyle.Fill;
             this.mainWindow1.Location = new System.Drawing.Point(0, 24);
             this.mainWindow1.Name = "mainWindow1";
+            this.mainWindow1.Settings = ((EntitySpaces.MetadataEngine.esSettings)(resources.GetObject("mainWindow1.Settings")));
             this.mainWindow1.Size = new System.Drawing.Size(620, 475);
             this.mainWindow1.TabIndex = 0;
             // 
@@ -72,7 +73,7 @@
             this.MainMenuStrip = this.menuStrip1;
             this.Name = "Form1";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
-            this.Text = "EntitySpaces 2019 - Persistence Layer and Business Objects for Microsoft .NET  ";
+            this.Text = "EntitySpaces 2024 - Persistence Layer and Business Objects for Microsoft .NET  ";
             this.WindowState = System.Windows.Forms.FormWindowState.Maximized;
             this.menuStrip1.ResumeLayout(false);
             this.menuStrip1.PerformLayout();

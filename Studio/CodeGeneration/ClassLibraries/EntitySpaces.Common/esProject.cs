@@ -252,7 +252,9 @@ namespace EntitySpaces.Common
                         esSettings.AdjustPathsBasedOnPriorVersions(childNode.Settings as esSettings, @"Software\EntitySpaces 2009", "ES2009", false);
                         esSettings.AdjustPathsBasedOnPriorVersions(childNode.Settings as esSettings, @"Software\EntitySpaces 2010", "ES2010", false);
                         esSettings.AdjustPathsBasedOnPriorVersions(childNode.Settings as esSettings, @"Software\EntitySpaces 2011", "ES2011", false);
-                        esSettings.AdjustPathsBasedOnPriorVersions(childNode.Settings as esSettings, @"Software\EntitySpaces 2012", "ES2012", true);
+                        esSettings.AdjustPathsBasedOnPriorVersions(childNode.Settings as esSettings, @"Software\EntitySpaces 2012", "ES2012", false);
+                        esSettings.AdjustPathsBasedOnPriorVersions(childNode.Settings as esSettings, @"Software\EntitySpaces 2019", "ES2019", false);
+                        esSettings.AdjustPathsBasedOnPriorVersions(childNode.Settings as esSettings, @"Software\EntitySpaces 2024", "ES2024", true);
                     }
                     catch { }
                 }
@@ -271,7 +273,7 @@ namespace EntitySpaces.Common
 
             writer.WriteStartDocument();
             writer.WriteStartElement("EntitySpacesProject");
-            writer.WriteAttributeString("Version", "2019.1.0708.0");
+            writer.WriteAttributeString("Version", "2024.3.0001.1");
             Save(this.RootNode, writer);
             writer.WriteEndElement();
             writer.WriteEndDocument();

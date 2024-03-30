@@ -927,7 +927,7 @@
             this.label4.Name = "label4";
             this.label4.Size = new System.Drawing.Size(284, 13);
             this.label4.TabIndex = 6;
-            this.label4.Text = "2019.1.0725.0";
+            this.label4.Text = "2024.3.0001.1";
             this.label4.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // tabPageLocations

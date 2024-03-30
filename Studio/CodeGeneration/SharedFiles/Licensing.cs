@@ -537,7 +537,7 @@ namespace EntitySpaces
             doc.LoadXml(xml);
 
             XmlAttribute attr = doc.CreateAttribute("Version");
-            attr.Value = "2019.1.0725.0";
+            attr.Value = "2024.3.0001.1";
 
             doc.DocumentElement.Attributes.Append(attr);
             doc.Save(path);

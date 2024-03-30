@@ -2734,7 +2734,7 @@ namespace EntitySpaces.MetadataEngine
         /// </summary>
         public string esVersion
         {
-            get { return "2019.1.0725.0"; }
+            get { return "2024.3.0001.1"; }
         }
 
         /// <summary>

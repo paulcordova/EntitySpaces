@@ -21,7 +21,7 @@
     Description="The Query Class" 
     Namespace="EntitySpaces.2019.C#.Generated" 
     Author="EntitySpaces, LLC"
-    Version="2019.0.0.0"
+    Version="2024.3.1.1"
     IsSubTemplate="True" %><%
 //-------------------------------------------------------
 // Extract the UI choices that we need
@@ -81,6 +81,12 @@ namespace <%=Namespace%>
 		{
 			this.es.JoinAlias = joinAlias;
 		}	
+
+		public <%=source.Query%>(string joinAlias, out <%=source.Query%> query)
+		{
+			query = this;
+			this.es.JoinAlias = joinAlias;
+		}
 
 		override protected string GetQueryName()
 		{

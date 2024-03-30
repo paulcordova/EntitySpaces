@@ -11,7 +11,7 @@
     <NoStandardLibraries>false</NoStandardLibraries>
     <AssemblyName>EntitySpaces2019.AddIn</AssemblyName>
     <RootNamespace>EntitySpaces.AddIn</RootNamespace>
-    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
     <SignAssembly>true</SignAssembly>
     <AssemblyOriginatorKeyFile>..\..\StrongNameKey\EntitySpaces.snk</AssemblyOriginatorKeyFile>
     <ApplicationIcon>default.ico</ApplicationIcon>
@@ -144,9 +144,7 @@
     <Compile Include="UserControls\ucMappings.Designer.cs">
       <DependentUpon>ucMappings.cs</DependentUpon>
     </Compile>
-    <Compile Include="UserControls\ucMetadata.cs">
-      <SubType>UserControl</SubType>
-    </Compile>
+    <Compile Include="UserControls\ucMetadata.cs" />
     <Compile Include="UserControls\ucMetadata.Designer.cs">
       <DependentUpon>ucMetadata.cs</DependentUpon>
     </Compile>
