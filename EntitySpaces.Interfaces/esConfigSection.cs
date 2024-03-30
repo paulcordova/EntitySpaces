@@ -27,7 +27,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 -------------------------------------------------------------------------------
 */
 
-#if DOTNET4||DOTNET5
+#if DOTNET4 || DOTNET5 || DOTNET6||DOTNET7
 using System;
 using System.Configuration;
 
