@@ -3,8 +3,8 @@
   <metadata>
     <id>EntitySpaces.ORM.SqlServer</id>
     <version>2024.3.0.0</version>
-    <authors>EntitySpaces.ORM.SqlServer</authors>
-    <owners>EntitySpaces.ORM.SqlServer</owners>
+    <authors>EntitySpaces.ORM.SqlServer.NET</authors>
+    <owners>EntitySpaces.ORM.SqlServer.NET</owners>
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
     <license type="expression">BSD-2-Clause-FreeBSD</license>
     <projectUrl>https://github.com/MikeGriffinReborn/EntitySpaces_DotNetStandard</projectUrl>
@@ -12,7 +12,7 @@
     <tags>EntitySpaces, ORM</tags>
     <dependencies>
       <group targetFramework=".NETStandard2.0">
-        <dependency id="Microsoft.EntityFrameworkCore.SqlServer" version="2.2.4" exclude="Build,Analyzers" />
+        <dependency id="Microsoft.EntityFrameworkCore.SqlServer" version="7.0.17" exclude="Build,Analyzers" />
       </group>
     </dependencies>
     <readme>readme.md</readme>

@@ -3,19 +3,24 @@
 	
   <PropertyGroup>
     <TargetFrameworks>net48;net6.0;net7.0;Net8.0</TargetFrameworks>
-    <AssemblyVersion>2024.2.2.0</AssemblyVersion>
-    <FileVersion>2024.2.2.0</FileVersion>
-    <Version>2024.2.2.0</Version>
-    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
-    <Description>EntitySpaces in .NET for SQL Server (single assembly install)</Description>
+    <AssemblyVersion>2024.3.0.0</AssemblyVersion>
+    <FileVersion>2024.3.0.0</FileVersion>
+    <Version>2024.3.0.0</Version>
+    <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
+    <Description>EntitySpaces in .NET for SQL Server (single assembly install)
+fork from mikegriffin project and mattphi updates in github</Description>
     <PackageProjectUrl>https://mikegriffinreborn.github.io/EntitySpaces/</PackageProjectUrl>
-    <PackageTags>EntitySpaces, ORM, SQL</PackageTags>
-    <PackageReleaseNotes>OVER() syntax enhancements. Also, a breaking change, query.es.CountAll() is now query.Select(query.Count()), see the Count example on github, a quick no brainer code change and yer' off and running.</PackageReleaseNotes>
+    <PackageTags>EntitySpaces, ORM, SQL, Wisej</PackageTags>
+    <PackageReleaseNotes>Updated version to operate with .NET 6-7-8 and .NetFramework 4.8.
+</PackageReleaseNotes>
     <Product>EntitySpaces</Product>
     <PackageIcon>esIcon.png</PackageIcon>
     <PackageIconUrl />
-    <RepositoryUrl>https://github.com/MikeGriffinReborn/EntitySpaces</RepositoryUrl>
+    <RepositoryUrl>https://github.com/paulcordova/EntitySpaces</RepositoryUrl>
     <RepositoryType>GitHub</RepositoryType>
+    <Title>EntitySpaces.ORM.SqlServer for Net 6-7-8 and 4.8</Title>
+    <PackageId>$(AssemblyName)</PackageId>
+    <Authors>$(AssemblyName) paulcordova</Authors>
   </PropertyGroup>
 
 	
@@ -139,7 +144,7 @@
     <PackageReference Include="Microsoft.CSharp" Version="4.7.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="7.0.17" />
 	<PackageReference Include="System.Data.SqlClient" Version="4.8.6" />
-    <PackageReference Include="System.Configuration.ConfigurationManager" >
+    <PackageReference Include="System.Configuration.ConfigurationManager">
       <Version>8.0.0</Version>
     </PackageReference>
   </ItemGroup>
@@ -148,7 +153,7 @@
 		<PackageReference Include="Microsoft.CSharp" Version="4.7.0" />
 		<PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="7.0.17" />
 		<PackageReference Include="System.Data.SqlClient" Version="4.8.6" />
-		<PackageReference Include="System.Configuration.ConfigurationManager" >
+		<PackageReference Include="System.Configuration.ConfigurationManager">
 			<Version>8.0.0</Version>
 		</PackageReference>
 	</ItemGroup>
@@ -157,7 +162,7 @@
 		<PackageReference Include="Microsoft.CSharp" Version="4.7.0" />
 		<PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="7.0.17" />
 		<PackageReference Include="System.Data.SqlClient" Version="4.8.6" />
-		<PackageReference Include="System.Configuration.ConfigurationManager" >
+		<PackageReference Include="System.Configuration.ConfigurationManager">
 			<Version>8.0.0</Version>
 		</PackageReference>
 	</ItemGroup>
