@@ -21,9 +21,9 @@
 	UserInterfaceID="60C6D790-E5BE-4634-B168-A89EC6965F45"
     Title="Custom - Classes Master (C#)"   
     Description="The Custom Master Template" 
-    Namespace="EntitySpaces.2019.C#" 
+    Namespace="EntitySpaces.2024.C#" 
     Author="EntitySpaces, LLC"
-    Version="2019.0.0.0"
+    Version="2024.3.1.1"
     RequiresUI="True" %>
 <%
 string fileName = "";

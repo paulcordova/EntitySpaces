@@ -19,8 +19,8 @@
     UniqueID="949B0959-A083-4732-9978-38EC3DF47494" 
     Title="Generated - esEntity (C#).cst"   
     Description="The Abstract Entity Class" 
-    Namespace="EntitySpaces.2019.C#.Generated" 
-    Author="EntitySpaces, LLC"
+    Namespace="EntitySpaces.2024.C#.Generated" 
+    Author="EntitySpaces, LLC - PCB"
     Version="2024.3.1.1"
     IsSubTemplate="True" %><%
 //-------------------------------------------------------

@@ -19,9 +19,9 @@
     UniqueID="CF8AC9E3-AFEE-452a-B361-41C8607E96A5" 
     Title="Generated - esQuery (C#)"   
     Description="The Abstract Query Class" 
-    Namespace="EntitySpaces.2019.C#.Generated" 
+    Namespace="EntitySpaces.2024.C#.Generated" 
     Author="EntitySpaces, LLC"
-    Version="2019.0.0.0"
+    Version="2024.3.1.1"
     IsSubTemplate="True" %><%
 //-------------------------------------------------------
 // Extract the UI choices that we need

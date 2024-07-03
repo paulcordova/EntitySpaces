@@ -21,9 +21,9 @@
 	UserInterfaceID="2216AB4F-BDB4-47de-8412-8560C1F2F420"	
     Title="Generated - Classes Master (C#)"   
     Description="The Generated Master Template" 
-    Namespace="EntitySpaces.2019.C#"  
+    Namespace="EntitySpaces.2024.C#"  
     Author="EntitySpaces, LLC"
-    Version="2019.0.0.0"
+    Version="2024.3.1.1"
     RequiresUI="True" %>
 <% 
 string fileName = "";

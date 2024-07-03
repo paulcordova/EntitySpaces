@@ -19,9 +19,9 @@
     UniqueID="8A4823EB-1330-421e-B8FD-25CA78A2C6A4" 
     Title="Generated - Metadata (C#)"   
     Description="The Metadata Class" 
-    Namespace="EntitySpaces.2019.C#.Generated" 
+    Namespace="EntitySpaces.2024.C#.Generated" 
     Author="EntitySpaces, LLC"
-    Version="2019.0.0.0"
+    Version="2024.3.1.1"
     IsSubTemplate="True" %><%
 //-------------------------------------------------------
 // Extract the UI choices that we need
