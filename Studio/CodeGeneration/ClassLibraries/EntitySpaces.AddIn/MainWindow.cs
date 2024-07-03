@@ -20,7 +20,7 @@ using EntitySpaces.MetadataEngine;
 
 using EntitySpaces.AddIn;
 
-namespace EntitySpaces.AddIn.ES2019
+namespace EntitySpaces.AddIn.ES2024
 {
     public partial class MainWindow : UserControl
     {

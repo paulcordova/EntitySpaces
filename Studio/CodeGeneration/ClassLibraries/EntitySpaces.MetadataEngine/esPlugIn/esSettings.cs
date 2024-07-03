@@ -77,13 +77,13 @@ namespace EntitySpaces.MetadataEngine
 
         #region File Locations
 
-
+        //TODO PCB - changed path to 2024
         static public string AppDataPath
         {
             get
             {
                 string path = Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData);
-                path += @"\EntitySpaces\ES2019";
+                path += @"\EntitySpaces\ES2024";
                 return path;
             }
         }
@@ -113,9 +113,9 @@ namespace EntitySpaces.MetadataEngine
         {
             get
             {
-                string path = @"C:\Program Files\EntitySpaces 2019\";
+                string path = @"C:\Program Files\EntitySpaces 2024\";
 
-                RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\EntitySpaces 2019", false);
+                RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\EntitySpaces 2024", false);
                 if (key != null)
                 {
                     path = (string)key.GetValue("Install_Dir");
@@ -650,7 +650,8 @@ namespace EntitySpaces.MetadataEngine
                 AdjustPathsBasedOnPriorVersions(settings, @"Software\EntitySpaces 2010", "ES2010", false);
                 AdjustPathsBasedOnPriorVersions(settings, @"Software\EntitySpaces 2011", "ES2011", false);
                 AdjustPathsBasedOnPriorVersions(settings, @"Software\EntitySpaces 2011", "ES2012", false);
-                AdjustPathsBasedOnPriorVersions(settings, @"Software\EntitySpaces 2012", "ES2019", true);
+                AdjustPathsBasedOnPriorVersions(settings, @"Software\EntitySpaces 2012", "ES2019", false);
+                AdjustPathsBasedOnPriorVersions(settings, @"Software\EntitySpaces 2019", "ES2024", true);
             }
             catch { }
 
@@ -812,7 +813,9 @@ namespace EntitySpaces.MetadataEngine
             doc.LoadXml(xml);
 
             XmlAttribute attr = doc.CreateAttribute("Version");
-            attr.Value = "2019.1.1218.0";
+            //TODO change to 2024 version
+			//attr.Value = "2019.1.1218.0";
+            attr.Value = "2024.3.0001.1";
 
             doc.DocumentElement.Attributes.Append(attr);
             doc.Save(pathAndFileName);
@@ -891,7 +894,7 @@ namespace EntitySpaces.MetadataEngine
             settings.ConnectionString = GetDefaultConnectionString(settings.Driver);
 
             // File Locations
-            RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\EntitySpaces 2019", false);
+            RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\EntitySpaces 2024", false);
             if (key != null)
             {
                 string basePath = (string)key.GetValue("Install_Dir");

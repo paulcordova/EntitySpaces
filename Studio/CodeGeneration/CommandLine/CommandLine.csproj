@@ -75,17 +75,17 @@
     <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="EntitySpaces.CodeGenerator, Version=2012.1.930.0, Culture=neutral, PublicKeyToken=127bcb8ceedbe220, processorArchitecture=x86">
+    <Reference Include="EntitySpaces.CodeGenerator, Version=2024.3.1.1, Culture=neutral, PublicKeyToken=127bcb8ceedbe220, processorArchitecture=x86">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\ClassLibraries\EntitySpaces.CodeGenerator\bin\x86\Debug\EntitySpaces.CodeGenerator.dll</HintPath>
+      <HintPath>..\ClassLibraries\EntitySpaces.CodeGenerator\bin\Debug\EntitySpaces.CodeGenerator.dll</HintPath>
     </Reference>
-    <Reference Include="EntitySpaces.Common, Version=2012.1.930.0, Culture=neutral, PublicKeyToken=127bcb8ceedbe220, processorArchitecture=x86">
+    <Reference Include="EntitySpaces.Common, Version=2024.3.1.1, Culture=neutral, PublicKeyToken=127bcb8ceedbe220, processorArchitecture=x86">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\ClassLibraries\EntitySpaces.Common\bin\x86\Debug\EntitySpaces.Common.dll</HintPath>
+      <HintPath>..\ClassLibraries\EntitySpaces.Common\bin\Debug\EntitySpaces.Common.dll</HintPath>
     </Reference>
-    <Reference Include="EntitySpaces.MetadataEngine, Version=2012.1.930.0, Culture=neutral, PublicKeyToken=127bcb8ceedbe220, processorArchitecture=x86">
+    <Reference Include="EntitySpaces.MetadataEngine, Version=2024.3.1.1, Culture=neutral, PublicKeyToken=127bcb8ceedbe220, processorArchitecture=x86">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\ClassLibraries\EntitySpaces.MetadataEngine\bin\x86\Debug\EntitySpaces.MetadataEngine.dll</HintPath>
+      <HintPath>..\ClassLibraries\EntitySpaces.MetadataEngine\bin\Debug\EntitySpaces.MetadataEngine.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core"/>

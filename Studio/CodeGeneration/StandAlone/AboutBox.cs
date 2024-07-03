@@ -25,7 +25,7 @@ namespace EntitySpaces
         {
             try
             {
-                System.Diagnostics.Process.Start("http://www.entityspaces.net/");
+                System.Diagnostics.Process.Start("https://mikegriffinreborn.github.io/EntitySpaces/");
             }
             catch { }
         }

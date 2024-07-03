@@ -10,7 +10,7 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("EntitySpaces, LLC")]
 [assembly: AssemblyProduct("EntitySpacesArchitecture")]
-[assembly: AssemblyCopyright("Copyright © EntitySpaces, LLC. 2005 - 2019")]
+[assembly: AssemblyCopyright("Copyright © EntitySpaces, LLC. 2005 - 2024")]
 [assembly: AssemblyTrademark("EntitySpaces(TM) is a legal trademark of EntitySpaces, LLC.")]
 [assembly: AssemblyCulture("")]
 

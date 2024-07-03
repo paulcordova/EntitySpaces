@@ -10,7 +10,7 @@ using EntitySpaces.CodeGenerator;
 using EntitySpaces.Common;
 using EntitySpaces.MetadataEngine;
 
-using EntitySpaces.AddIn.ES2019;
+using EntitySpaces.AddIn.ES2024;
 
 namespace EntitySpaces.AddIn
 {

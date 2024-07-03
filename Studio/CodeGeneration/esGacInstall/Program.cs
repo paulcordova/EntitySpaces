@@ -20,14 +20,14 @@ namespace esGacInstall
                 {
                     p.GacInstall("EntitySpaces.Common.dll");
                     p.GacInstall("EntitySpaces.MetadataEngine.dll");
-                    p.GacInstall("EntitySpaces2019.AddIn.dll");
+                    p.GacInstall("EntitySpaces2024.AddIn.dll");
                     p.GacInstall("EntitySpaces.AddIn.TemplateUI.dll");
                     p.GacInstall("EntitySpaces.CodeGenerator.dll");
                 }
                 else if(args[0] == "/remove")
                 {
                     p.GacRemove("EntitySpaces.MetadataEngine.dll");
-                    p.GacRemove("EntitySpaces2019.AddIn.dll");
+                    p.GacRemove("EntitySpaces2024.AddIn.dll");
                     p.GacRemove("EntitySpaces.AddIn.TemplateUI.dll");
                     p.GacRemove("EntitySpaces.CodeGenerator.dll");
                     p.GacRemove("EntitySpaces.TemplateUI.dll");

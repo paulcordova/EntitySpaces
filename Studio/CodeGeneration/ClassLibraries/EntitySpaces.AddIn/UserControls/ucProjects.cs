@@ -58,7 +58,7 @@ namespace EntitySpaces.AddIn
 
         private void LoadMruList()
         {
-            using (RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\EntitySpaces 2019", false))
+            using (RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\EntitySpaces 2024", false))
             {
                 if (key == null) return;
 
@@ -69,7 +69,7 @@ namespace EntitySpaces.AddIn
 
         private void SaveMruList()
         {
-            using (RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\EntitySpaces 2019", true))
+            using (RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\EntitySpaces 2024", true))
             {
                 if (key == null) return;
 
@@ -208,6 +208,11 @@ namespace EntitySpaces.AddIn
             try
             {
                 this.MainWindow.HideErrorOrStatusMessage();
+
+                if (e == null)
+                {
+                    MessageBox.Show("e is Null.", "ES Debug", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
 
                 if (e.Button == MouseButtons.Right)
                 {

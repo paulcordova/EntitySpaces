@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 15
-VisualStudioVersion = 15.0.27004.2006
+# Visual Studio Version 17
+VisualStudioVersion = 17.9.34723.18
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "StandAlone", "StandAlone.csproj", "{A62F7C6D-251D-470C-A922-4C590BEC768C}"
 EndProject
@@ -28,6 +28,8 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EntitySpaces.MetadataEngine.SQLite", "..\ClassLibraries\EntitySpaces.MetadataEngine.SQLite\EntitySpaces.MetadataEngine.SQLite.csproj", "{93AD680C-1631-48D6-969D-090D2940C591}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EntitySpaces.MetadataEngine.SQLAzure", "..\ClassLibraries\EntitySpaces.MetadataEngine.SQLAzure\EntitySpaces.MetadataEngine.SQLAzure.csproj", "{0EFAB27B-1897-41B4-922F-6524A8E9D106}"
+EndProject
+Project("{54435603-DBB4-11D2-8724-00A0C9A8B90C}") = "SetupStudio", "..\SetupStudio\SetupStudio.vdproj", "{64D28E0E-7476-474E-B126-9D79FF5597DD}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -141,6 +143,10 @@ Global
 		{0EFAB27B-1897-41B4-922F-6524A8E9D106}.Release|Any CPU.Build.0 = Release|Any CPU
 		{0EFAB27B-1897-41B4-922F-6524A8E9D106}.Release|x86.ActiveCfg = Release|x86
 		{0EFAB27B-1897-41B4-922F-6524A8E9D106}.Release|x86.Build.0 = Release|x86
+		{64D28E0E-7476-474E-B126-9D79FF5597DD}.Debug|Any CPU.ActiveCfg = Debug
+		{64D28E0E-7476-474E-B126-9D79FF5597DD}.Debug|x86.ActiveCfg = Debug
+		{64D28E0E-7476-474E-B126-9D79FF5597DD}.Release|Any CPU.ActiveCfg = Release
+		{64D28E0E-7476-474E-B126-9D79FF5597DD}.Release|x86.ActiveCfg = Release
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

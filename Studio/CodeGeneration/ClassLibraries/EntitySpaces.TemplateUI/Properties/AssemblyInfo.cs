@@ -6,11 +6,11 @@ using System.Runtime.InteropServices;
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
 [assembly: AssemblyTitle("EntitySpaces.TemplateUI")]
-[assembly: AssemblyDescription("The EntitySpaces 2019 Template User Interface")]
+[assembly: AssemblyDescription("The EntitySpaces 2024 Template User Interface")]
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("EntitySpaces, LLC")]
 [assembly: AssemblyProduct("EntitySpacesArchitecture")]
-[assembly: AssemblyCopyright("Copyright © EntitySpaces, LLC. 2005 - 2019")]
+[assembly: AssemblyCopyright("Copyright © EntitySpaces, LLC. 2005 - 2024")]
 [assembly: AssemblyTrademark("EntitySpaces(TM) is a legal trademark of EntitySpaces, LLC.")]
 [assembly: AssemblyCulture("")]
 

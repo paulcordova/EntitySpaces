@@ -352,7 +352,7 @@ namespace EntitySpaces
                 bool isAllSecurityOkay = true;
 
 
-                RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\EntitySpaces 2019", true);
+                RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\EntitySpaces 2024", true);
                 if (key != null)
                 {
                     try
@@ -363,7 +363,7 @@ namespace EntitySpaces
                 }
 
                 string offlinePath = Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData);
-                offlinePath += @"\EntitySpaces\ES2019\" + offlineFile; //Interop.ADODBX.dll";
+                offlinePath += @"\EntitySpaces\ES2024\" + offlineFile; //Interop.ADODBX.dll";
 
                 // See if we have registered our license
                 int result = this.ValidateLicense(product, serialNumber, System.Environment.MachineName, id, esVersion, settings);
@@ -518,7 +518,7 @@ namespace EntitySpaces
         public void Save()
         {
             string path = Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData);
-            path += @"\EntitySpaces\ES2019\esProfileSettings.xml";
+            path += @"\EntitySpaces\ES2024\esProfileSettings.xml";
 
             string xml = String.Empty;
 
@@ -548,7 +548,7 @@ namespace EntitySpaces
             ProxySettings settings = null;
 
             string path = Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData);
-            path += @"\EntitySpaces\ES2019\esProfileSettings.xml";
+            path += @"\EntitySpaces\ES2024\esProfileSettings.xml";
 
             try
             {

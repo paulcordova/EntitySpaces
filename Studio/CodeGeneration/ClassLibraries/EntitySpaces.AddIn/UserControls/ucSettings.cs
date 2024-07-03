@@ -164,7 +164,7 @@ namespace EntitySpaces.AddIn
                 checkBoxUseRawNames.Checked = Settings.UseRawNames;
 
                 // License
-                RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\EntitySpaces 2019", true);
+                RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\EntitySpaces 2024", true);
                 if (key != null)
                 {
                     textBoxSerialNumber.Text = (string)key.GetValue("Serial_Number");
@@ -762,7 +762,7 @@ namespace EntitySpaces.AddIn
                 return;
             }
 
-            RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\EntitySpaces 2019", true);
+            RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\EntitySpaces 2024", true);
             if (key != null)
             {
                 originalKey = (string)key.GetValue("Serial_Number");
@@ -1121,7 +1121,7 @@ namespace EntitySpaces.AddIn
 
         private void LoadMruList()
         {
-            using (RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\EntitySpaces 2019", false))
+            using (RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\EntitySpaces 2024", false))
             {
                 if (key == null) return;
 
@@ -1132,7 +1132,7 @@ namespace EntitySpaces.AddIn
 
         private void SaveMruList()
         {
-            using (RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\EntitySpaces 2019", true))
+            using (RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\EntitySpaces 2024", true))
             {
                 if (key == null) return;
 
@@ -1178,7 +1178,7 @@ namespace EntitySpaces.AddIn
         {
             try
             {
-                RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\EntitySpaces 2019", true);
+                RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\EntitySpaces 2024", true);
                 if (key != null)
                 {
                     key.DeleteValue("Serial_Number2");
@@ -1202,7 +1202,7 @@ namespace EntitySpaces.AddIn
             try
             {
                 string offlinePath = Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData);
-                offlinePath += @"\EntitySpaces\ES2019\Interop.ADODBX.dll";
+                offlinePath += @"\EntitySpaces\ES2024\Interop.ADODBX.dll";
 
                 File.Delete(offlinePath);
             }

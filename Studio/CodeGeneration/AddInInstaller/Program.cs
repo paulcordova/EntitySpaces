@@ -11,7 +11,7 @@ namespace AddInInstaller
         {
             try
             {
-                RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\EntitySpaces 2019", false);
+                RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\EntitySpaces 2024", false);
                 if (key != null)
                 {
                     string basePath = (string)key.GetValue("Install_Dir");
@@ -21,7 +21,7 @@ namespace AddInInstaller
                         basePath += @"\";
                     }
 
-                    string source = basePath + @"CodeGeneration\Bin\EntitySpaces2019.AddIn";
+                    string source = basePath + @"CodeGeneration\Bin\EntitySpaces2024.AddIn";
 
                     string dest = System.Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData);
 
@@ -41,7 +41,7 @@ namespace AddInInstaller
                         Directory.CreateDirectory(dir);
                     }
 
-                    dest += @"\Microsoft\MSEnvShared\AddIns\EntitySpaces2019.AddIn";
+                    dest += @"\Microsoft\MSEnvShared\AddIns\EntitySpaces2024.AddIn";
                     using (StreamWriter writer = new StreamWriter(dest, false, Encoding.BigEndianUnicode))
                     {
                         writer.Write(text);

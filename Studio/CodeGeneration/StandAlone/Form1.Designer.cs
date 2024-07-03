@@ -29,7 +29,7 @@
         private void InitializeComponent()
         {
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(Form1));
-            this.mainWindow1 = new EntitySpaces.AddIn.ES2019.MainWindow();
+            this.mainWindow1 = new EntitySpaces.AddIn.ES2024.MainWindow();
             this.menuStrip1 = new System.Windows.Forms.MenuStrip();
             this.ToolStripMenuItemAbout = new System.Windows.Forms.ToolStripMenuItem();
             this.menuStrip1.SuspendLayout();
@@ -41,7 +41,7 @@
             this.mainWindow1.Dock = System.Windows.Forms.DockStyle.Fill;
             this.mainWindow1.Location = new System.Drawing.Point(0, 24);
             this.mainWindow1.Name = "mainWindow1";
-            this.mainWindow1.Settings = ((EntitySpaces.MetadataEngine.esSettings)(resources.GetObject("mainWindow1.Settings")));
+            //this.mainWindow1.Settings = ((EntitySpaces.MetadataEngine.esSettings)(resources.GetObject("mainWindow1.Settings")));
             this.mainWindow1.Size = new System.Drawing.Size(620, 475);
             this.mainWindow1.TabIndex = 0;
             // 
@@ -84,7 +84,7 @@
 
         #endregion
 
-        private EntitySpaces.AddIn.ES2019.MainWindow mainWindow1;
+        private EntitySpaces.AddIn.ES2024.MainWindow mainWindow1;
         private System.Windows.Forms.MenuStrip menuStrip1;
         private System.Windows.Forms.ToolStripMenuItem ToolStripMenuItemAbout;
     }
