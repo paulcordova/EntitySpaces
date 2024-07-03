@@ -2,12 +2,12 @@
 <package xmlns="http://schemas.microsoft.com/packaging/2012/06/nuspec.xsd">
   <metadata>
     <id>EntitySpaces.ORM.SqlServer</id>
-    <version>2024.3.0.0</version>
+    <version>2024.3.1.0</version>
     <authors>EntitySpaces.ORM.SqlServer.NET</authors>
     <owners>EntitySpaces.ORM.SqlServer.NET</owners>
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
     <license type="expression">BSD-2-Clause-FreeBSD</license>
-    <projectUrl>https://github.com/MikeGriffinReborn/EntitySpaces_DotNetStandard</projectUrl>
+    <projectUrl>https://github.com/paulcordova/EntitySpaces</projectUrl>
     <description>EntitySpaces in .NET Standard Mode for SQL Server (single assembly install)</description>
     <tags>EntitySpaces, ORM</tags>
     <dependencies>

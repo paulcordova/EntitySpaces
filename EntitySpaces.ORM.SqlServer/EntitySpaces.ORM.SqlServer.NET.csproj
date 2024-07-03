@@ -3,13 +3,13 @@
 	
   <PropertyGroup>
     <TargetFrameworks>net48;net6.0;net7.0;Net8.0</TargetFrameworks>
-    <AssemblyVersion>2024.3.0.0</AssemblyVersion>
-    <FileVersion>2024.3.0.0</FileVersion>
-    <Version>2024.3.0.0</Version>
+    <AssemblyVersion>2024.3.0.1</AssemblyVersion>
+    <FileVersion>2024.3.0.1</FileVersion>
+    <Version>2024.3.1.0</Version>
     <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
     <Description>EntitySpaces in .NET for SQL Server (single assembly install)
-fork from mikegriffin project and mattphi updates in github</Description>
-    <PackageProjectUrl>https://mikegriffinreborn.github.io/EntitySpaces/</PackageProjectUrl>
+fork from mikegriffin project and mattphi in github</Description>
+    <PackageProjectUrl>https://github.com/paulcordova/EntitySpaces</PackageProjectUrl>
     <PackageTags>EntitySpaces, ORM, SQL, Wisej</PackageTags>
     <PackageReleaseNotes>Updated version to operate with .NET 6-7-8 and .NetFramework 4.8.
 </PackageReleaseNotes>
