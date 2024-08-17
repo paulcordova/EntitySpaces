@@ -20,7 +20,7 @@
     Description="The Concrete Query Class" 
     Namespace="EntitySpaces.2024.C#.Custom" 
     Author="EntitySpaces, LLC"
-    Version="2024.3.1.1"
+    Version="2024.17.0.0"
     IsSubTemplate="True" %><%
 //-------------------------------------------------------
 // Extract the UI choices that we need

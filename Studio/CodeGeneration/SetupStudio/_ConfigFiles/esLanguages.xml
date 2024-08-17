@@ -5,7 +5,6 @@
     <Type From="binary" To="object" />
     <Type From="bit" To="bool" />
     <Type From="char" To="string" />
-    <Type From="char(1)" To="char" />
     <Type From="date" To="DateTime" />
     <Type From="datetime" To="DateTime" />
     <Type From="datetime2" To="DateTime" />
@@ -343,7 +342,7 @@
     <Type From="ENUM" To="string" />
     <Type From="BINARY" To="string" />
     <Type From="VARBINARY" To="string" />
-	<Type From="CHAR(36)" To="Guid" />	
+    <Type From="CHAR(36)" To="Guid" />
   </Language>
   <Language From="SYBASE" To="C#">
     <Type From="bigint" To="long" />
@@ -397,6 +396,7 @@
     <Type From="datetime2" To="DateTime" />
     <Type From="datetimeoffset" To="DateTimeOffset" />
     <Type From="decimal" To="decimal" />
+    <Type From="double" To="double" />
     <Type From="float" To="double" />
     <Type From="geography" To="SqlGeography" />
     <Type From="geometry" To="SqlGeometry" />

@@ -23,7 +23,7 @@
     Description="The Generated Master Template" 
     Namespace="EntitySpaces.2024.C#"  
     Author="EntitySpaces, LLC"
-    Version="2024.3.1.1"
+    Version="2024.17.0.0"
     RequiresUI="True" %>
 <% 
 string fileName = "";
