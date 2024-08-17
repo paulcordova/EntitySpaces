@@ -4,7 +4,8 @@ Click here for the [Glossy Site ...](https://mikegriffinreborn.github.io/EntityS
 
 Supports .NET 6, 7, 8 and .NET Framework 4.8
 
-Available on Nuget for [SqlServer](https://www.nuget.org/packages/EntitySpaces.ORM.SqlServer), [SQLite](https://www.nuget.org/packages/EntitySpaces.ORM.SQLite/ "NuGet"), [MySQL](https://www.nuget.org/packages/EntitySpaces.ORM.MySQL/ "NuGet") or [PostgreSQL](https://www.nuget.org/packages/EntitySpaces.ORM.PostgreSQL)
+Available on Nuget for [SqlServer](https://www.nuget.org/packages/EntitySpaces.ORM.SqlServer.NET), [SQLite](https://www.nuget.org/packages/EntitySpaces.ORM.SQLite.NET/ "NuGet"),
+Soon new versions for [MySQL](https://www.nuget.org/packages/EntitySpaces.ORM.MySQL/ "NuGet") or [PostgreSQL](https://www.nuget.org/packages/EntitySpaces.ORM.PostgreSQL)
 
 See [Mike's Blog](https://saltycode.blogspot.com/) for EntitySpaces news ...
 
