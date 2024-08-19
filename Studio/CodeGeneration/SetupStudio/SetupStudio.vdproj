@@ -1241,7 +1241,7 @@
         "DisplayName" = "8:Release"
         "IsDebugOnly" = "11:FALSE"
         "IsReleaseOnly" = "11:TRUE"
-        "OutputFilename" = "8:Release\\EntitySpacesStudio_2024.8.18.0.msi"
+        "OutputFilename" = "8:Release\\EntitySpacesStudio_2024.8.19.0.msi"
         "PackageFilesAs" = "3:2"
         "PackageFileSize" = "3:-2147483648"
         "CabType" = "3:1"
@@ -1527,11 +1527,6 @@
             "AssemblyAsmDisplayName" = "8:System.Diagnostics.DiagnosticSource, Version=8.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL"
                 "ScatterAssemblies"
                 {
-                    "_1009794EBD9EEF238C0878CE5852A795"
-                    {
-                    "Name" = "8:System.Diagnostics.DiagnosticSource.dll"
-                    "Attributes" = "3:512"
-                    }
                 }
             "SourcePath" = "8:System.Diagnostics.DiagnosticSource.dll"
             "TargetName" = "8:"
@@ -4210,15 +4205,15 @@
         {
         "Name" = "8:Microsoft Visual Studio"
         "ProductName" = "8:EntitySpaces 2024"
-        "ProductCode" = "8:{A3341CC0-BCCF-44E3-B131-28B40D21A6BE}"
-        "PackageCode" = "8:{E62335E6-DC5C-46CA-88BD-EC5E4E87C01A}"
+        "ProductCode" = "8:{29DBD8BF-9766-4A14-89EF-5B9572DA1005}"
+        "PackageCode" = "8:{D59EA975-4B0E-48F9-83F0-D5BB72E37FE9}"
         "UpgradeCode" = "8:{D521D279-3D08-4C91-B500-2A8B5A045C60}"
         "AspNetVersion" = "8:4.0.30319.0"
         "RestartWWWService" = "11:FALSE"
         "RemovePreviousVersions" = "11:TRUE"
         "DetectNewerInstalledVersion" = "11:TRUE"
         "InstallAllUsers" = "11:FALSE"
-        "ProductVersion" = "8:24.08.18"
+        "ProductVersion" = "8:24.08.19"
         "Manufacturer" = "8:EntitySpaces"
         "ARPHELPTELEPHONE" = "8:"
         "ARPHELPLINK" = "8:"
