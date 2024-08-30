@@ -17,7 +17,10 @@ using System.Collections;
 using System.Reflection;
 using System.Diagnostics;
 
+using Oracle.ManagedDataAccess.Client;
+
 using Microsoft.Win32;
+using Oracle.ManagedDataAccess.Types;
 
 namespace EntitySpaces.MetadataEngine
 {
@@ -225,6 +228,8 @@ namespace EntitySpaces.MetadataEngine
 
                 case esMetaDrivers.SQL:
                 case esMetaDrivers.Oracle:
+                    return this.Connect(esMetaDrivers.GetDbDriverFromName(driver), driver, connectionString);
+
 				case esMetaDrivers.Access:
                 case esMetaDrivers.MySql:
                 case esMetaDrivers.PostgreSQL:
@@ -272,21 +277,21 @@ namespace EntitySpaces.MetadataEngine
 
 				case dbDriver.Oracle:
 
-					ConnectUsingOleDb(_driver, _connectionString);
+                    ConnectUsingOracleDb(_connectionString);
                     this._driverString = esMetaDrivers.Oracle;
-					this.StripTrailingNulls = false;
-					this.requiredDatabaseName = true;
+                    this.StripTrailingNulls = false;
+                    this.requiredDatabaseName = true;
                     ClassFactory = new Oracle.ClassFactory();
-					break;
+                    break;
 
-				//case dbDriver.Access:
+                //case dbDriver.Access:
 
-				//	ConnectUsingOleDb(_driver, _connectionString);
-    //                this._driverString = esMetaDrivers.Access;
-				//	this.StripTrailingNulls = false;
-				//	this.requiredDatabaseName = false;
-    //                ClassFactory = new Access.ClassFactory();
-				//	break;
+                //	ConnectUsingOleDb(_driver, _connectionString);
+                //                this._driverString = esMetaDrivers.Access;
+                //	this.StripTrailingNulls = false;
+                //	this.requiredDatabaseName = false;
+                //                ClassFactory = new Access.ClassFactory();
+                //	break;
 
                 case dbDriver.MySql:
 
@@ -339,6 +344,33 @@ namespace EntitySpaces.MetadataEngine
 				throw Ex;
 			}
 		}
+
+        private void ConnectUsingOracleDb(string connectionString)
+        {
+            try
+            {
+                // Create an instance of OracleConnection
+                using (OracleConnection cn = new OracleConnection(connectionString))
+                {
+                    cn.Open();
+                    this._defaultDatabase = GetDefaultDatabase(cn);
+                    cn.Close();
+                }
+            }
+            catch (OracleException ex)
+            {
+                // Handle Oracle exceptions
+                throw ex;
+            }
+        }
+
+        private string GetDefaultDatabase(OracleConnection connection)
+        {
+            // Implement your logic to retrieve the default database information
+            // For example:
+            return connection.DatabaseName; // or any other relevant property/method
+        }
+
 
         private bool ConnectToMySql()
         {
@@ -867,7 +899,7 @@ namespace EntitySpaces.MetadataEngine
 		/// String form is "ORACLE" for DriverString property
 		/// </summary>
 		Oracle,
-
+        
 		/// <summary>
 		/// String form is "ACCESS" for DriverString property
 		/// </summary>

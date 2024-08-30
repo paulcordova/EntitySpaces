@@ -35,7 +35,7 @@ namespace EntitySpaces.MetadataEngine.PostgreSQL
                 {
                     try
                     {
-                        asm = Assembly.LoadWithPartialName("Npgsql");
+                        asm = Assembly.Load("Npgsql");
                         Module[] mods = asm.GetModules(false);
                         mod = mods[0];
                     }

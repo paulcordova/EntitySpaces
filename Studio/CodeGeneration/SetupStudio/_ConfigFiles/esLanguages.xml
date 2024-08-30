@@ -124,33 +124,6 @@
     <Type From="Byte" To="byte" />
     <Type From="Integer" To="short" />
   </Language>
-  <Language From="ORACLE" To="C#">
-    <Type From="ANYDATA" To="object" />
-    <Type From="BFILE" To="byte[]" />
-    <Type From="BLOB" To="byte[]" />
-    <Type From="CHAR" To="string" />
-    <Type From="CLOB" To="string" />
-    <Type From="DATE" To="DateTime" />
-    <Type From="FLOAT" To="decimal" />
-    <Type From="INTEGER" To="decimal" />
-    <Type From="INTERVAL YEAR TO MONTH" To="int" />
-    <Type From="INTERVAL DAY TO SECOND" To="TimeSpan" />
-    <Type From="LONG" To="string" />
-    <Type From="LONGRAW" To="byte[]" />
-    <Type From="NCHAR" To="string" />
-    <Type From="NCLOB" To="string" />
-    <Type From="NUMBER" To="decimal" />
-    <Type From="NVARCHAR2" To="string" />
-    <Type From="RAW" To="byte[]" />
-    <Type From="ROWID" To="string" />
-    <Type From="UROWID" To="string" />
-    <Type From="TIMESTAMP" To="DateTime" />
-    <Type From="TIMESTAMP WITH TIME ZONE" To="DateTime" />
-    <Type From="TIMESTAMP WITH LOCAL TIME ZONE" To="DateTime" />
-    <Type From="UNSIGNEDINTEGER" To="decimal" />
-    <Type From="VARCHAR2" To="string" />
-    <Type From="XMLTYPE" To="string" />
-  </Language>
   <Language From="POSTGRESQL" To="C#">
     <Type From="SET" To="string" />
     <Type From="abstime" To="string" />
@@ -424,5 +397,32 @@
     <Type From="varchar" To="string" />
     <Type From="varchar(1)" To="char" />
     <Type From="xml" To="string" />
+  </Language>
+  <Language From="ORACLE" To="C#">
+    <Type From="ANYDATA" To="object" />
+    <Type From="BFILE" To="byte[]" />
+    <Type From="BLOB" To="byte[]" />
+    <Type From="CHAR" To="string" />
+    <Type From="CLOB" To="string" />
+    <Type From="DATE" To="DateTime" />
+    <Type From="FLOAT" To="decimal" />
+    <Type From="INTEGER" To="decimal" />
+    <Type From="INTERVAL DAY TO SECOND" To="TimeSpan" />
+    <Type From="INTERVAL YEAR TO MONTH" To="int" />
+    <Type From="LONG" To="string" />
+    <Type From="LONG RAW" To="byte[]" />
+    <Type From="NCHAR" To="string" />
+    <Type From="NCLOB" To="string" />
+    <Type From="NUMBER" To="decimal" />
+    <Type From="NVARCHAR2" To="string" />
+    <Type From="RAW" To="byte[]" />
+    <Type From="ROWID" To="string" />
+    <Type From="TIMESTAMP" To="DateTime" />
+    <Type From="TIMESTAMP WITH LOCAL TIME ZONE" To="DateTime" />
+    <Type From="TIMESTAMP WITH TIME ZONE" To="DateTime" />
+    <Type From="UNSIGNEDINTEGER" To="decimal" />
+    <Type From="UROWID" To="string" />
+    <Type From="VARCHAR2" To="string" />
+    <Type From="XMLTYPE" To="string" />
   </Language>
 </Languages>

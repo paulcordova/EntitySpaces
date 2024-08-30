@@ -31,7 +31,7 @@ namespace EntitySpaces.TemplateUI
             esTemplateInfo info = new esTemplateInfo();
             info.UserInterface = this;
             info.UserInterfaceId = new Guid("BCB3B598-9264-40dc-B497-1D872D9E324E");
-            info.TabTitle = "PostgreSQL";
+            info.TabTitle = "Oracle";
             info.TabOrder = 1;
             return info;
         }

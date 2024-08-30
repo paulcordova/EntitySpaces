@@ -1,6 +1,6 @@
 using System;
 using System.Data;
-using System.Data.OleDb;
+using Oracle.ManagedDataAccess.Client;
 
 namespace EntitySpaces.MetadataEngine.Oracle
 {

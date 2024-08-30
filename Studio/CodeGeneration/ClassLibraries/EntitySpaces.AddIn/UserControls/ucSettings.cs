@@ -328,7 +328,8 @@ namespace EntitySpaces.AddIn
                 switch (driver.ToUpper())
                 {
                     case "SQL":
-                    case "ORACLE":
+                  // Now is using Oracle.ManagedDataAccess 
+                  //  case "ORACLE":
                     case "ACCESS":
                         buttonOleDB.Enabled = true;
                         break;
@@ -454,7 +455,7 @@ namespace EntitySpaces.AddIn
 
                             case "sql":
                             case "oracle":
-                                textBoxConnectionHelp.Text = "EntitySpaces uses OLEDB to pull the metadata from your database during the code generation process. You do not use OLEDB in your EntitySpaces application. You can save your settings as the default by clicking the 'Save Default Settings' icon on the toolbar.";
+                                textBoxConnectionHelp.Text = "EntitySpaces Oracle.ManagedDataAccess to pull the metadata from your database during the code generation process. You do not use OLEDB in your EntitySpaces application. You can save your settings as the default by clicking the 'Save Default Settings' icon on the toolbar.";
                                 break;
 
                             case "sqlazure":

@@ -107,17 +107,54 @@
     <Reference Include="adodb, Version=7.0.3300.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
       <EmbedInteropTypes>True</EmbedInteropTypes>
     </Reference>
+    <Reference Include="Microsoft.Bcl.AsyncInterfaces, Version=8.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
+      <HintPath>..\..\StandAlone\packages\Microsoft.Bcl.AsyncInterfaces.8.0.0\lib\net462\Microsoft.Bcl.AsyncInterfaces.dll</HintPath>
+    </Reference>
     <Reference Include="Microsoft.CSharp" />
+    <Reference Include="Oracle.ManagedDataAccess, Version=4.122.23.1, Culture=neutral, PublicKeyToken=89b483f429c47342, processorArchitecture=MSIL">
+      <HintPath>..\..\StandAlone\packages\Oracle.ManagedDataAccess.23.5.1\lib\net472\Oracle.ManagedDataAccess.dll</HintPath>
+    </Reference>
     <Reference Include="System">
       <Name>System</Name>
+    </Reference>
+    <Reference Include="System.Buffers, Version=4.0.3.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
+      <HintPath>..\..\StandAlone\packages\System.Buffers.4.5.1\lib\net461\System.Buffers.dll</HintPath>
     </Reference>
     <Reference Include="System.Core" />
     <Reference Include="System.Data">
       <Name>System.Data</Name>
     </Reference>
+    <Reference Include="System.Diagnostics.DiagnosticSource, Version=6.0.0.1, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
+      <HintPath>..\..\StandAlone\packages\System.Diagnostics.DiagnosticSource.6.0.1\lib\net461\System.Diagnostics.DiagnosticSource.dll</HintPath>
+    </Reference>
     <Reference Include="System.Drawing" />
     <Reference Include="System.Drawing.Design" />
+    <Reference Include="System.Formats.Asn1, Version=8.0.0.1, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
+      <HintPath>..\..\StandAlone\packages\System.Formats.Asn1.8.0.1\lib\net462\System.Formats.Asn1.dll</HintPath>
+    </Reference>
     <Reference Include="System.Management" />
+    <Reference Include="System.Memory, Version=4.0.1.2, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
+      <HintPath>..\..\StandAlone\packages\System.Memory.4.5.5\lib\net461\System.Memory.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Numerics" />
+    <Reference Include="System.Numerics.Vectors, Version=4.1.4.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\..\StandAlone\packages\System.Numerics.Vectors.4.5.0\lib\net46\System.Numerics.Vectors.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Runtime.CompilerServices.Unsafe, Version=6.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\..\StandAlone\packages\System.Runtime.CompilerServices.Unsafe.6.0.0\lib\net461\System.Runtime.CompilerServices.Unsafe.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Text.Encodings.Web, Version=8.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
+      <HintPath>..\..\StandAlone\packages\System.Text.Encodings.Web.8.0.0\lib\net462\System.Text.Encodings.Web.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Text.Json, Version=8.0.0.4, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
+      <HintPath>..\..\StandAlone\packages\System.Text.Json.8.0.4\lib\net462\System.Text.Json.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Threading.Tasks.Extensions, Version=4.2.0.1, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
+      <HintPath>..\..\StandAlone\packages\System.Threading.Tasks.Extensions.4.5.4\lib\net461\System.Threading.Tasks.Extensions.dll</HintPath>
+    </Reference>
+    <Reference Include="System.ValueTuple, Version=4.0.3.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
+      <HintPath>..\..\StandAlone\packages\System.ValueTuple.4.5.0\lib\net47\System.ValueTuple.dll</HintPath>
+    </Reference>
     <Reference Include="System.Windows.Forms" />
     <Reference Include="System.Xml">
       <Name>System.XML</Name>
@@ -198,6 +235,28 @@
     <Compile Include="esPlugIn\ISettings.cs" />
     <Compile Include="esXmlUserDataMigration.cs" />
     <Compile Include="Interfaces\ITableView.cs" />
+    <Compile Include="Oracle\ClassFactory.cs" />
+    <Compile Include="Oracle\Column.cs" />
+    <Compile Include="Oracle\Columns.cs" />
+    <Compile Include="Oracle\ConnectionHelper.cs" />
+    <Compile Include="Oracle\Database.cs" />
+    <Compile Include="Oracle\Databases.cs" />
+    <Compile Include="Oracle\Domain.cs" />
+    <Compile Include="Oracle\Domains.cs" />
+    <Compile Include="Oracle\ForeignKey.cs" />
+    <Compile Include="Oracle\ForeignKeys.cs" />
+    <Compile Include="Oracle\Index.cs" />
+    <Compile Include="Oracle\Indexes.cs" />
+    <Compile Include="Oracle\Parameter.cs" />
+    <Compile Include="Oracle\Parameters.cs" />
+    <Compile Include="Oracle\Procedure.cs" />
+    <Compile Include="Oracle\Procedures.cs" />
+    <Compile Include="Oracle\ResultColumn.cs" />
+    <Compile Include="Oracle\ResultColumns.cs" />
+    <Compile Include="Oracle\Table.cs" />
+    <Compile Include="Oracle\Tables.cs" />
+    <Compile Include="Oracle\View.cs" />
+    <Compile Include="Oracle\Views.cs" />
     <Compile Include="Properties\AssemblyInfo.cs">
       <SubType>Code</SubType>
     </Compile>
@@ -408,69 +467,6 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="MySql\Views.cs">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="Oracle\ClassFactory.cs">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="Oracle\Column.cs">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="Oracle\Columns.cs">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="Oracle\Database.cs">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="Oracle\Databases.cs">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="Oracle\Domain.cs">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="Oracle\Domains.cs">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="Oracle\ForeignKey.cs">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="Oracle\ForeignKeys.cs">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="Oracle\Index.cs">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="Oracle\Indexes.cs">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="Oracle\Parameter.cs">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="Oracle\Parameters.cs">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="Oracle\Procedure.cs">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="Oracle\Procedures.cs">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="Oracle\ResultColumn.cs">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="Oracle\ResultColumns.cs">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="Oracle\Table.cs">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="Oracle\Tables.cs">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="Oracle\View.cs">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="Oracle\Views.cs">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="Parameter.cs">
