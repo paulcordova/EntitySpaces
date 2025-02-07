@@ -1,13 +1,39 @@
-Click here for the [Glossy Site ...](https://mikegriffinreborn.github.io/EntitySpaces/)
 
 <img src="https://repository-images.githubusercontent.com/194275145/55b5b080-1ccf-11ea-8609-15b9de0d2351" alt="EntitySpaces" width="531" height="268">
 
-Supports .NET 6, 7, 8 and .NET Framework 4.8
+Supports .NET 6, 7, 8, 9 and .NET Framework 4.8
 
-Available on Nuget for [SqlServer](https://www.nuget.org/packages/EntitySpaces.ORM.SqlServer.NET), [SQLite](https://www.nuget.org/packages/EntitySpaces.ORM.SQLite.NET/ "NuGet"),
-Soon new versions for [MySQL](https://www.nuget.org/packages/EntitySpaces.ORM.MySQL/ "NuGet") or [PostgreSQL](https://www.nuget.org/packages/EntitySpaces.ORM.PostgreSQL)
+Available on Nuget for 
+- [SqlServer](https://www.nuget.org/packages/EntitySpaces.ORM.SqlServer.NET/ "NuGet")
+- [SQLite](https://www.nuget.org/packages/EntitySpaces.ORM.SQLite.NET/ "NuGet"),
+- [MySQL](https://www.nuget.org/packages/EntitySpaces.ORM.MySQL.NET/ "NuGet") 
+- [PostgreSQL](https://www.nuget.org/packages/EntitySpaces.ORM.PostgreSQL.NET/ "NuGet")
 
-See [Mike's Blog](https://saltycode.blogspot.com/) for EntitySpaces news ...
+-Soon new version for [Oracle](https://www.nuget.org/packages/EntitySpaces.ORM.OracleManagedClient.NET/ "NuGet")
+
+Click here for the [Glossy Site ...](https://mikegriffinreborn.github.io/EntitySpaces/)
+
+See [Mike's Blog EntitySpaces creator](https://saltycode.blogspot.com/) for EntitySpaces
+
+I'm Paul Córdova, and I love this ORM for working on real projects with tight deadlines.
+
+I started using EntitySpaces a long time ago when it was still a commercial product. Back then, I used it to build a system for managing bulk wine applications, and everything worked smoothly. My team focused on business rules and database modeling, while EntitySpaces handled the complex database access and ensured consistency when multiple entities needed to update their changes.
+
+I was disappointed when its development stopped years ago, but in 2019, I was thrilled to discover that Mike had open-sourced the project. My small contribution has been helping bring EntitySpaces back to life with modern .NET versions.
+
+Its internal structure is very well designed, and the biggest challenge was adapting it to the correct .NET libraries depending on the database engine. Recompiling and testing for SQL Server and MySQL was relatively easy, while PostgreSQL and Oracle required more effort. I successfully used the modernized SQL Server version in a real project with .NET 7, and it worked perfectly—just as I remembered from my winery project.
+
+I know there are other great ORM alternatives out there, but I truly believe EntitySpaces has a second chance to be used again.
+
+The key benefits I've found are:
+
+Faster setup to start working on real business problems.
+Writing only the logic necessary for the business, without worrying about database access.
+Easy code adaptation for database changes—let the compiler handle it.
+I'm in contact with Mike on LinkedIn, and he was very happy to hear that I modernized EntitySpaces. That meant a lot to me.
+
+I hope my small contribution makes life easier for other developers out there—happy coding! 😊
+
 
 # EntitySpaces - A Fluent SQL API
 EntitySpaces is a Fluent API for SQL Server, SQLite, MySQL, PostgreSQL and more on the way. If you are familiar with the SQL syntax then you are already an expert in EntitySpaces. EntitySpaces is also high performance, transactional, and very intuitive. EntitySpaces Studio is used to generate your C# classes from your database schema.
@@ -1136,14 +1162,14 @@ Typical syntax is **OVER**( **PARTITION BY** 'clause' **ORDER BY** 'clause' **RO
 
 # Setup
 
-1. Install [EntitySpaces Studio](https://github.com/MikeGriffinReborn/EntitySpaces/raw/master/EntitySpaces.Studio/EntitySpacesStudio_20191.1218.0.zip?raw=true/ "Zip File")
+1. Install [EntitySpaces Studio 2024](https://github.com/paulcordova/EntitySpaces/blob/master/EntitySpaces.Studio/EntitySpacesStudio_2024.8.30.0.zip/ "Zip File")
 
 ## NuGet Package(s)
 
-* SQL Server - [EntitySpaces.ORM.SqlServer](https://www.nuget.org/packages/EntitySpaces.ORM.SqlServer/ "NuGet") 
-* SQLite - [EntitySpaces.ORM.SQLite](https://www.nuget.org/packages/EntitySpaces.ORM.SQLite/ "NuGet") 
-* MySQL - [EntitySpaces.ORM.MySQL](https://www.nuget.org/packages/EntitySpaces.ORM.MySQL/ "NuGet")
-* PostgreSQL - [EntitySpaces.ORM.PostgreSQL](https://www.nuget.org/packages/EntitySpaces.ORM.PostgreSQL)
+* SQL Server - [EntitySpaces.ORM.SqlServer](https://www.nuget.org/packages/EntitySpaces.ORM.SqlServer.NET/ "NuGet") 
+* SQLite - [EntitySpaces.ORM.SQLite](https://www.nuget.org/packages/EntitySpaces.ORM.SQLite.NET/ "NuGet") 
+* MySQL - [EntitySpaces.ORM.MySQL](https://www.nuget.org/packages/EntitySpaces.ORM.MySQL.NET/ "NuGet")
+* PostgreSQL - [EntitySpaces.ORM.PostgreSQL](ttps://www.nuget.org/packages/EntitySpaces.ORM.PostgreSQL.NET/ "NuGet")
 
 **Generating your Classes via EntitySpaces Studio**
 It's very simple. You only need to execute two templates. The Custom classes are generated only once, that is where you can add custom code and overide EntitySpaces functionality if need be. The Generated classes are generated any time your database schema changes, you never edit these classes.

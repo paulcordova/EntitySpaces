@@ -31,8 +31,15 @@ using EntitySpaces.DynamicQuery;
 using EntitySpaces.Interfaces;
 using System;
 using System.Collections.Generic;
+
 using System.Data;
+#if DOTNET4
 using System.Data.SqlClient;
+#endif
+#if DOTNET6 || DOTNET7|| DOTNET8 || DOTNET9
+using Microsoft.Data.SqlClient;
+#endif
+
 
 namespace EntitySpaces.SqlClientProvider
 {

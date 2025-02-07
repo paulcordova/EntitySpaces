@@ -30,7 +30,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 using System;
 using System.Collections;
 using System.Collections.Generic;
-#if DOTNET4 || DOTNET5 || DOTNET6||DOTNET7
+#if DOTNET4 || DOTNET5 || DOTNET6 || DOTNET7 || DOTNET8 || DOTNET9
 using System.Configuration;
 #endif
 
@@ -47,7 +47,7 @@ namespace EntitySpaces.Interfaces
         {
             get
             {
-#if DOTNET4 || DOTNET5 || DOTNET6||DOTNET7
+#if DOTNET4 || DOTNET5 || DOTNET6 || DOTNET7 || DOTNET8 || DOTNET9
                 esConfigSection.InitializeFromConfigSection(connectionInfo);
 #endif
                 return connectionInfo;
