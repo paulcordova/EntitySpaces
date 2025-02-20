@@ -3,6 +3,7 @@ using System.Xml;
 using System.Collections;
 using System.Data;
 using System.Data.OleDb;
+using System.Windows.Forms;
 
 namespace EntitySpaces.MetadataEngine
 {
@@ -65,18 +66,29 @@ namespace EntitySpaces.MetadataEngine
 
 			View view = null;
 
-			int count = metaData.Rows.Count;
-			for(int i = 0; i < count; i++)
-			{
-				view = (View)this.dbRoot.ClassFactory.CreateView();
-				view.dbRoot = this.dbRoot;
-				view.Views = this;
-				view.Row = metaData.Rows[i];
-				this._array.Add(view);
-			}
-		}
+            if (metaData.DefaultView.Count > 0)
+            {
+                IEnumerator enumerator = metaData.DefaultView.GetEnumerator();
+                while (enumerator.MoveNext())
+                {
+                    DataRowView rowView = enumerator.Current as DataRowView;
 
-		internal void AddView(View view)
+                    view = (View)this.dbRoot.ClassFactory.CreateView();
+                    view.dbRoot = this.dbRoot;
+                    view.Views = this;
+                    view.Row = rowView.Row;
+                    this._array.Add(view);
+                }
+            }
+            else
+            {
+                Console.WriteLine("No views found in metaData.DefaultView");
+            }
+
+        }
+
+
+        internal void AddView(View view)
 		{
 			this._array.Add(view);
 		}

@@ -111,36 +111,45 @@ namespace EntitySpaces.MetadataEngine
 			return table;
 		}
 
-		internal Table GetByPhysicalName(string name)
-		{
-			Table table = null;
-			Table tmp = null;
+        internal Table GetByPhysicalName(string name)
+        {
+            Table table = null;
+            Table tmp = null;
 
-			int count = this._array.Count;
-			for(int i = 0; i < count; i++)
-			{
-				tmp = this._array[i] as Table;
+            // Store the original name for comparison
+            string normalizedName = name;
 
-                if (this.CompareStrings(name, tmp.Name))
+            // Firebird automatically converts unquoted identifiers to uppercase
+            // To ensure correct matching, we convert the input name to uppercase
+            if (this.dbRoot.DriverString == "FIREBIRD")
+            {
+                normalizedName = name.ToUpper();
+            }
+
+            int count = this._array.Count;
+            for (int i = 0; i < count; i++)
+            {
+                tmp = this._array[i] as Table;
+
+                // Compare names while considering database-specific case sensitivity rules
+                if (this.CompareStrings(normalizedName, tmp.Name) ||
+                    this.CompareStrings(normalizedName, tmp.FullName))
                 {
                     table = tmp;
                     break;
                 }
-                else if (this.CompareStrings(name, tmp.FullName))
-                {
-                    table = tmp;
-                    break;
-                }
-			}
+            }
 
-			return table;
-		}
+            return table;
+        }
 
-		#endregion
 
-		#region IEnumerable Members
 
-		public IEnumerator GetEnumerator()
+        #endregion
+
+        #region IEnumerable Members
+
+        public IEnumerator GetEnumerator()
 		{
 			return new Enumerator(this._array);
 		}

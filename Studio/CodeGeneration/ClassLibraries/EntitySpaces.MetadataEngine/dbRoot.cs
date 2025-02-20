@@ -198,7 +198,13 @@ namespace EntitySpaces.MetadataEngine
                     conn = PostgreSQL.PostgreSQLDatabases.CreateConnection(connectionString);
 					break;
 
-				default:
+                case esMetaDrivers.Firebird:
+                    Firebird.FirebirdDatabases.LoadAssembly();
+                    conn = Firebird.FirebirdDatabases.CreateConnection(connectionString);
+                    break;
+
+
+                default:
 
                     if (Plugins.ContainsKey(driver))
                     {
@@ -220,6 +226,7 @@ namespace EntitySpaces.MetadataEngine
             if (driver == "POSTGRESQL8") driver = "POSTGRESQL";
             if (driver == "MYSQL2")      driver = "MYSQL";
             if (driver == "VISTADB3X")   driver = "VISTADB";
+            if (driver == "FIREBIRD")    driver = "FIREBIRD";
 
             switch (driver)
             {
@@ -233,6 +240,7 @@ namespace EntitySpaces.MetadataEngine
 				case esMetaDrivers.Access:
                 case esMetaDrivers.MySql:
                 case esMetaDrivers.PostgreSQL:
+                case esMetaDrivers.Firebird:
 
                     return this.Connect(esMetaDrivers.GetDbDriverFromName(driver), driver,  connectionString);
 
@@ -302,6 +310,12 @@ namespace EntitySpaces.MetadataEngine
 
                     this.ConnectToPostgreSql();
 					break;
+
+                case dbDriver.Firebird:
+
+                    this.ConnectToFirebird();
+                    break;
+
 
                 case dbDriver.Plugin:
 
@@ -404,7 +418,24 @@ namespace EntitySpaces.MetadataEngine
             return true;
         }
 
-		internal OleDbConnection TheConnection
+        private bool ConnectToFirebird()
+        {
+            Firebird.FirebirdDatabases.LoadAssembly();
+            IDbConnection conn = Firebird.FirebirdDatabases.CreateConnection(_connectionString);
+            conn.Open();
+            this._defaultDatabase = conn.Database;
+            conn.Close();
+            conn.Dispose();
+
+            this._driverString = esMetaDrivers.Firebird;
+            this.StripTrailingNulls = false;
+            this.requiredDatabaseName = false;
+            ClassFactory = new Firebird.ClassFactory();
+            return true;
+        }
+
+
+        internal OleDbConnection TheConnection
 		{
 			get
 			{
@@ -936,6 +967,11 @@ namespace EntitySpaces.MetadataEngine
         SQLAzure,
 
         /// <summary>
+        /// Firebird SQL for DriverString property
+        /// </summary>
+        Firebird,
+
+        /// <summary>
         /// The EffiProzDB .NET & ASP.NET Database 
         /// </summary>
         EffiProzDB,
@@ -962,6 +998,7 @@ namespace EntitySpaces.MetadataEngine
         public const string SQLCE = "SQLCE";
         public const string SQLAZURE = "SQLAZURE";
         public const string EffiProzDB = "EFFIPROZDB";
+        public const string Firebird = "FIREBIRD";
 
         public static dbDriver GetDbDriverFromName(string name)
         {
@@ -978,6 +1015,7 @@ namespace EntitySpaces.MetadataEngine
                 case esMetaDrivers.SQLAZURE:   return dbDriver.SQLAzure;
                 case esMetaDrivers.EffiProzDB: return dbDriver.EffiProzDB;
                 case esMetaDrivers.None:       return dbDriver.None;
+                case esMetaDrivers.Firebird:   return dbDriver.Firebird;
 
                 default:  return dbDriver.Plugin;
             }

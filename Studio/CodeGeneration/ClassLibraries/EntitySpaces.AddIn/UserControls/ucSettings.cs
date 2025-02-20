@@ -85,6 +85,7 @@ namespace EntitySpaces.AddIn
                     comboBoxDriver.Items.Add(new DictionaryEntry(Settings.DriverName("Sybase"), "Sybase"));
                     comboBoxDriver.Items.Add(new DictionaryEntry(Settings.DriverName("VistaDB"), "VistaDB"));
                     comboBoxDriver.Items.Add(new DictionaryEntry(Settings.DriverName("VistaDB4"), "VistaDB4"));
+                    comboBoxDriver.Items.Add(new DictionaryEntry(Settings.DriverName("Firebird"), "Firebird"));
 
                     comboBoxDriver.DisplayMember = "Key";
                     comboBoxDriver.ValueMember = "Value";
@@ -475,6 +476,10 @@ namespace EntitySpaces.AddIn
 
                             case "mysql":
                                 textBoxConnectionHelp.Text = "The EntitySpaces Metadata Engine uses reflection to load the MySQL Connector/NET provider. You can either install a copy in the GAC or in the '" + Settings.InstallPath + "CodeGeneration\\Bin' folder. You must have a version in the GAC to use the Visual Studio Plugin, otherwise you will have to run the StandAlone application located on your Start -> Programs menu. You can save your settings as the default by clicking the 'Save Default Settings' icon on the toolbar.";
+                                break;
+
+                            case "firebird":
+                                textBoxConnectionHelp.Text = "The EntitySpaces Metadata Engine uses reflection to load the Firebird Connector/NET provider. You can either install a copy in the GAC or in the '" + Settings.InstallPath + "CodeGeneration\\Bin' folder. You must have a version in the GAC to use the Visual Studio Plugin, otherwise you will have to run the StandAlone application located on your Start -> Programs menu. You can save your settings as the default by clicking the 'Save Default Settings' icon on the toolbar.";
                                 break;
 
                             case "sqlite":

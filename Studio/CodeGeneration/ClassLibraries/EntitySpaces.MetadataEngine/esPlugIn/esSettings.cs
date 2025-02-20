@@ -60,6 +60,9 @@ namespace EntitySpaces.MetadataEngine
                     return "VistaDB4";
                 case "Sybase":
                     return "Sybase";
+                case "Firebird":
+                    return "Firebird";
+
                 default:
                     return String.Empty;
             }
@@ -1014,6 +1017,10 @@ namespace EntitySpaces.MetadataEngine
 
                 case "POSTGRESQL":
                     return @"Server=127.0.0.1;Port=5432;User Id=postgres;Password=;Database=MyDatabase;";
+
+                case "FIREBIRD":
+                    return @"User=SYSDBA;Password=masterkey;Database=SampleDatabase.fdb;DataSource=localhost;Port=3050;Dialect=3;Charset=NONE;Role=;Connection lifetime=15;Pooling=true;MinPoolSize=0;MaxPoolSize=50;Packet Size=8192;ServerType=0;";
+
 
                 case "VISTADB":
                     return @"Data Source=C:\Program Files\VistaDB 3\Data\Northwind.vdb3;Cypher= None;Password=;Exclusive=False;Readonly=False;";

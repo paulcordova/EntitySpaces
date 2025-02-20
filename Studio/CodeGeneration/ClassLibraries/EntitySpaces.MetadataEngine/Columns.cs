@@ -197,7 +197,7 @@ namespace EntitySpaces.MetadataEngine
 			{
 				tmp = this._array[i] as Column;
 
-				if(this.CompareStrings(name,tmp.Name))
+				if(this.CompareStrings(name,tmp.Name.Trim()))
 				{
 					obj = tmp;
 					break;

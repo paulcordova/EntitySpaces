@@ -517,7 +517,7 @@ namespace EntitySpaces.MetadataEngine
 
 				if(null != Columns.Table)
 				{
-					IColumn c = Columns.Table.PrimaryKeys[this.Name];
+					IColumn c = Columns.Table.PrimaryKeys[this.Name.Trim()];
 
 					if(null != c)
 					{

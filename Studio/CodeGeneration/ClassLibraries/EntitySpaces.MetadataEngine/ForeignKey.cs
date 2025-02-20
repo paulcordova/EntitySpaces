@@ -348,9 +348,9 @@ namespace EntitySpaces.MetadataEngine
 			}
 
 			Column column = tables[physicalTableName].Columns[physicalColumnName] as Column;
-			Column c = column.Clone();
+			Column clonedColumn = column.Clone();
 
-			if(primary)
+            if (primary)
 			{
 				if(null == _primaryColumns)
 				{
@@ -358,7 +358,7 @@ namespace EntitySpaces.MetadataEngine
 					_primaryColumns.ForeignKey = this;
 				}
 
-				_primaryColumns.AddColumn(c);
+				_primaryColumns.AddColumn(clonedColumn);
 			}
 			else
 			{
@@ -368,7 +368,7 @@ namespace EntitySpaces.MetadataEngine
 					_foreignColumns.ForeignKey = this;
 				}
 
-				_foreignColumns.AddColumn(c);
+				_foreignColumns.AddColumn(clonedColumn);
 			}
 
 			column.AddForeignKey(this);

@@ -234,6 +234,28 @@
     <Compile Include="esPlugIn\esSettings2010.cs" />
     <Compile Include="esPlugIn\ISettings.cs" />
     <Compile Include="esXmlUserDataMigration.cs" />
+    <Compile Include="Firebird\ClassFactory.cs" />
+    <Compile Include="Firebird\Column.cs" />
+    <Compile Include="Firebird\Columns.cs" />
+    <Compile Include="Firebird\ConnectionHelper.cs" />
+    <Compile Include="Firebird\Database.cs" />
+    <Compile Include="Firebird\Databases.cs" />
+    <Compile Include="Firebird\Domain.cs" />
+    <Compile Include="Firebird\Domains.cs" />
+    <Compile Include="Firebird\ForeignKey.cs" />
+    <Compile Include="Firebird\ForeignKeys.cs" />
+    <Compile Include="Firebird\Index.cs" />
+    <Compile Include="Firebird\Indexes.cs" />
+    <Compile Include="Firebird\Parameter.cs" />
+    <Compile Include="Firebird\Parameters.cs" />
+    <Compile Include="Firebird\Procedure.cs" />
+    <Compile Include="Firebird\Procedures.cs" />
+    <Compile Include="Firebird\ResultColumn.cs" />
+    <Compile Include="Firebird\ResultColumns.cs" />
+    <Compile Include="Firebird\Table.cs" />
+    <Compile Include="Firebird\Tables.cs" />
+    <Compile Include="Firebird\View.cs" />
+    <Compile Include="Firebird\Views.cs" />
     <Compile Include="Interfaces\ITableView.cs" />
     <Compile Include="Oracle\ClassFactory.cs" />
     <Compile Include="Oracle\Column.cs" />
@@ -576,6 +598,28 @@
     <Compile Include="Single.cs">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="SQLite\ClassFactory.cs" />
+    <Compile Include="SQLite\Column.cs" />
+    <Compile Include="SQLite\Columns.cs" />
+    <Compile Include="SQLite\ConnectionHelper.cs" />
+    <Compile Include="SQLite\Database.cs" />
+    <Compile Include="SQLite\Databases.cs" />
+    <Compile Include="SQLite\Domain.cs" />
+    <Compile Include="SQLite\Domains.cs" />
+    <Compile Include="SQLite\ForeignKey.cs" />
+    <Compile Include="SQLite\ForeignKeys.cs" />
+    <Compile Include="SQLite\Index.cs" />
+    <Compile Include="SQLite\Indexes.cs" />
+    <Compile Include="SQLite\Parameter.cs" />
+    <Compile Include="SQLite\Parameters.cs" />
+    <Compile Include="SQLite\Procedure.cs" />
+    <Compile Include="SQLite\Procedures.cs" />
+    <Compile Include="SQLite\ResultColumn.cs" />
+    <Compile Include="SQLite\ResultColumns.cs" />
+    <Compile Include="SQLite\Table.cs" />
+    <Compile Include="SQLite\Tables.cs" />
+    <Compile Include="SQLite\View.cs" />
+    <Compile Include="SQLite\Views.cs" />
     <Compile Include="Sql\ClassFactory.cs">
       <SubType>Code</SubType>
     </Compile>
