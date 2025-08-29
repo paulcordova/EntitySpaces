@@ -234,8 +234,8 @@ namespace <%=Namespace%>
 						}
 						
 						if(tr.IsManyToOne && !(col.IsInPrimaryKey && tr.IsSelfReference))
-						{
-							objName = upToPrefix + esMeta.esPlugIn.EntityRelationName(tr.ForeignTable, tr.PrimaryColumns[0], tr.IsSelfReference);
+						{	//FIX 2005.08	
+							objName = upToPrefix + esMeta.esPlugIn.ToPascalCase(tr.ForeignTable.Name) + "By" + esMeta.esPlugIn.ToPascalCase(tr.PrimaryColumns[0].Name);
 						}
 					}
 				}%>
@@ -300,8 +300,9 @@ namespace <%=Namespace%>
 					}
 					
 					if(tr.IsManyToOne)
-					{
-						objName = upToPrefix + esMeta.esPlugIn.EntityRelationName(tr.ForeignTable, tr.PrimaryColumns[0], tr.IsSelfReference);
+					{   //FIX 2025.08 Many To One
+						objName = upToPrefix + esMeta.esPlugIn.ToPascalCase(tr.ForeignTable.Name) + "By" + esMeta.esPlugIn.ToPascalCase(tr.PrimaryColumns[0].Name);
+						
 						objType = esMeta.esPlugIn.Entity(tr.ForeignTable);%>
 		[CLSCompliant(false)]<%if(DataContractSupportHierachical) {%>
 		[DataMember(EmitDefaultValue=false)]<%}%>

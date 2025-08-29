@@ -21,7 +21,7 @@
     Description="The Template Generates the Hierarchical Model" 
     Namespace="EntitySpaces.2024.C#.Generated" 
     Author="EntitySpaces, LLC"
-    Version="2024.17.0.0"
+    Version="2024.3.1.1"
     IsSubTemplate="True" %><%
 //-------------------------------------------------------
 // Extract the UI choices that we need
@@ -49,6 +49,7 @@ PostSaveItem postItem = new PostSaveItem();
 ArrayList postOneSaveItemList = new ArrayList();
 PostOneSaveItem postOneItem = new PostOneSaveItem();
 System.Collections.Generic.Dictionary<string, int> knownTypes = new System.Collections.Generic.Dictionary<string, int>();
+
 
 string upToPrefix = "";
 
@@ -302,8 +303,8 @@ namespace <%=Namespace%>
 				string objName = upToPrefix + esMeta.esPlugIn.CollectionRelationName(tr.CrossReferenceTable, tr.ForeignTable);
 				string manyName = esMeta.esPlugIn.CollectionRelationName(tr.PrimaryTable, tr.ForeignTable);
 					if(HasAutoIncrement(tr.PrimaryTable))
-					{
-						postItem.objName = esMeta.esPlugIn.Collection(tr.ForeignTable);
+					{	//FIX 2025.08
+						postItem.objName = objName;
 						postItem.primaryColumn = esMeta.esPlugIn.PropertyName(tr.PrimaryColumns[0]);
 						postItem.foreignColumn = esMeta.esPlugIn.PropertyName(tr.ForeignColumns[0]);
 						postItem.objType = esMeta.esPlugIn.Entity(tr.ForeignTable);
@@ -430,6 +431,7 @@ namespace <%=Namespace%>
 				string objName = "";
 				if(tr.IsSelfReference)
 				{
+
 					objName = esMeta.esPlugIn.CollectionRelationName(tr.ForeignTable, tr.PrimaryColumns[0], tr.IsSelfReference);
 					if(HasAutoIncrement(tr.PrimaryTable))
 					{
@@ -442,6 +444,7 @@ namespace <%=Namespace%>
 				}
 				else
 				{
+
 					objName = esMeta.esPlugIn.CollectionRelationName(tr.ForeignTable, tr.ForeignColumns[0], tr.IsSelfReference);
 					if(HasAutoIncrement(tr.PrimaryTable))
 					{
@@ -651,6 +654,7 @@ if(RiaServicesSupport) {%>
 			// Many to One
 			if(tr.IsManyToOne)
 			{
+
 				string objName = upToPrefix + esMeta.esPlugIn.EntityRelationName(tr.ForeignTable, tr.PrimaryColumns[0], tr.IsSelfReference);
 				if(HasAutoIncrement(tr.ForeignTable))
 				{
