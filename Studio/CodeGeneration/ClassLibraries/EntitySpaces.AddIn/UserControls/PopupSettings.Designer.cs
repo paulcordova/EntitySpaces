@@ -35,16 +35,17 @@
             // 
             // ucSettings1
             // 
-            this.ucSettings1.Location = new System.Drawing.Point(0, 2);
+            this.ucSettings1.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.ucSettings1.Location = new System.Drawing.Point(0, 0);
             this.ucSettings1.MainWindow = null;
             this.ucSettings1.Name = "ucSettings1";
             this.ucSettings1.Settings = null;
-            this.ucSettings1.Size = new System.Drawing.Size(451, 524);
+            this.ucSettings1.Size = new System.Drawing.Size(634, 566);
             this.ucSettings1.TabIndex = 0;
             // 
             // btnCancel
             // 
-            this.btnCancel.Location = new System.Drawing.Point(362, 532);
+            this.btnCancel.Location = new System.Drawing.Point(451, 533);
             this.btnCancel.Name = "btnCancel";
             this.btnCancel.Size = new System.Drawing.Size(75, 23);
             this.btnCancel.TabIndex = 1;
@@ -54,7 +55,7 @@
             // 
             // btnOk
             // 
-            this.btnOk.Location = new System.Drawing.Point(281, 532);
+            this.btnOk.Location = new System.Drawing.Point(370, 533);
             this.btnOk.Name = "btnOk";
             this.btnOk.Size = new System.Drawing.Size(75, 23);
             this.btnOk.TabIndex = 2;
@@ -66,11 +67,11 @@
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(449, 562);
+            this.ClientSize = new System.Drawing.Size(634, 566);
             this.Controls.Add(this.btnOk);
             this.Controls.Add(this.btnCancel);
             this.Controls.Add(this.ucSettings1);
-            this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedToolWindow;
+            this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.SizableToolWindow;
             this.MaximizeBox = false;
             this.MinimizeBox = false;
             this.Name = "PopupSettings";

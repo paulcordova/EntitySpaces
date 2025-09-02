@@ -18,9 +18,9 @@
     UniqueID="C2B70B3D-5E23-4cfd-A53D-84FFD4CABEEA" 
     Title="Custom - Query (VB)"   
     Description="The Concrete Query Class" 
-    Namespace="EntitySpaces.2019.VB.Custom" 
+    Namespace="EntitySpaces.2025.VB.Custom" 
     Author="EntitySpaces, LLC"
-    Version="2019.0.0.0"
+    Version="2025.08.0.0"
     IsSubTemplate="True" %><%
 //-------------------------------------------------------
 // Extract the UI choices that we need

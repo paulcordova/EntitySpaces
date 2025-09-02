@@ -20,9 +20,9 @@
 	UserInterfaceID="D08B0E66-E1C9-446a-A40E-1DDA5DE00777"
     Title="PostgreSQL"   
     Description="PostgreSQL Stored Procedures" 
-    Namespace="EntitySpaces.2019.StoredProcedures" 
+    Namespace="EntitySpaces.2025.StoredProcedures" 
     Author="EntitySpaces, LLC"
-    Version="2019.0.0.0"
+    Version="2025.0.0.0"
     RequiresUI="True" %><%
 //-------------------------------------------------------
 // Extract the UI choices that we need

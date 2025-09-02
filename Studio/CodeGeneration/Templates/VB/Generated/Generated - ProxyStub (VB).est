@@ -18,9 +18,9 @@
     UniqueID="FC27945B-A3D2-4045-8955-29EDEC3F674D" 
     Title="Generated - ProxyStub (VB)"   
     Description="The Proxy Entity Class" 
-    Namespace="EntitySpaces.2019.VB.Generated" 
+    Namespace="EntitySpaces.2025.VB.Generated" 
     Author="EntitySpaces, LLC"
-    Version="2019.0.0.0"
+    Version="2025.08.0.0"
     IsSubTemplate="True" %><%
 //-------------------------------------------------------
 // Extract the UI choices that we need

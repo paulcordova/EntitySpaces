@@ -19,7 +19,7 @@
     UniqueID="949B0959-A083-4732-9978-38EC3DF47494" 
     Title="Generated - esEntity (C#).cst"   
     Description="The Abstract Entity Class" 
-    Namespace="EntitySpaces.2024.C#.Generated" 
+    Namespace="EntitySpaces.2025.C#.Generated" 
     Author="EntitySpaces, LLC - PCB"
     Version="2024.17.0.0"
     IsSubTemplate="True" %><%
@@ -234,8 +234,8 @@ namespace <%=Namespace%>
 						}
 						
 						if(tr.IsManyToOne && !(col.IsInPrimaryKey && tr.IsSelfReference))
-						{	//FIX 2005.08	
-							objName = upToPrefix + esMeta.esPlugIn.ToPascalCase(tr.ForeignTable.Name) + "By" + esMeta.esPlugIn.ToPascalCase(tr.PrimaryColumns[0].Name);
+						{
+							objName = upToPrefix + esMeta.esPlugIn.EntityRelationName(tr.ForeignTable, tr.PrimaryColumns[0], tr.IsSelfReference);
 						}
 					}
 				}%>
@@ -300,9 +300,8 @@ namespace <%=Namespace%>
 					}
 					
 					if(tr.IsManyToOne)
-					{   //FIX 2025.08 Many To One
-						objName = upToPrefix + esMeta.esPlugIn.ToPascalCase(tr.ForeignTable.Name) + "By" + esMeta.esPlugIn.ToPascalCase(tr.PrimaryColumns[0].Name);
-						
+					{
+						objName = upToPrefix + esMeta.esPlugIn.EntityRelationName(tr.ForeignTable, tr.PrimaryColumns[0], tr.IsSelfReference);
 						objType = esMeta.esPlugIn.Entity(tr.ForeignTable);%>
 		[CLSCompliant(false)]<%if(DataContractSupportHierachical) {%>
 		[DataMember(EmitDefaultValue=false)]<%}%>

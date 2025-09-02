@@ -11,7 +11,7 @@
     <NoStandardLibraries>false</NoStandardLibraries>
     <AssemblyName>EntitySpaces2024.AddIn</AssemblyName>
     <RootNamespace>EntitySpaces.AddIn</RootNamespace>
-    <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
     <SignAssembly>true</SignAssembly>
     <AssemblyOriginatorKeyFile>..\..\StrongNameKey\EntitySpaces.snk</AssemblyOriginatorKeyFile>
     <ApplicationIcon>default.ico</ApplicationIcon>

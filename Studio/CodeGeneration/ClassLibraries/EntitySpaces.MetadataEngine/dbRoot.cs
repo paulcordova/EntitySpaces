@@ -778,7 +778,7 @@ namespace EntitySpaces.MetadataEngine
                     // One Time Initializations
                     if (_userData == null)
                     {
-                        esXmlUserDataMigration converter = new esXmlUserDataMigration(settings.UserMetadataFile, this.DriverString, "2024.3.0001.1");
+                        esXmlUserDataMigration converter = new esXmlUserDataMigration(settings.UserMetadataFile, this.DriverString, "2025.8.0000.0");
                         converter.PerformMigration();
 
                         _userData = new XmlDocument();

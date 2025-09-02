@@ -19,9 +19,9 @@
     UniqueID="EC679532-AF8F-410d-99AD-DDC25C3F907F" 
     Title="Generated - Hierarchical (C#)"   
     Description="The Template Generates the Hierarchical Model" 
-    Namespace="EntitySpaces.2024.C#.Generated" 
+    Namespace="EntitySpaces.2025.C#.Generated" 
     Author="EntitySpaces, LLC"
-    Version="2024.3.1.1"
+    Version="2025.08.0.0"
     IsSubTemplate="True" %><%
 //-------------------------------------------------------
 // Extract the UI choices that we need
@@ -49,7 +49,6 @@ PostSaveItem postItem = new PostSaveItem();
 ArrayList postOneSaveItemList = new ArrayList();
 PostOneSaveItem postOneItem = new PostOneSaveItem();
 System.Collections.Generic.Dictionary<string, int> knownTypes = new System.Collections.Generic.Dictionary<string, int>();
-
 
 string upToPrefix = "";
 
@@ -304,7 +303,7 @@ namespace <%=Namespace%>
 				string manyName = esMeta.esPlugIn.CollectionRelationName(tr.PrimaryTable, tr.ForeignTable);
 					if(HasAutoIncrement(tr.PrimaryTable))
 					{	//FIX 2025.08
-						postItem.objName = objName;
+						postItem.objName = esMeta.esPlugIn.Collection(tr.ForeignTable);
 						postItem.primaryColumn = esMeta.esPlugIn.PropertyName(tr.PrimaryColumns[0]);
 						postItem.foreignColumn = esMeta.esPlugIn.PropertyName(tr.ForeignColumns[0]);
 						postItem.objType = esMeta.esPlugIn.Entity(tr.ForeignTable);
@@ -376,14 +375,14 @@ namespace <%=Namespace%>
 		/// </summary>
 		public void Associate<%=assocObjectName%>(<%=esMeta.esPlugIn.Entity(tr.CrossReferenceTable)%> entity)
 		{
-			if (this._many_<%=linkingObjectName%> == null)
+			if (this._<%=linkingObjectName%> == null)
 			{
-				this._many_<%=linkingObjectName%> = new <%=esMeta.esPlugIn.Collection(tr.ForeignTable)%>();
-				this._many_<%=linkingObjectName%>.es.Connection.Name = this.es.Connection.Name;
-				this.SetPostSave("<%=linkingObjectName%>", this._many_<%=linkingObjectName%>);
+				this._<%=linkingObjectName%> = new <%=esMeta.esPlugIn.Collection(tr.ForeignTable)%>();
+				this._<%=linkingObjectName%>.es.Connection.Name = this.es.Connection.Name;
+				this.SetPostSave("<%=linkingObjectName%>", this._<%=linkingObjectName%>);
 			}
 
-			<%=esMeta.esPlugIn.Entity(tr.ForeignTable)%> obj = this._many_<%=linkingObjectName%>.AddNew();<%
+			<%=esMeta.esPlugIn.Entity(tr.ForeignTable)%> obj = this._<%=linkingObjectName%>.AddNew();<%
             for(int i = 0; i < tr.ColumnCount; i++)
             {%>
 			obj.<%=esMeta.esPlugIn.PropertyName(tr.ForeignColumns[i])%> = this.<%=esMeta.esPlugIn.PropertyName(tr.PrimaryColumns[i])%>;<%
@@ -400,14 +399,14 @@ namespace <%=Namespace%>
 		/// </summary>
 		public void Dissociate<%=assocObjectName%>(<%=esMeta.esPlugIn.Entity(tr.CrossReferenceTable)%> entity)
 		{
-			if (this._many_<%=linkingObjectName%> == null)
+			if (this._<%=linkingObjectName%> == null)
 			{
-				this._many_<%=linkingObjectName%> = new <%=esMeta.esPlugIn.Collection(tr.ForeignTable)%>();
-				this._many_<%=linkingObjectName%>.es.Connection.Name = this.es.Connection.Name;
-				this.SetPostSave("<%=linkingObjectName%>", this._many_<%=linkingObjectName%>);
+				this._<%=linkingObjectName%> = new <%=esMeta.esPlugIn.Collection(tr.ForeignTable)%>();
+				this._<%=linkingObjectName%>.es.Connection.Name = this.es.Connection.Name;
+				this.SetPostSave("<%=linkingObjectName%>", this._<%=linkingObjectName%>);
 			}
 
-			<%=esMeta.esPlugIn.Entity(tr.ForeignTable)%> obj = this._many_<%=linkingObjectName%>.AddNew();<%
+			<%=esMeta.esPlugIn.Entity(tr.ForeignTable)%> obj = this._<%=linkingObjectName%>.AddNew();<%
             for(int i = 0; i < tr.ColumnCount; i++)
             {%>
 			obj.<%=esMeta.esPlugIn.PropertyName(tr.ForeignColumns[i])%> = this.<%=esMeta.esPlugIn.PropertyName(tr.PrimaryColumns[i])%>;<%
@@ -421,7 +420,7 @@ namespace <%=Namespace%>
 		}
 
 		private <%=esMeta.esPlugIn.Collection(tr.CrossReferenceTable)%> _<%=objName%>;
-		private <%=esMeta.esPlugIn.Collection(tr.ForeignTable)%> _many_<%=linkingObjectName%>;
+		private <%=esMeta.esPlugIn.Collection(tr.ForeignTable)%> _<%=linkingObjectName%>;
 		#endregion
 <%			}
 			// Zero to Many
@@ -431,7 +430,6 @@ namespace <%=Namespace%>
 				string objName = "";
 				if(tr.IsSelfReference)
 				{
-
 					objName = esMeta.esPlugIn.CollectionRelationName(tr.ForeignTable, tr.PrimaryColumns[0], tr.IsSelfReference);
 					if(HasAutoIncrement(tr.PrimaryTable))
 					{
@@ -444,7 +442,6 @@ namespace <%=Namespace%>
 				}
 				else
 				{
-
 					objName = esMeta.esPlugIn.CollectionRelationName(tr.ForeignTable, tr.ForeignColumns[0], tr.IsSelfReference);
 					if(HasAutoIncrement(tr.PrimaryTable))
 					{
@@ -654,7 +651,6 @@ if(RiaServicesSupport) {%>
 			// Many to One
 			if(tr.IsManyToOne)
 			{
-
 				string objName = upToPrefix + esMeta.esPlugIn.EntityRelationName(tr.ForeignTable, tr.PrimaryColumns[0], tr.IsSelfReference);
 				if(HasAutoIncrement(tr.ForeignTable))
 				{

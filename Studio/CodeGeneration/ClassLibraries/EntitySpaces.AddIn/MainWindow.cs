@@ -20,7 +20,7 @@ using EntitySpaces.MetadataEngine;
 
 using EntitySpaces.AddIn;
 
-namespace EntitySpaces.AddIn.ES2024
+namespace EntitySpaces.AddIn.ES2025
 {
     public partial class MainWindow : UserControl
     {
@@ -28,7 +28,7 @@ namespace EntitySpaces.AddIn.ES2024
         private object applicationObject;
         private List<esUserControl> userControlCollection = new List<esUserControl>();
         private esSettings settings = new esSettings();
-        internal string esVersion = "2024.3.0001.1";
+        internal string esVersion = "2025.8.0000.0";
 
         internal OnTemplateExecute OnTemplateExecuteCallback;
         internal OnTemplateCancel OnTemplateCancelCallback;

@@ -18,9 +18,9 @@
     UniqueID="de7395d3-5214-4232-a52d-4b07e898d2da" 
     Title="Generated - esEntity (VB).cst"   
     Description="The Abstract Entity Class" 
-    Namespace="EntitySpaces.2019.VB.Generated" 
+    Namespace="EntitySpaces.2025.VB.Generated" 
     Author="EntitySpaces, LLC"
-    Version="2019.0.0.0"
+    Version="2025.08.0.0"
     IsSubTemplate="True" %><%
 //-------------------------------------------------------
 // Extract the UI choices that we need

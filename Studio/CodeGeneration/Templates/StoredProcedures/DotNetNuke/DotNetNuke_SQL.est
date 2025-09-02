@@ -20,9 +20,9 @@
 	UserInterfaceID="CAC5B8DE-CC72-484d-9470-C6FF652EDC80"
     Title="DotNetNuke SQL"   
     Description="DotNetNuke Stored Procedures" 
-    Namespace="EntitySpaces.2019.StoredProcedures.DotNetNuke" 
+    Namespace="EntitySpaces.2025.StoredProcedures.DotNetNuke" 
     Author="EntitySpaces, LLC"
-    Version="2019.0.0.0"
+    Version="2025.0.0.0"
     RequiresUI="True" %><% 
 	
 string fileName = "";

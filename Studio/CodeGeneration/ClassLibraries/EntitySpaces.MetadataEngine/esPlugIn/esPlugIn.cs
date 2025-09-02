@@ -2749,7 +2749,7 @@ namespace EntitySpaces.MetadataEngine
         /// </summary>
         public string esVersion
         {
-            get { return "2024.3.0001.1"; }
+            get { return "2025.8.0000.0"; }
         }
 
         /// <summary>

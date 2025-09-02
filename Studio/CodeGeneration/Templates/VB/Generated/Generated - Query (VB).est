@@ -18,9 +18,9 @@
     UniqueID="E189511B-37E8-4409-ACAF-D7D7E68346E1" 
     Title="Generated - Query (VB)"   
     Description="The Query Class" 
-    Namespace="EntitySpaces.2019.VB.Generated" 
+    Namespace="EntitySpaces.2025.VB.Generated" 
     Author="EntitySpaces, LLC"
-    Version="2019.0.0.0"
+    Version="2025.08.0.0"
     IsSubTemplate="True" %><%
 //-------------------------------------------------------
 // Extract the UI choices that we need

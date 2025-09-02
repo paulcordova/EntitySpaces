@@ -1,40 +1,80 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<esPluginSettings>
-    <esSettings Name="esCustom">
-        <esSetting Name="Driver" Value="SQL" />
-        <esSetting Name="ConnectionString" Value="Provider=SQLOLEDB.1;Password=;User ID=sa;Initial Catalog=Northwind;Data Source=localhost" />
-        <esSetting Name="TemplatePath" Value="C:\Program Files\EntitySpaces 2009\CodeGeneration\Templates" />
-        <esSetting Name="OutputPath" Value="C:\Documents and Settings\David Parsons\My Documents" />
-        <esSetting Name="UIAssemblyPath" Value="C:\Program Files\EntitySpaces 2009\CodeGeneration\Bin" />
-        <esSetting Name="CompilerAssemblyPath" Value="C:\Program Files\EntitySpaces 2009\CodeGeneration\Bin" />
-        <esSetting Name="LanguageMappingFile" Value="C:\Program Files\EntitySpaces 2009\CodeGeneration\esLanguages.xml" />
-        <esSetting Name="UserMetadataFile" Value="C:\Documents and Settings\All Users\Application Data\EntitySpaces\ES2009\esUserData.xml" />
-        <esSetting Name="Prefix" Value="es" />
-        <esSetting Name="Entity" Value="" />
-        <esSetting Name="Collection" Value="Collection" />
-        <esSetting Name="Query" Value="Query" />
-        <esSetting Name="Metadata" Value="Metadata" />
-        <esSetting Name="ProxyStub" Value="ProxyStub" />
-        <esSetting Name="ProcPrefix" Value="proc_" />
-        <esSetting Name="ProcSuffix" Value="" />
-        <esSetting Name="ProcInsert" Value="Insert" />
-        <esSetting Name="ProcUpdate" Value="Update" />
-        <esSetting Name="ProcDelete" Value="Delete" />
-        <esSetting Name="ProcLoadAll" Value="LoadAll" />
-        <esSetting Name="ProcLoadByPK" Value="LoadByPrimaryKey" />
-        <esSetting Name="ProcVerbFirst" Value="False" />
-        <esSetting Name="OneToOnePrefix" Value="" />
-        <esSetting Name="OneToOneSeparator" Value="By" />
-        <esSetting Name="OneToOneSuffix" Value="" />
-        <esSetting Name="ManyToManyPrefix" Value="" />
-        <esSetting Name="ManyToManySeparator" Value="By" />
-        <esSetting Name="ManyToManySuffix" Value="Collection" />
-        <esSetting Name="SelfOnly" Value="False" />
-        <esSetting Name="SwapNames" Value="False" />
-        <esSetting Name="UseAssociativeName" Value="False" />
-        <esSetting Name="UseUpToPrefix" Value="True" />
-        <esSetting Name="TrimList" Value=" .-" />
-        <esSetting Name="UseRawNames" Value="False" />
-        <esSetting Name="UseNullableTypesAlways" Value="True" />
-    </esSettings>
-</esPluginSettings>
+<?xml version="1.0"?>
+<esSettings Version="2025.8.0000.0">
+  <Driver>SQL</Driver>
+  <esSetting Name="ConnectionString" Value="Provider=SQLOLEDB.1;Password=;User ID=sa;Initial Catalog=Northwind;Data Source=localhost" />
+  <TemplatePath>C:\Program Files (x86)\EntitySpaces\EntitySpaces 2025\CodeGeneration\Templates\EntitySpaces</TemplatePath>
+  <OutputPath>D:\develop\_PROYECTOS\GCC2nd\code\GCC</OutputPath>
+  <UIAssemblyPath>C:\Program Files (x86)\EntitySpaces\EntitySpaces 2025\CodeGeneration\Bin\UIAddIns</UIAssemblyPath>
+  <CompilerAssemblyPath>C:\Program Files (x86)\EntitySpaces\EntitySpaces 2025\CodeGeneration\Bin</CompilerAssemblyPath>
+  <LanguageMappingFile>C:\Program Files (x86)\EntitySpaces\EntitySpaces 2025\CodeGeneration\esLanguages.xml</LanguageMappingFile>
+  <UserMetadataFile>C:\ProgramData\EntitySpaces\ES2025\esUserData.xml</UserMetadataFile>
+  <AbstractPrefix>es</AbstractPrefix>
+  <EntitySuffix />
+  <CollectionSuffix>Collection</CollectionSuffix>
+  <QuerySuffix>Query</QuerySuffix>
+  <MetadataSuffix>Metadata</MetadataSuffix>
+  <ProxyStubSuffix>ProxyStub</ProxyStubSuffix>
+  <PrefixWithSchema>false</PrefixWithSchema>
+  <ProcPrefix>proc_</ProcPrefix>
+  <ProcInsert>Insert</ProcInsert>
+  <ProcUpdate>Update</ProcUpdate>
+  <ProcDelete>Delete</ProcDelete>
+  <ProcLoadAll>LoadAll</ProcLoadAll>
+  <ProcLoadByPK>LoadByPrimaryKey</ProcLoadByPK>
+  <ProcSuffix />
+  <ProcVerbFirst>false</ProcVerbFirst>
+  <OnePrefix />
+  <OneSeparator>By</OneSeparator>
+  <OneSuffix />
+  <ManyPrefix />
+  <ManySeparator>By</ManySeparator>
+  <ManySuffix>Collection</ManySuffix>
+  <SelfOnly>false</SelfOnly>
+  <SwapNames>false</SwapNames>
+  <UseAssociativeName>false</UseAssociativeName>
+  <UseUpToPrefix>true</UseUpToPrefix>
+  <PreserveUnderscores>false</PreserveUnderscores>
+  <UseRawNames>false</UseRawNames>
+  <UseNullableTypesAlways>true</UseNullableTypesAlways>
+  <TurnOffDateTimeInClassHeaders>false</TurnOffDateTimeInClassHeaders>
+  <DefaultTemplateDoubleClickAction>Execute</DefaultTemplateDoubleClickAction>
+  <LicenseProxyEnable>false</LicenseProxyEnable>
+  <LicenseProxyUrl />
+  <LicenseProxyUserName />
+  <LicenseProxyPassword />
+  <LicenseProxyDomainName />
+  <DriverInfoCollection>
+    <esSettingsDriverInfo>
+      <Driver>SQL</Driver>
+      <ConnectionString>Provider=SQLOLEDB.1;Integrated Security=SSPI;Persist Security Info=False;User ID=sa;Initial Catalog=Northwind;Data Source=VANHALEN\SQLEXPRESS</ConnectionString>
+      <DateAdded>
+        <IsEnabled>false</IsEnabled>
+        <ColumnName />
+        <Type>ClientSide</Type>
+        <ClientType>UtcNow</ClientType>
+        <ServerSideText />
+      </DateAdded>
+      <DateModified>
+        <IsEnabled>false</IsEnabled>
+        <ColumnName />
+        <Type>ClientSide</Type>
+        <ClientType>UtcNow</ClientType>
+        <ServerSideText />
+      </DateModified>
+      <AddedBy>
+        <IsEnabled>false</IsEnabled>
+        <UseEventHandler>false</UseEventHandler>
+        <ColumnName />
+        <ServerSideText />
+      </AddedBy>
+      <ModifiedBy>
+        <IsEnabled>false</IsEnabled>
+        <UseEventHandler>false</UseEventHandler>
+        <ColumnName />
+        <ServerSideText />
+      </ModifiedBy>
+      <ConcurrencyColumnEnabled>false</ConcurrencyColumnEnabled>
+      <ConcurrencyColumn />
+    </esSettingsDriverInfo>
+  </DriverInfoCollection>
+</esSettings>

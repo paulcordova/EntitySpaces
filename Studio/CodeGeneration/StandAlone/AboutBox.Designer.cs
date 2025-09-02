@@ -46,7 +46,7 @@
             this.richTextBox1.Name = "richTextBox1";
             this.richTextBox1.Size = new System.Drawing.Size(298, 43);
             this.richTextBox1.TabIndex = 6;
-            this.richTextBox1.Text = "Copyright © 2005 - 2024 by EntitySpaces, LLC. \nAll Rights Reserved. ";
+            this.richTextBox1.Text = "Copyright © 2005 - 2025 by EntitySpaces, LLC. \nAll Rights Reserved. ";
             // 
             // label2
             // 
@@ -57,7 +57,7 @@
             this.label2.Name = "label2";
             this.label2.Size = new System.Drawing.Size(138, 20);
             this.label2.TabIndex = 8;
-            this.label2.Text = "Version 2024.8.30";
+            this.label2.Text = "Version 2025.8.30";
             // 
             // label3
             // 

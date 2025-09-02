@@ -20,9 +20,9 @@
 	UserInterfaceID="EBD6655C-910E-401d-94BA-DF7BD583F42E"
     Title="Sybase"   
     Description="Sybase Stored Procedures" 
-    Namespace="EntitySpaces.2019.StoredProcedures" 
+    Namespace="EntitySpaces.2025.StoredProcedures" 
     Author="EntitySpaces, LLC"
-    Version="2019.0.0.0"
+    Version="2025.0.0.0"
     RequiresUI="True" %><%
 //-------------------------------------------------------
 // Extract the UI choices that we need

@@ -20,9 +20,9 @@
 	UserInterfaceID="14846E0F-98D3-4ca0-89E9-54A1F4B332E3"
     Title="Microsoft SQL"   
     Description="Microsoft SQL Stored Procedures" 
-    Namespace="EntitySpaces.2019.StoredProcedures" 
+    Namespace="EntitySpaces.2025.StoredProcedures" 
     Author="EntitySpaces, LLC"
-    Version="2019.0.0.0"
+    Version="2025.0.0.0"
     RequiresUI="True" %><%
 //-------------------------------------------------------
 // Extract the UI choices that we need

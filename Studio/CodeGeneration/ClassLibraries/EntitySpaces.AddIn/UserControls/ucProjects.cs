@@ -58,7 +58,7 @@ namespace EntitySpaces.AddIn
 
         private void LoadMruList()
         {
-            using (RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\EntitySpaces 2024", false))
+            using (RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\EntitySpaces 2025", false))
             {
                 if (key == null) return;
 
@@ -69,7 +69,7 @@ namespace EntitySpaces.AddIn
 
         private void SaveMruList()
         {
-            using (RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\EntitySpaces 2024", true))
+            using (RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\EntitySpaces 2025", true))
             {
                 if (key == null) return;
 

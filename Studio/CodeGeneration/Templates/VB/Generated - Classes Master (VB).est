@@ -20,9 +20,9 @@
 	UserInterfaceID="2216AB4F-BDB4-47de-8412-8560C1F2F420"	
     Title="Generated - Classes Master (VB)"   
     Description="The Generated Master Template" 
-    Namespace="EntitySpaces.2019.VB"  
+    Namespace="EntitySpaces.2025.VB"  
     Author="EntitySpaces, LLC"
-    Version="2019.0.0.0"
+    Version="2025.08.0.0"
     RequiresUI="True" %>
 
 <% 

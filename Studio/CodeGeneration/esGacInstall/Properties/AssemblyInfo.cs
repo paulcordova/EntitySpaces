@@ -10,7 +10,7 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("EntitySpaces, LLC")]
 [assembly: AssemblyProduct("EntitySpacesArchitecture")]
-[assembly: AssemblyCopyright("Copyright © EntitySpaces, LLC. 2005 - 2024")]
+[assembly: AssemblyCopyright("Copyright © EntitySpaces, LLC. 2005 - 2025")]
 [assembly: AssemblyTrademark("EntitySpaces(TM) is a legal trademark of EntitySpaces, LLC.")]
 [assembly: AssemblyCulture("")]
 
@@ -29,5 +29,5 @@ using System.Runtime.InteropServices;
 //      Build Number
 //      Revision
 //
-[assembly: AssemblyVersion("2024.3.0001.1")]
-[assembly: AssemblyFileVersion("2024.3.0001.1")]
+[assembly: AssemblyVersion("2025.8.0000.0")]
+[assembly: AssemblyFileVersion("2025.8.0000.0")]

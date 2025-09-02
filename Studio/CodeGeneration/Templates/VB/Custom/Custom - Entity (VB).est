@@ -18,9 +18,9 @@
     UniqueID="5AB0428B-DBFF-4a1a-9ADE-A7AA58C5C64E" 
     Title="Custom - Entity (VB)"   
     Description="The Concrete Collection Class" 
-    Namespace="EntitySpaces.2019.VB.Custom" 
+    Namespace="EntitySpaces.2025.VB.Custom" 
     Author="EntitySpaces, LLC"
-    Version="2019.0.0.0"
+    Version="2025.08.0.0"
     IsSubTemplate="True" %><%
 //-------------------------------------------------------
 // Extract the UI choices that we need

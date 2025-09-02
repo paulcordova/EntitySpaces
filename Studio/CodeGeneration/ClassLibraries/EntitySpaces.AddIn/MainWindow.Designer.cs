@@ -1,4 +1,4 @@
-﻿namespace EntitySpaces.AddIn.ES2024
+﻿namespace EntitySpaces.AddIn.ES2025
 {
     partial class MainWindow
     {

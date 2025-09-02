@@ -6,11 +6,11 @@ using System.Runtime.InteropServices;
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
 [assembly: AssemblyTitle("EntitySpaces.TemplateUI")]
-[assembly: AssemblyDescription("The EntitySpaces 2024 Template User Interface")]
+[assembly: AssemblyDescription("The EntitySpaces 2025 Template User Interface")]
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("EntitySpaces, LLC")]
 [assembly: AssemblyProduct("EntitySpacesArchitecture")]
-[assembly: AssemblyCopyright("Copyright © EntitySpaces, LLC. 2005 - 2024")]
+[assembly: AssemblyCopyright("Copyright © EntitySpaces, LLC. 2005 - 2025")]
 [assembly: AssemblyTrademark("EntitySpaces(TM) is a legal trademark of EntitySpaces, LLC.")]
 [assembly: AssemblyCulture("")]
 
@@ -32,5 +32,5 @@ using System.Runtime.InteropServices;
 // You can specify all the values or you can default the Build and Revision Numbers 
 // by using the '*' as shown below:
 // [assembly: AssemblyVersion("1.0.*")]
-[assembly: AssemblyVersion("2024.3.0001.1")]
-[assembly: AssemblyFileVersion("2024.3.0001.1")]
+[assembly: AssemblyVersion("2025.8.0000.0")]
+[assembly: AssemblyFileVersion("2025.8.0000.0")]

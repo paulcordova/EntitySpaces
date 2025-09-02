@@ -20,9 +20,9 @@
 	UserInterfaceID="42FA9082-8ABB-4186-93DF-3A04EBB4F2E9" 
     Title="RIA Metadata Classes" 
     Description="RIA Metadata Classes" 
-    Namespace="EntitySpaces.2019.VB.RIA Services"
+    Namespace="EntitySpaces.2025.VB.RIA Services"
     Author="EntitySpaces, LLC" 
-    Version="2019.0.0.0" 
+    Version="2025.0.0.0" 
     RequiresUI="True" %><%
 //-------------------------------------------------------
 // Extract the UI choices that we need

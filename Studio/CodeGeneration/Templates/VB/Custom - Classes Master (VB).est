@@ -20,9 +20,9 @@
 	UserInterfaceID="60C6D790-E5BE-4634-B168-A89EC6965F45"	
     Title="Custom - Classes Master (VB)"   
     Description="The Custom Master Template" 
-    Namespace="EntitySpaces.2019.VB" 
+    Namespace="EntitySpaces.2025.VB" 
     Author="EntitySpaces, LLC"
-    Version="2019.0.0.0"
+    Version="2025.08.0.0"
     RequiresUI="True" %>
 <%
 string fileName = "";

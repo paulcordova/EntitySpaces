@@ -18,9 +18,9 @@
     UniqueID="01ca6b35-d7a8-4ed6-a103-9c888cc8be21" 
     Title="Generated - Entity (VB)"   
     Description="The Abstract Collection Class" 
-    Namespace="EntitySpaces.2019.VB.Generated" 
+    Namespace="EntitySpaces.2025.VB.Generated" 
     Author="EntitySpaces, LLC"
-    Version="2019.0.0.0"
+    Version="2025.08.0.0"
     IsSubTemplate="True" %><%
 //-------------------------------------------------------
 // Extract the UI choices that we need
