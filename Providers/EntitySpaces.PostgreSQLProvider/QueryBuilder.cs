@@ -66,6 +66,7 @@ namespace EntitySpaces.Npgsql2Provider
             string select = GetSelectStatement(std, query);
             string from = GetFromStatement(std, query);
             string join = GetJoinStatement(std, query);
+            string apply = GetApplyStatement(std, query);
             string where = GetComparisonStatement(std, query, iQuery.InternalWhereItems, " WHERE ");
             string groupBy = GetGroupByStatement(std, query);
             string having = GetComparisonStatement(std, query, iQuery.InternalHavingItems, " HAVING ");
@@ -74,7 +75,7 @@ namespace EntitySpaces.Npgsql2Provider
 
             string sql = String.Empty;
 
-            sql += "SELECT " + select + " FROM " + from + join + where + setOperation + groupBy + having + orderBy;
+            sql += "SELECT " + select + " FROM " + from + join + apply + where + setOperation + groupBy + having + orderBy;
 
             if (paging)
             {
@@ -248,6 +249,54 @@ namespace EntitySpaces.Npgsql2Provider
                     sql += " " + iSubQuery.JoinAlias + " ON ";
 
                     sql += GetComparisonStatement(std, query, joinData.WhereItems, String.Empty);
+                }
+            }
+
+            return sql;
+        }
+
+        // ======================================================
+        // 2. New PostgreSQL QueryBuilder Join Lateral
+        // ======================================================
+        protected static string GetApplyStatement(StandardProviderParameters std, esDynamicQuery query)
+        {
+            string sql = String.Empty;
+
+            IDynamicQueryInternal iQuery = query as IDynamicQueryInternal;
+
+            if (iQuery.InternalApplyItems != null)
+            {
+                foreach (esApplyItem applyItem in iQuery.InternalApplyItems)
+                {
+                    esApplyItem.esApplyItemData applyData = (esApplyItem.esApplyItemData)applyItem;
+
+                    switch (applyData.ApplyType)
+                    {
+                        case esApplyType.CrossApply:
+                            sql += " JOIN LATERAL ";
+                            break;
+
+                        case esApplyType.OuterApply:
+                            sql += " LEFT JOIN LATERAL ";
+                            break;
+                    }
+
+                    IDynamicQueryInternal iSubQuery = applyData.Query as IDynamicQueryInternal;
+
+                    iSubQuery.IsInSubQuery = true;
+
+                    sql += "(";
+                    sql += BuildQuery(std, applyData.Query);
+                    sql += ")";
+
+                    if (iSubQuery.SubQueryAlias != " ")
+                    {
+                        sql += " AS " + applyData.Query.joinAlias;
+                    }
+
+                    iSubQuery.IsInSubQuery = false;
+
+                    sql += " ON TRUE";
                 }
             }
 

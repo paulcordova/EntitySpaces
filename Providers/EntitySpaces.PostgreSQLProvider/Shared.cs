@@ -51,6 +51,7 @@ namespace EntitySpaces.Npgsql2Provider
             string defaultComma = String.Empty;
             string where = String.Empty;
             string autoInc = String.Empty;
+            string returning = String.Empty;
 
             NpgsqlParameter p = null;
 
@@ -75,19 +76,14 @@ namespace EntitySpaces.Npgsql2Provider
                     values += comma + p.ParameterName;
                     comma = ", ";
                 }
-                else if (col.IsAutoIncrement && request.ProviderMetadata.ContainsKey("AutoKeyText"))
+                else if (col.IsAutoIncrement)
                 {
-                    string sequence = request.ProviderMetadata["AutoKeyText"].Replace("nextval", "currval");
+                    // OLD PostgreSQL logic used currval() + multiple queries.
+                    // Modern PostgreSQL/Npgsql should use INSERT ... RETURNING
 
-                    if (sequence != null && sequence.Length > 0)
-                    {
-                        // Our identity column ...
-                        p = cmd.Parameters.Add(CloneParameter(types[col.Name]));
-                        p.Direction = ParameterDirection.Output;
+                    returning = Delimiters.ColumnOpen + col.Name + Delimiters.ColumnClose;
 
-                        autoInc += " SELECT * FROM " + sequence + " as \"" + col.Name + "\"";
-                    }
-                    
+                    // Keep parameter so EntitySpaces can retrieve returned value
                     p = CloneParameter(types[col.Name]);
                     p.Direction = ParameterDirection.Output;
                     cmd.Parameters.Add(p);
@@ -235,16 +231,24 @@ namespace EntitySpaces.Npgsql2Provider
 
             sql += " INSERT INTO " + fullName;
 
+
             if (into.Length != 0)
             {
-                sql += " (" + into + ") VALUES (" + values + ");";
+                sql += " (" + into + ") VALUES (" + values + ")";
             }
             else
             {
-                sql += " DEFAULT VALUES;";
+                sql += " DEFAULT VALUES";
             }
 
-            sql += autoInc;
+            // PostgreSQL modern identity retrieval
+            if (!string.IsNullOrEmpty(returning))
+            {
+                sql += " RETURNING " + returning;
+            }
+
+            sql += ";";
+
 
             if (defaults.Length > 0)
             {
