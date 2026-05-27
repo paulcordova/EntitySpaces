@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 16
 VisualStudioVersion = 16.0.29609.76
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "EntitySpaces.ORM.PostgreSQL", "EntitySpaces.ORM.PostgreSQL\EntitySpaces.ORM.PostgreSQL.csproj", "{429CF31D-5A30-4C8F-AD93-EBA267E0FAF8}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "EntitySpaces.ORM.PostgreSQL", "EntitySpaces.ORM.PostgreSQL\EntitySpaces.ORM.PostgreSQL.NET.csproj", "{429CF31D-5A30-4C8F-AD93-EBA267E0FAF8}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
