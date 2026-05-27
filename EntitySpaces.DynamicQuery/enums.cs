@@ -418,7 +418,17 @@ namespace EntitySpaces.DynamicQuery
         /// <summary>
         /// CROSS JOIN
         /// </summary>
-        CrossJoin
+        CrossJoin,
+        /// <summary>
+        /// LEFT JOIN LATERAL — requiere MySQL 8.0.14+ o MariaDB 10.2.2+
+        /// Permite referenciar columnas de tablas anteriores dentro de la subconsulta
+        /// </summary>
+        LeftLateralJoin,
+        /// <summary>
+        /// JOIN LATERAL (CROSS) — requiere MySQL 8.0.14+ o MariaDB 10.2.2+
+        /// Equivale a JOIN LATERAL ... ON TRUE
+        /// </summary>
+        CrossLateralJoin
     };
 
     /// <summary>

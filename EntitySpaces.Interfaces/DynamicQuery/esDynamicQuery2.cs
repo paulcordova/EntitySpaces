@@ -704,6 +704,24 @@ namespace EntitySpaces.Interfaces
         }
 
         /// <summary>
+        /// Creates a JOIN LATERAL (MySQL 8.0.14+ / MariaDB 10.2.2+).
+        /// Exposes the inner subQuery columns via <paramref name="innerQuery"/>
+        /// para referenciarlas en el Select() exterior.
+        /// </summary>
+        /// <typeparam name="T">The DynamicQuery class of the lateral subquery</typeparam>
+        /// <param name="outerQuery">Referencia externa (handle del lateral join)</param>
+        /// <param name="innerQuery">Referencia interna — usar ESTA en Select() para columnas del lateral</param>
+        /// <param name="func">Lambda que construye y retorna la subconsulta lateral</param>
+        public esDynamicQuery CrossApply<T>(out T outerQuery, out T innerQuery, Func<T> func) where T : esDynamicQuery, new()
+        {
+            T theQuery = func();
+            outerQuery = theQuery;
+            innerQuery = theQuery;
+            return CrossApply(theQuery);
+        }
+
+
+        /// <summary>
         /// This method allows you to streamline the cross apply syntax
         /// </summary>
         /// <typeparam name="T">The DynamicQuery Class</typeparam>
@@ -762,6 +780,36 @@ namespace EntitySpaces.Interfaces
             query = (T)theQuery;
             return OuterApply(theQuery);
         }
+
+        /// <summary>
+        /// Creates a LEFT JOIN LATERAL (MySQL 8.0.14+ / MariaDB 10.2.2+).
+        /// Exposes the inner subQuery columns via <paramref name="innerQuery"/> 
+        /// para referenciarlas en el Select() exterior.
+        /// </summary>
+        /// <typeparam name="T">The DynamicQuery class of the lateral subquery</typeparam>
+        /// <param name="outerQuery">Referencia externa (handle del lateral join)</param>
+        /// <param name="innerQuery">Referencia interna — usar ESTA en Select() para columnas del lateral</param>
+        /// <param name="func">Lambda que construye y retorna la subconsulta lateral</param>
+        public esDynamicQuery OuterApply<T>(out T outerQuery, out T innerQuery, Func<T> func) where T : esDynamicQuery, new()
+        {
+            T theQuery = func();
+            outerQuery = theQuery;
+
+            // Search the Query dyno for the internal subquery registered with the same alias
+            // The constructor "new SalesorderQuery("o", out var subQuery)" registers subQuery
+           // in queries under the alias "o" — we retrieve it from there
+            if (theQuery.queries != null && theQuery.queries.ContainsKey(theQuery.joinAlias))
+            {
+                innerQuery = (T)theQuery.queries[theQuery.joinAlias];
+            }
+            else
+            {
+                innerQuery = theQuery;
+            }
+
+            return OuterApply(theQuery);
+        }
+
 
         /// <summary>
         /// This method allows you to streamline the cross apply syntax

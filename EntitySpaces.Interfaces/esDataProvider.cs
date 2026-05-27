@@ -47,13 +47,20 @@ namespace EntitySpaces.Interfaces
         {
             request.DatabaseVersion = sig.DatabaseVersion;
             esDataResponse response = esProviderFactory.GetDataProvider(sig.DataProviderName, sig.DataProviderClass).esLoadDataTable(request);
-            if(request.DynamicQuery != null)
+           
+            // Always assign LastQuery regardless of success or failure
+            // This allows debugging via query.es.LastQuery in both cases
+            if (request.DynamicQuery != null && response.LastQuery != null)
             {
                 request.DynamicQuery.es.LastQuery = response.LastQuery;
             }
 
             if (response.IsException)
             {
+                // Attach generated SQL to exception for detailed error reporting
+                if (response.LastQuery != null)
+                    response.Exception.Data["esSQL"] = response.LastQuery;
+
                 throw response.Exception;
             }
 
