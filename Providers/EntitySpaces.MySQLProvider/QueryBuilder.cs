@@ -30,6 +30,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Collections.Concurrent;
 
 using EntitySpaces.DynamicQuery;
 using EntitySpaces.Interfaces;
@@ -38,14 +39,92 @@ using MySql.Data.MySqlClient;
 
 namespace EntitySpaces.MySQLProvider
 {
+
+    /// <summary>
+    /// MySQL/MariaDB QueryBuilder for EntitySpaces dynamic query API.
+    /// Translates esDynamicQuery objects into provider-specific SQL.
+    /// </summary>
+    /// <remarks>
+    /// LATERAL JOIN support strategy (OuterApply / CrossApply):
+    ///
+    ///   MySQL 8.0.14+  → LEFT JOIN LATERAL (...) AS alias ON TRUE
+    ///                    Top() renders as LIMIT inside the LATERAL subquery.
+    ///
+    ///   MariaDB 10.2+  → LEFT JOIN (...ROW_NUMBER() OVER (PARTITION BY col ORDER BY col)) AS alias
+    ///                    ON alias.col = outer.col [AND alias.es_rn &lt;= n]
+    ///                    Top() renders as es_rn &lt;= n in the outer ON clause.
+    ///                    Without Top(), es_rn filter is omitted — all rows per partition returned.
+    ///
+    ///   MySQL &lt; 8.0.14 → Same ROW_NUMBER fallback as MariaDB.
+    ///
+    /// Engine detection:
+    ///   Server version auto-detected via SELECT VERSION() on first query per connection string.
+    ///   Result cached in _serverVersionCache (ConcurrentDictionary keyed by connection string)
+    ///   to avoid extra round-trip on subsequent queries.
+    ///   MariaDB identified by "MariaDB" substring in version string e.g. "10.11.15-MariaDB".
+    ///   MySQL identified by numeric-only version string e.g. "8.0.28".
+    ///
+    /// WHERE conditions in lateral subqueries (MariaDB path):
+    ///   Correlation conditions (referencing outer query table) are stripped from inner WHERE
+    ///   and moved to the outer ON clause — MariaDB does not allow outer table references
+    ///   inside derived subqueries.
+    ///   Non-correlation conditions (own filters) are preserved in inner WHERE.
+    ///
+    /// Case sensitivity:
+    ///   MySQL on Linux is case-sensitive for table/schema names (lower_case_table_names=0).
+    ///   MySQL on Windows is case-insensitive.
+    ///   EntitySpaces class metadata (meta.Source, meta.Destination) must match exact table
+    ///   name case as it exists on the target server.
+    ///   Recommendation: regenerate EntitySpaces classes directly against the target server
+    ///   to guarantee case consistency.
+    ///   See Shared.cs CreateFullName() for full details.
+    /// </remarks>
     class QueryBuilder
     {
+        // Cache server version by connection string to avoid extra round-trip per query.
+        // Key: connection string — Value: raw version string e.g. "8.0.28" or "10.11.15-MariaDB"
+        private static readonly ConcurrentDictionary<string, string> _serverVersionCache =
+            new ConcurrentDictionary<string, string>();
+
         public static MySqlCommand PrepareCommand(esDataRequest request)
         {
             StandardProviderParameters std = new StandardProviderParameters();
             std.cmd = new MySqlCommand();
             std.pindex = NextParamIndex(std.cmd);
             std.request = request;
+
+            // Detect and cache server version to choose correct SQL generation strategy:
+            //   MySQL 8.0.14+ → LEFT JOIN LATERAL
+            //   MariaDB / MySQL < 8.0.14 → ROW_NUMBER() OVER (PARTITION BY)
+            // Cache is keyed by connection string — one detection per unique server.
+            // Note: request.DatabaseVersion may arrive pre-set to empty string from sig.DatabaseVersion,
+            //       so we check the cache first before opening a new connection.
+            if (string.IsNullOrEmpty(request.DatabaseVersion))
+            {
+                // Check cache first — avoids extra connection on every query
+                if (!_serverVersionCache.TryGetValue(request.ConnectionString, out string cachedVersion))
+                {
+                    // Not in cache yet — detect from server and store
+                    try
+                    {
+                        using (var conn = new MySqlConnection(request.ConnectionString))
+                        using (var cmd = new MySqlCommand("SELECT VERSION()", conn))
+                        {
+                            conn.Open();
+                            cachedVersion = cmd.ExecuteScalar()?.ToString() ?? string.Empty;
+                        }
+                    }
+                    catch
+                    {
+                        // Version detection failed — fallback to ROW_NUMBER path (safe default)
+                        cachedVersion = string.Empty;
+                    }
+
+                    _serverVersionCache[request.ConnectionString] = cachedVersion;
+                }
+
+                request.DatabaseVersion = cachedVersion;
+            }
 
             string sql = BuildQuery(std, request.DynamicQuery);
 
@@ -65,18 +144,29 @@ namespace EntitySpaces.MySQLProvider
             string select = GetSelectStatement(std, query);
             string from = GetFromStatement(std, query);
             string join = GetJoinStatement(std, query);
+            string apply = GetApplyStatement(std, query);   // New for left/cross lateral joins in MySQL
             string where = GetComparisonStatement(std, query, iQuery.InternalWhereItems, " WHERE ");
             string groupBy = GetGroupByStatement(std, query);
             string having = GetComparisonStatement(std, query, iQuery.InternalHavingItems, " HAVING ");
             string orderBy = GetOrderByStatement(std, query);
             string setOperation = GetSetOperationStatement(std, query);
 
-            string sql = "SELECT " + select + " FROM " + from + join + where + setOperation + groupBy + having + orderBy;
+            string sql = "SELECT " + select + " FROM " + from + join + apply + where + setOperation + groupBy + having + orderBy;
+
+            // For lateral subqueries: allow Top() LIMIT but prevent pagination (pageNumber/pageSize)
+            // Pagination on a subquery makes no sense — Top() inside LATERAL is valid and required
+            if (iQuery.IsInSubQuery)
+            {
+                // Only add LIMIT if Top() was explicitly set
+                if (query.top >= 0)
+                    sql += " LIMIT " + query.top.ToString() + " ";
+
+                return sql;  // skip paging and Skip/Take
+            }
 
             if (paging)
             {
                 int begRow = ((query.pageNumber.Value - 1) * query.pageSize.Value);
-
                 sql += " LIMIT " + query.pageSize.ToString();
                 sql += " OFFSET " + begRow.ToString() + " ";
             }
@@ -87,14 +177,10 @@ namespace EntitySpaces.MySQLProvider
             else if (iQuery.Skip.HasValue || iQuery.Take.HasValue)
             {
                 if (iQuery.Take.HasValue)
-                {
                     sql += " LIMIT " + iQuery.Take.ToString() + " ";
-                }
 
                 if (iQuery.Skip.HasValue)
-                {
                     sql += " OFFSET " + iQuery.Skip.ToString() + " ";
-                }
             }
 
             return sql;
@@ -238,20 +324,270 @@ namespace EntitySpaces.MySQLProvider
                         case esJoinType.FullJoin:
                             sql += " FULL JOIN ";
                             break;
+
+                        //new support for MySQL lateral joins
+                        case esJoinType.LeftLateralJoin:
+                            sql += " LEFT JOIN LATERAL ";
+                            break;
+                        case esJoinType.CrossLateralJoin:
+                            sql += " JOIN LATERAL ";
+                            break;
                     }
 
                     IDynamicQueryInternal iSubQuery = joinData.Query as IDynamicQueryInternal;
 
-                    sql += Shared.CreateFullName(std.request, joinData.Query);
+                    // ↓↓↓ NEW: Side fork vs. physical board ↓↓↓
+                    bool isLateral = joinData.JoinType == esJoinType.LeftLateralJoin ||
+                                     joinData.JoinType == esJoinType.CrossLateralJoin;
 
-                    sql += " " + iSubQuery.JoinAlias + " ON ";
+                    if (isLateral)
+                    {
+                        iSubQuery.IsInSubQuery = true;
+                        sql += "(";
+                        sql += BuildQuery(std, joinData.Query);
+                        sql += ") AS " + iSubQuery.JoinAlias;
+                        iSubQuery.IsInSubQuery = false;
 
-                    sql += GetComparisonStatement(std, query, joinData.WhereItems, String.Empty);
+                        // If there is no explicit ON condition, LATERAL uses ON TRUE.
+                        if (joinData.WhereItems == null || joinData.WhereItems.Count == 0)
+                            sql += " ON TRUE";
+                        else
+                            sql += " ON " + GetComparisonStatement(std, query, joinData.WhereItems, String.Empty);
+                    }
+                    else
+                    {
+                        //Original behavior unchanged
+                        sql += Shared.CreateFullName(std.request, joinData.Query);
+                        sql += " " + iSubQuery.JoinAlias + " ON ";
+                        sql += GetComparisonStatement(std, query, joinData.WhereItems, String.Empty);
+                    }
+
+                    //END NEW
+
                 }
             }
 
             return sql;
         }
+
+        
+        protected static string GetApplyStatement(StandardProviderParameters std, esDynamicQuery query)
+        {
+            string sql = String.Empty;
+
+            IDynamicQueryInternal iQuery = query as IDynamicQueryInternal;
+
+            if (iQuery.InternalApplyItems != null)
+            {
+                foreach (esApplyItem applyItem in iQuery.InternalApplyItems)
+                {
+                    esApplyItem.esApplyItemData applyData = (esApplyItem.esApplyItemData)applyItem;
+                    IDynamicQueryInternal iSubQuery = applyData.Query as IDynamicQueryInternal;
+
+                    if (SupportsLateral(std))
+                    {
+                        // ── MySQL 8.0.14+ ── LEFT JOIN LATERAL (...) AS alias ON TRUE
+                        switch (applyData.ApplyType)
+                        {
+                            case esApplyType.CrossApply: sql += " JOIN LATERAL "; break;
+                            case esApplyType.OuterApply: sql += " LEFT JOIN LATERAL "; break;
+                        }
+
+                        iSubQuery.IsInSubQuery = true;
+                        sql += "(";
+                        sql += BuildQuery(std, applyData.Query);
+                        sql += ") AS " + iSubQuery.JoinAlias;
+                        iSubQuery.IsInSubQuery = false;
+                        sql += " ON TRUE";
+                    }
+                    else
+                    {
+                        // ── MariaDB 10.2+ / MySQL < 8.0.14 ──
+                        // MariaDB does not allow correlated references (outer table) inside derived subqueries.
+                        // Strategy: remove the correlation condition from the inner WHERE,
+                        // add the partition column to inner SELECT, move correlation to outer ON clause.
+                        //
+                        // Target SQL:
+                        // LEFT JOIN (
+                        //   SELECT col1, col2, custId,
+                        //          ROW_NUMBER() OVER (PARTITION BY custId ORDER BY orderDate DESC) AS es_rn
+                        //   FROM salesorder o
+                        //   -- correlation condition removed from WHERE
+                        // ) AS o ON o.custId = c.custId AND o.es_rn <= 2
+
+                        string joinKeyword = applyData.ApplyType == esApplyType.OuterApply
+                            ? " LEFT JOIN "
+                            : " JOIN ";
+
+                        sql += joinKeyword;
+
+                        // Extract correlation info BEFORE building inner SQL
+                        string partitionCol = ExtractCorrelationColumn(iSubQuery, applyData.Query);   // e.g. o.`custId`
+                        string outerRef = GetCorrelationOuterRef(applyData.Query);                // e.g. c.`custId`
+                        string partColName = partitionCol.Split('.').Length > 1                      // e.g. `custId`
+                            ? partitionCol.Substring(partitionCol.IndexOf('.') + 1)
+                            : partitionCol;
+
+                        // Build inner SQL — correlation WHERE will be present, we strip it below
+                        iSubQuery.IsInSubQuery = true;
+                        string innerSql = BuildQuery(std, applyData.Query);
+                        iSubQuery.IsInSubQuery = false;
+
+                        // --- Strip ORDER BY from inner SQL, capture it for OVER() ---
+                        string overOrderBy = string.Empty;
+                        string innerSqlClean = innerSql;
+
+                        int orderByIdx = innerSqlClean.IndexOf(" ORDER BY ", StringComparison.OrdinalIgnoreCase);
+                        if (orderByIdx > 0)
+                        {
+                            int limitIdx = innerSqlClean.IndexOf(" LIMIT ", orderByIdx, StringComparison.OrdinalIgnoreCase);
+                            if (limitIdx > 0)
+                            {
+                                overOrderBy = innerSqlClean.Substring(orderByIdx, limitIdx - orderByIdx);
+                                innerSqlClean = innerSqlClean.Substring(0, orderByIdx);
+                            }
+                            else
+                            {
+                                overOrderBy = innerSqlClean.Substring(orderByIdx);
+                                innerSqlClean = innerSqlClean.Substring(0, orderByIdx);
+                            }
+                        }
+
+                        // --- Strip LIMIT from inner SQL (not valid inside derived table for MariaDB row limiting) ---
+                        int remainingLimit = innerSqlClean.IndexOf(" LIMIT ", StringComparison.OrdinalIgnoreCase);
+                        if (remainingLimit > 0)
+                            innerSqlClean = innerSqlClean.Substring(0, remainingLimit);
+
+                        // Separate correlation conditions (reference outer query) from own conditions
+                        // Correlation conditions → move to ON clause
+                        // Own conditions → keep in WHERE inside derived table
+                        string ownWhere = string.Empty;
+                        string whereIdx_s = string.Empty;
+
+                        if (iSubQuery.InternalWhereItems != null)
+                        {
+                            var ownConditions = new List<string>();
+
+                            foreach (esComparison item in iSubQuery.InternalWhereItems)
+                            {
+                                esComparison.esComparisonData data = (esComparison.esComparisonData)item;
+                                if (data.IsConjunction || data.IsParenthesis) continue;
+
+                                // If right side references an outer query — it's a correlation condition, skip it
+                                bool isCorrelation = data.ComparisonColumn.Query != null &&
+                                    (data.ComparisonColumn.Query as IDynamicQueryInternal).JoinAlias != iSubQuery.JoinAlias;
+
+                                if (!isCorrelation)
+                                    ownConditions.Add(GetComparisonStatement(std, applyData.Query,
+                                        new List<esComparison> { item }, string.Empty));
+                            }
+
+                            if (ownConditions.Count > 0)
+                                ownWhere = " WHERE " + string.Join(" AND ", ownConditions);
+                        }
+
+                        // Strip full WHERE from innerSql, replace with own conditions only
+                        int whereIdx = innerSqlClean.IndexOf(" WHERE ", StringComparison.OrdinalIgnoreCase);
+                        if (whereIdx > 0)
+                            innerSqlClean = innerSqlClean.Substring(0, whereIdx);
+
+                        // Re-add own (non-correlation) WHERE conditions
+                        innerSqlClean += ownWhere;
+
+                        // --- Add partition column to SELECT if not already present ---
+                        // Required so the ON clause can reference it from the derived table result
+                        int fromIdx = innerSqlClean.IndexOf(" FROM ", StringComparison.OrdinalIgnoreCase);
+                        if (fromIdx > 0)
+                        {
+                            string selectPart = innerSqlClean.Substring(0, fromIdx);
+                            string fromPart = innerSqlClean.Substring(fromIdx);
+
+                            // Add partition column to SELECT only if not already there
+                            if (selectPart.IndexOf(partColName, StringComparison.OrdinalIgnoreCase) < 0)
+                                selectPart += "," + partitionCol;
+
+                            // Inject ROW_NUMBER() OVER (PARTITION BY col ORDER BY ...) AS es_rn
+                            string rowNum = ", ROW_NUMBER() OVER (PARTITION BY " + partitionCol + overOrderBy + ") AS es_rn";
+
+                            innerSqlClean = selectPart + rowNum + fromPart;
+                        }
+
+                        int topRows = (int)(applyData.Query.top > 0 ? applyData.Query.top : 0);
+
+                        sql += "(" + innerSqlClean + ") AS " + iSubQuery.JoinAlias;
+
+                        // ON: correlation condition — add es_rn filter only when Top() was explicitly set
+                        if (topRows > 0)
+                            sql += " ON " + iSubQuery.JoinAlias + "." + partColName
+                                + " = " + outerRef
+                                + " AND " + iSubQuery.JoinAlias + ".es_rn <= " + topRows;
+                        else
+                            sql += " ON " + iSubQuery.JoinAlias + "." + partColName
+                                + " = " + outerRef;
+                    }
+
+                }
+            }
+
+            return sql;
+        }
+
+        /// <summary>
+        /// Extracts the inner correlation column from the subquery WHERE clause.
+        /// e.g. from "WHERE o.`custId` = c.`custId`" returns "o.`custId`"
+        /// </summary>
+        protected static string ExtractCorrelationColumn(IDynamicQueryInternal iSubQuery, esDynamicQuery subQuery)
+        {
+            if (iSubQuery.InternalWhereItems == null)
+                return iSubQuery.JoinAlias + ".`id`"; // fallback
+
+            foreach (esComparison item in iSubQuery.InternalWhereItems)
+            {
+                esComparison.esComparisonData data = (esComparison.esComparisonData)item;
+                if (data.IsConjunction || data.IsParenthesis) continue;
+
+                // Column on the left side belongs to inner query
+                if (data.Column.Query != null)
+                {
+                    IDynamicQueryInternal colQuery = data.Column.Query as IDynamicQueryInternal;
+                    if (colQuery.JoinAlias == iSubQuery.JoinAlias)
+                    {
+                        return iSubQuery.JoinAlias + ".`" + data.Column.Name + "`";
+                    }
+                }
+            }
+
+            return iSubQuery.JoinAlias + ".`id`"; // fallback
+        }
+
+        /// <summary>
+        /// Extracts the outer reference column from the subquery WHERE clause.
+        /// e.g. from "WHERE o.`custId` = c.`custId`" returns "c.`custId`"
+        /// </summary>
+        protected static string GetCorrelationOuterRef(esDynamicQuery subQuery)
+        {
+            IDynamicQueryInternal iSubQuery = subQuery as IDynamicQueryInternal;
+
+            if (iSubQuery.InternalWhereItems == null)
+                return "NULL";
+
+            foreach (esComparison item in iSubQuery.InternalWhereItems)
+            {
+                esComparison.esComparisonData data = (esComparison.esComparisonData)item;
+                if (data.IsConjunction || data.IsParenthesis) continue;
+
+                // ComparisonColumn is the right side — the outer reference
+                if (data.ComparisonColumn.Name != null && data.ComparisonColumn.Query != null)
+                {
+                    IDynamicQueryInternal outerQuery = data.ComparisonColumn.Query as IDynamicQueryInternal;
+                    return outerQuery.JoinAlias + ".`" + data.ComparisonColumn.Name + "`";
+                }
+            }
+
+            return "NULL";
+        }
+
+
 
         protected static string GetComparisonStatement(StandardProviderParameters std, esDynamicQuery query, List<esComparison> items, string prefix)
         {
@@ -1178,5 +1514,57 @@ namespace EntitySpaces.MySQLProvider
 
             return searchCondition;
         }
+
+        /// <summary>
+        // Detects if the engine is MariaDB based on the DatabaseVersion of the request.
+        // MariaDB reports its version as "10.6.12-MariaDB" or "5.5.5-10.6.12-MariaDB"
+        // MySQL reports as "8.0.28" without the MariaDB suffix.
+        // </summary>
+        protected static bool IsMariaDB(StandardProviderParameters std)
+        {
+            string version = std.request.DatabaseVersion;
+            if (string.IsNullOrEmpty(version)) return false;
+            return version.IndexOf("MariaDB", StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        /// <summary>
+        /// Detects if the engine is MySQL 8.0.14+ where LATERAL is supported.
+        // </summary>
+        protected static bool SupportsLateral(StandardProviderParameters std)
+        {
+            // MariaDB always uses the ROW_NUMBER path
+            if (IsMariaDB(std)) return false;
+
+            string version = std.request.DatabaseVersion;
+            if (string.IsNullOrEmpty(version)) return false;
+
+            // Parse major.minor.patch
+            try
+            {
+                string[] parts = version.Split('.');
+                if (parts.Length >= 2)
+                {
+                    int major = int.Parse(parts[0]);
+                    int minor = int.Parse(parts[1]);
+                    // LATERAL supported since 8.0.14
+                    if (major > 8) return true;
+                    if (major == 8 && minor >= 0)
+                    {
+                        // Check if the patch is available
+                        if (parts.Length >= 3)
+                        {
+                            int patch = int.Parse(parts[2].Split('-')[0]); // strip suffixes
+                            return major == 8 && minor == 0 && patch >= 14 || major == 8 && minor > 0;
+                        }
+                        return minor >= 1; // 8.1+ 
+                    }
+                }
+            }
+            catch { }
+
+            return false;
+        }
+
+
     }
 }
