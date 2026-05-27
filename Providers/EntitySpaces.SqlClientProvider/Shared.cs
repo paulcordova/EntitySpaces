@@ -31,10 +31,9 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 
-#if DOTNET4
+#if NET48
 using System.Data.SqlClient;
-#endif
-#if DOTNET6 || DOTNET7|| DOTNET8 || DOTNET9
+#else
 using Microsoft.Data.SqlClient;
 #endif
 
@@ -753,6 +752,37 @@ namespace EntitySpaces.SqlClientProvider
             return " with (" + packet.TableHints.Trim() + ")";
         }
 
+        /// <summary>
+        /// Builds the fully qualified table name using catalog, schema and table identifiers.
+        /// </summary>
+        /// <remarks>
+        /// IMPORTANT — MySQL on Linux and case sensitivity:
+        /// 
+        /// MySQL on Linux is case-sensitive for table/schema names by default
+        /// (controlled by server variable lower_case_table_names=0).
+        /// MySQL on Windows is case-insensitive.
+        ///
+        /// EntitySpaces generates class metadata (meta.Source, meta.Destination) using
+        /// the exact table names as they exist in the database at generation time.
+        /// If classes were generated against a MariaDB or Windows MySQL instance
+        /// (where names are typically lowercase) and then used against a Linux MySQL
+        /// instance with PascalCase table names, queries will fail with "Table not found".
+        ///
+        /// Solutions:
+        ///   1. (Recommended) Regenerate EntitySpaces classes directly against the target
+        ///      Linux MySQL instance so meta.Source matches the actual table names exactly.
+        ///
+        ///   2. On the MySQL server (requires admin access), set in my.cnf:
+        ///      [mysqld]
+        ///      lower_case_table_names=2
+        ///      This preserves original case but compares case-insensitively.
+        ///      Note: this setting cannot be changed after database initialization in MySQL 8.0+.
+        ///
+        ///   3. Rename all tables in the target database to match the case used during
+        ///      class generation (all lowercase).
+        ///
+        /// MariaDB is case-insensitive by default on all platforms — no issue there.
+        /// </remarks>
         static public string CreateFullName(esDataRequest request)
         {
             string name = String.Empty;

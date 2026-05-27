@@ -30,13 +30,11 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 using System;
 using System.Data;
 
-#if DOTNET4
+#if NET48
 using System.Data.SqlClient;
-#endif
-#if DOTNET6 || DOTNET7|| DOTNET8 || DOTNET9
+#else
 using Microsoft.Data.SqlClient;
 #endif
-
 
 using EntitySpaces.DynamicQuery;
 
