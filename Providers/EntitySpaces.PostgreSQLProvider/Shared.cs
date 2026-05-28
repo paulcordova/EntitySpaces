@@ -44,14 +44,12 @@ namespace EntitySpaces.Npgsql2Provider
         static public NpgsqlCommand BuildDynamicInsertCommand(esDataRequest request, esEntitySavePacket packet)
         {
             string sql = String.Empty;
-            string defaults = String.Empty;
             string into = String.Empty;
             string values = String.Empty;
             string comma = String.Empty;
-            string defaultComma = String.Empty;
             string where = String.Empty;
             string autoInc = String.Empty;
-            string returning = String.Empty;
+            List<string> returningCols = new List<string>();
 
             NpgsqlParameter p = null;
 
@@ -95,7 +93,7 @@ namespace EntitySpaces.Npgsql2Provider
                     else
                     {
                         // No explicit value — let the sequence generate the ID
-                        returning = Delimiters.ColumnOpen + col.Name + Delimiters.ColumnClose;
+                        returningCols.Add(Delimiters.ColumnOpen + col.Name + Delimiters.ColumnClose);
                         p = CloneParameter(types[col.Name]);
                         p.Direction = ParameterDirection.Output;
                         cmd.Parameters.Add(p);
@@ -108,8 +106,7 @@ namespace EntitySpaces.Npgsql2Provider
                     p = cmd.Parameters.Add(CloneParameter(types[col.Name]));
                     p.Direction = ParameterDirection.InputOutput;
 
-                    defaults += defaultComma + Delimiters.ColumnOpen + col.Name + Delimiters.ColumnClose;
-                    defaultComma = ", ";
+                    returningCols.Add(Delimiters.ColumnOpen + col.Name + Delimiters.ColumnClose);
 
                     if (col.CharacterMaxLength > 0)
                     {
@@ -143,8 +140,8 @@ namespace EntitySpaces.Npgsql2Provider
                     p = cmd.Parameters.Add(CloneParameter(types[col.Name]));
                     p.Direction = ParameterDirection.InputOutput;
 
-                    defaults += defaultComma + Delimiters.ColumnOpen + col.Name + Delimiters.ColumnClose;
-                    defaultComma = ",";
+                    // Add to RETURNING instead of second SELECT
+                    returningCols.Add(Delimiters.ColumnOpen + col.Name + Delimiters.ColumnClose);
 
                     if (col.CharacterMaxLength > 0)
                     {
@@ -199,8 +196,7 @@ namespace EntitySpaces.Npgsql2Provider
                 values += comma + request.ProviderMetadata["DateAdded.ServerSideText"];
                 comma = ", ";
 
-                defaults += defaultComma + cols.DateAdded.ColumnName;
-                defaultComma = ",";
+                returningCols.Add(cols.DateAdded.ColumnName);
             }
 
             if (cols.DateModified != null && cols.DateModified.IsServerSide)
@@ -213,8 +209,7 @@ namespace EntitySpaces.Npgsql2Provider
                 values += comma + request.ProviderMetadata["DateModified.ServerSideText"];
                 comma = ", ";
 
-                defaults += defaultComma + cols.DateModified.ColumnName;
-                defaultComma = ",";
+                returningCols.Add(cols.DateAdded.ColumnName);
             }
 
             if (cols.AddedBy != null && cols.AddedBy.IsServerSide)
@@ -227,8 +222,7 @@ namespace EntitySpaces.Npgsql2Provider
                 values += comma + request.ProviderMetadata["AddedBy.ServerSideText"];
                 comma = ", ";
 
-                defaults += defaultComma + cols.AddedBy.ColumnName;
-                defaultComma = ",";
+                returningCols.Add(cols.DateAdded.ColumnName);
 
                 esColumnMetadata col = request.Columns[cols.ModifiedBy.ColumnName];
 
@@ -248,8 +242,7 @@ namespace EntitySpaces.Npgsql2Provider
                 values += comma + request.ProviderMetadata["ModifiedBy.ServerSideText"];
                 comma = ", ";
 
-                defaults += defaultComma + cols.ModifiedBy.ColumnName;
-                defaultComma = ",";
+                returningCols.Add(cols.DateAdded.ColumnName);
 
                 esColumnMetadata col = request.Columns[cols.ModifiedBy.ColumnName];
 
@@ -274,19 +267,15 @@ namespace EntitySpaces.Npgsql2Provider
                 sql += " DEFAULT VALUES";
             }
 
-            // PostgreSQL modern identity retrieval
-            if (!string.IsNullOrEmpty(returning))
+            // Single RETURNING clause replaces both the old returning string and the second SELECT.
+            // All identity columns, defaults, concurrency, and special columns are returned together.
+            if (returningCols.Count > 0)
             {
-                sql += " RETURNING " + returning;
+                sql += " RETURNING " + string.Join(", ", returningCols);
             }
 
             sql += ";";
 
-
-            if (defaults.Length > 0)
-            {
-                sql += " SELECT " + defaults + " FROM " + fullName + " WHERE (" + where + ")";
-            }
 
             cmd.CommandText = sql + String.Empty;
             cmd.CommandType = CommandType.Text;
