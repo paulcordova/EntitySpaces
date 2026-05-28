@@ -78,15 +78,28 @@ namespace EntitySpaces.Npgsql2Provider
                 }
                 else if (col.IsAutoIncrement)
                 {
-                    // OLD PostgreSQL logic used currval() + multiple queries.
-                    // Modern PostgreSQL/Npgsql should use INSERT ... RETURNING
+                    bool hasExplicitValue = packet.ModifiedColumns != null &&
+                                            packet.ModifiedColumns.Contains(col.Name);
 
-                    returning = Delimiters.ColumnOpen + col.Name + Delimiters.ColumnClose;
+                    if (hasExplicitValue)
+                    {
+                        // The user assigned an explicit value — treat it as a normal column
+                        p = cmd.Parameters.Add(CloneParameter(types[col.Name]));
+                        object value = packet.CurrentValues[col.Name];
+                        p.Value = value != null ? value : DBNull.Value;
 
-                    // Keep parameter so EntitySpaces can retrieve returned value
-                    p = CloneParameter(types[col.Name]);
-                    p.Direction = ParameterDirection.Output;
-                    cmd.Parameters.Add(p);
+                        into += comma + Delimiters.ColumnOpen + col.Name + Delimiters.ColumnClose;
+                        values += comma + p.ParameterName;
+                        comma = ", ";
+                    }
+                    else
+                    {
+                        // No explicit value — let the sequence generate the ID
+                        returning = Delimiters.ColumnOpen + col.Name + Delimiters.ColumnClose;
+                        p = CloneParameter(types[col.Name]);
+                        p.Direction = ParameterDirection.Output;
+                        cmd.Parameters.Add(p);
+                    }
                 }
                 else if (col.IsConcurrency)
                 {
@@ -105,7 +118,7 @@ namespace EntitySpaces.Npgsql2Provider
                 }
                 else if (col.IsEntitySpacesConcurrency)
                 {
-                    p = cmd.Parameters.Add(CloneParameter(types[col.Name]));
+                    p = cmd.Parameters.Add(CloneParameter(types[col.Name]));    
                     p.Direction = ParameterDirection.Output;
 
                     into += comma + Delimiters.ColumnOpen + col.Name + Delimiters.ColumnClose;
@@ -141,15 +154,35 @@ namespace EntitySpaces.Npgsql2Provider
 
                 if (col.IsInPrimaryKey)
                 {
-                    p = types[col.Name];
-
                     if (where.Length > 0) where += " AND ";
-                    where += Delimiters.ColumnOpen + col.Name + Delimiters.ColumnClose + " = " + p.ParameterName;
 
-                    if (!cmd.Parameters.Contains(p.ParameterName))
+                    // Use the type definition to get the parameter name for the WHERE clause
+                    NpgsqlParameter typeParam = types[col.Name];
+                    where += Delimiters.ColumnOpen + col.Name + Delimiters.ColumnClose + " = " + typeParam.ParameterName;
+
+                    if (!cmd.Parameters.Contains(typeParam.ParameterName))
                     {
-                        p = CloneParameter(p);
-                        p.Direction = ParameterDirection.Output;
+
+                        // Reached only when PK column was not added by the isModified block above.
+                        // For IDENTITY PKs without explicit value, Output is correct (value comes from RETURNING).
+                        // For manual PKs, this path should not be reached if ModifiedColumns is populated correctly.
+                        p = CloneParameter(typeParam);
+
+                        if (col.IsAutoIncrement && !isModifiedPK(packet, col))
+                        {
+                            // Sequence-generated PK — output only, value comes from RETURNING
+                            p.Direction = ParameterDirection.Output;
+                        }
+                        else
+                        {
+                            // Manual PK or explicit value — preserve the supplied value
+                            p.Direction = ParameterDirection.Input;
+                            object value = packet.CurrentValues.ContainsKey(col.Name)
+                                ? packet.CurrentValues[col.Name]
+                                : null;
+                            p.Value = value != null ? value : DBNull.Value;
+                        }
+
                         cmd.Parameters.Add(p);
                     }
                 }
@@ -258,6 +291,11 @@ namespace EntitySpaces.Npgsql2Provider
             cmd.CommandText = sql + String.Empty;
             cmd.CommandType = CommandType.Text;
             return cmd;
+        }
+
+        private static bool isModifiedPK(esEntitySavePacket packet, esColumnMetadata col)
+        {
+            return packet.ModifiedColumns != null && packet.ModifiedColumns.Contains(col.Name);
         }
 
         static public NpgsqlCommand BuildDynamicUpdateCommand(esDataRequest request, esEntitySavePacket packet)
@@ -638,9 +676,38 @@ namespace EntitySpaces.Npgsql2Provider
             return name;
         }
 
+        // Development tip: add 'Include Error Detail=true' to the connection string
+        // to get full PostgreSQL error details in exception messages.
+        // Example: "Host=...;Database=...;Include Error Detail=true"
+        // WARNING: do not use in production — may expose sensitive data in error messages.
         static public esConcurrencyException CheckForConcurrencyException(NpgsqlException ex)
         {
             esConcurrencyException ce = null;
+
+            // SqlState via reflection — compatible with net48 and Npgsql legacy
+            string sqlState = null;
+
+            try
+            {
+                var prop = ex.GetType().GetProperty("SqlState")
+                        ?? ex.GetType().GetProperty("Code");
+
+                if (prop != null)
+                    sqlState = prop.GetValue(ex) as string;
+            }
+            catch { /* ignore reflection errors */ }
+
+            switch (sqlState)
+            {
+                case "23505": // unique_violation — duplicate key
+                case "40001": // serialization_failure
+                case "40P01": // deadlock_detected
+                case "55P03": // lock_not_available
+                    ce = new esConcurrencyException(ex.Message, ex);
+                    break;
+            }
+
+
             return ce;
         }
 

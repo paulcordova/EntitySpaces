@@ -27,26 +27,59 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 -------------------------------------------------------------------------------
 */
 
-using System;
-using System.Collections;
-using System.Collections.Generic;
-using System.Data;
-
 using EntitySpaces.DynamicQuery;
 using EntitySpaces.Interfaces;
-
 using Npgsql;
+using System;
+using System.Collections;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Data;
 
 namespace EntitySpaces.Npgsql2Provider
 {
     class QueryBuilder
     {
+        // Cache server version by connection string to avoid extra round-trip per query.
+        // Key: connection string — Value: raw version string e.g. "17.2" or "13.23"
+        private static readonly ConcurrentDictionary<string, string> _serverVersionCache =
+            new ConcurrentDictionary<string, string>();
+
         public static NpgsqlCommand PrepareCommand(esDataRequest request)
         {
             StandardProviderParameters std = new StandardProviderParameters();
             std.cmd = new NpgsqlCommand();
             std.pindex = NextParamIndex(std.cmd);
             std.request = request;
+
+            // Detect and cache server version to choose correct SQL generation strategy.
+            // Cache is keyed by connection string — one detection per unique server.
+            // Note: request.DatabaseVersion may arrive pre-set to empty string from sig.DatabaseVersion,
+            //       so we check the cache first before opening a new connection.
+            if (string.IsNullOrEmpty(request.DatabaseVersion))
+            {
+                if (!_serverVersionCache.TryGetValue(request.ConnectionString, out string cachedVersion))
+                {
+                    try
+                    {
+                        using (var conn = new NpgsqlConnection(request.ConnectionString))
+                        using (var cmd = new NpgsqlCommand("SELECT VERSION()", conn))
+                        {
+                            conn.Open();
+                            cachedVersion = cmd.ExecuteScalar()?.ToString() ?? string.Empty;
+                        }
+                    }
+                    catch
+                    {
+                        // Version detection failed — use empty string as safe fallback
+                        cachedVersion = string.Empty;
+                    }
+
+                    _serverVersionCache[request.ConnectionString] = cachedVersion;
+                }
+
+                request.DatabaseVersion = cachedVersion;
+            }
 
             string sql = BuildQuery(std, request.DynamicQuery);
 
@@ -900,7 +933,9 @@ namespace EntitySpaces.Npgsql2Provider
             {
                 case esArithmeticOperator.Add:
 
-                    // MEG - 4/26/08, I'm not thrilled with this check here, will revist on future release
+                    // In PostgreSQL, the + operator is not valid for string concatenation.
+                    // || is the correct operator for strings. Numeric types use + as usual.
+                    // Detection is based on the datatype of the first operand or literal type.
                     if (mathmaticalExpression.SelectItem1.Column.Datatype == esSystemType.String ||
                        (mathmaticalExpression.SelectItem1.HasMathmaticalExpression && mathmaticalExpression.SelectItem1.MathmaticalExpression.LiteralType == esSystemType.String) ||
                        (mathmaticalExpression.SelectItem1.HasMathmaticalExpression && mathmaticalExpression.SelectItem1.MathmaticalExpression.SelectItem1.Column.Datatype == esSystemType.String) ||
@@ -1144,7 +1179,7 @@ namespace EntitySpaces.Npgsql2Provider
             switch (castType)
             {
                 case esCastType.Boolean: return "bool";
-                case esCastType.Byte: return "tinyint";
+                case esCastType.Byte: return "smallint";  // fixed: tinyint does not exist in PostgreSQL
                 case esCastType.Char: return "char";
                 case esCastType.DateTime: return "timestamp";
                 case esCastType.Double: return "float8";
@@ -1201,6 +1236,28 @@ namespace EntitySpaces.Npgsql2Provider
             }
 
             return searchCondition;
+        }
+
+
+        /// <summary>
+        /// Returns the major version number of the PostgreSQL server (e.g. 13, 17).
+        /// Parses from the cached DatabaseVersion string set in PrepareCommand.
+        /// Returns 0 if version is unknown or could not be parsed.
+        /// </summary>
+        protected static int GetMajorVersion(StandardProviderParameters std)
+        {
+            string version = std.request.DatabaseVersion;
+            if (string.IsNullOrEmpty(version)) return 0;
+
+            // VERSION() returns e.g. "PostgreSQL 17.2 on aarch64..." — extract the number
+            foreach (string token in version.Split(' '))
+            {
+                string[] parts = token.Split('.');
+                if (parts.Length >= 2 && int.TryParse(parts[0], out int major))
+                    return major;
+            }
+
+            return 0;
         }
     }
 }

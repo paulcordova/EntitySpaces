@@ -1382,6 +1382,25 @@ namespace EntitySpaces.Npgsql2Provider
                             throw new esConcurrencyException("Update failed to update any records");
                         }
                     }
+                    catch (NpgsqlException ex)
+                    {
+
+                        esConcurrencyException ce = Shared.CheckForConcurrencyException(ex);
+                        if (ce != null)
+                        {
+                            exception = true;
+                            request.FireOnError(packet, ce.Message);
+                            if (!request.ContinueUpdateOnError)
+                                throw ce;
+                        }
+                        else
+                        {
+                            exception = true;
+                            request.FireOnError(packet, ex.Message);
+                            if (!request.ContinueUpdateOnError)
+                                throw;
+                        }
+                    }
                     catch (Exception ex)
                     {
                         exception = true;
@@ -1473,8 +1492,19 @@ namespace EntitySpaces.Npgsql2Provider
                     throw new esConcurrencyException("Update failed to update any records");
                 }
             }
+            catch (NpgsqlException ex)
+            {
+
+                // Translate PostgreSQL-specific errors into EntitySpaces concurrency exceptions
+                esConcurrencyException ce = Shared.CheckForConcurrencyException(ex);
+                if (ce != null)
+                    throw ce;
+                else
+                    throw;
+            }
             finally
             {
+
                 esTransactionScope.DeEnlist(cmd);
                 cmd.Dispose();
             }
