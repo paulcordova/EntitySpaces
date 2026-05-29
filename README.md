@@ -81,7 +81,7 @@ If your team understands SQL, you already understand EntitySpaces.
 |----------|---------|--------|-------|
 | SQL Server | EntitySpaces.ORM.SqlServer.NET | ✅ Active | Full support |
 | PostgreSQL | EntitySpaces.ORM.PostgreSQL.NET | ✅ Modernized | PG 12–17 · Npgsql 7–10 · Neon compatible |
-| MySQL | EntitySpaces.ORM.MySQL.NET | ✅ Modernized | MySQL 8.0.14+ · MariaDB 10.2+ · MySql.Data 9.x |
+| MySQL | EntitySpaces.ORM.MySQL.NET | ✅ Modernized | MySQL 8.0.14+ · MariaDB 10.2+ · MySql.Data 9.x · Concurrency exception detection |
 | SQLite | EntitySpaces.ORM.SQLite.NET | ✅ Active | |
 | Oracle | EntitySpaces.ORM.OracleManagedClient.NET | ✅ Active | Managed client only |
 | Firebird | EntitySpaces.ORM.Firebird.NET | ✅ Active | |
@@ -352,6 +352,39 @@ EntitySpaces generates class metadata (`meta.Source`, `meta.Destination`) using 
 | MySQL on Linux | Case-sensitive | Generate classes against Linux MySQL |
 | MySQL on Windows | Case-insensitive | No special action needed |
 | MariaDB (all) | Case-insensitive | No special action needed |
+
+## MySQL / MariaDB Concurrency Exception Detection
+
+The provider translates MySQL and MariaDB-specific error codes into `esConcurrencyException`:
+
+| MySQL / MariaDB Code | Condition | Translated To |
+|---|---|---|
+| `1062` | Duplicate entry — PK or unique key violation | `esConcurrencyException` |
+| `1213` | Deadlock detected | `esConcurrencyException` |
+| `1205` | Lock wait timeout exceeded | `esConcurrencyException` |
+
+```csharp
+try
+{
+    category.Save();
+}
+catch (esConcurrencyException ex)
+{
+    // Duplicate key, deadlock, or lock timeout
+    Console.WriteLine(ex.Message);
+}
+```
+
+## MySQL / MariaDB Connection Pool Safety
+
+The provider implements safe connection pool management in all save and load operations. If an error occurs during `Save()` or `LoadCollection()`, the provider:
+
+- Sets a `hasError` flag on exception
+- Issues a `Transaction.Rollback()` in the `finally` block before returning the connection to the pool
+- Prevents dirty connections from being reused by subsequent operations
+
+This matches the same robustness pattern implemented in the PostgreSQL provider.
+
 
 ---
 
