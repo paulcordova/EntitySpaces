@@ -554,10 +554,20 @@ namespace EntitySpaces.MySQLProvider
 
             if (ex != null)
             {
-                if (ex.Number == 532)
+                switch (ex.Number)
                 {
-                    ce = new esConcurrencyException(ex.Message, ex);
-                    ce.Source = ex.Source;
+                    // Duplicate entry — PK or unique key violation
+                    // e.g. INSERT with existing PK, or UNIQUE constraint breach
+                    case 1062:
+
+                    // Deadlock detected — two transactions waiting on each other's locks
+                    case 1213:
+
+                    // Lock wait timeout — transaction waited too long to acquire a row lock
+                    case 1205:
+                        ce = new esConcurrencyException(ex.Message, ex);
+                        ce.Source = ex.Source;
+                        break;
                 }
             }
 

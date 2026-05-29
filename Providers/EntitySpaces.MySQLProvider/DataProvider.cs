@@ -1017,11 +1017,12 @@ namespace EntitySpaces.MySQLProvider
         // This is used only to execute the Dynamic Query API
         static private void LoadDataTableFromDynamicQuery(esDataRequest request, esDataResponse response, MySqlCommand cmd)
         {
+            bool hasError = false;
             try
             {
                 response.LastQuery = cmd.CommandText;
 
-                if(request.CommandTimeout != null) cmd.CommandTimeout = request.CommandTimeout.Value;
+                if (request.CommandTimeout != null) cmd.CommandTimeout = request.CommandTimeout.Value;
 
                 DataTable dataTable = new DataTable(request.ProviderMetadata.Destination);
 
@@ -1044,6 +1045,7 @@ namespace EntitySpaces.MySQLProvider
                             catch (Exception ex)
                             {
                                 esTrace.Exception = ex.Message;
+                                hasError = true;
                                 throw;
                             }
                         }
@@ -1051,11 +1053,26 @@ namespace EntitySpaces.MySQLProvider
                     else
                     #endregion
                     {
-                        da.Fill(dataTable);
+                        try
+                        {
+                            da.Fill(dataTable);
+                        }
+                        catch
+                        {
+                            hasError = true;
+                            throw;
+                        }
                     }
                 }
                 finally
                 {
+                    // Clean up connection state before returning to pool if an error occurred
+                    if (hasError && cmd.Connection != null &&
+                        cmd.Connection.State == ConnectionState.Open &&
+                        cmd.Transaction != null)
+                    {
+                        try { cmd.Transaction.Rollback(); } catch { }
+                    }
                     esTransactionScope.DeEnlist(da.SelectCommand);
                 }
 
@@ -1065,10 +1082,6 @@ namespace EntitySpaces.MySQLProvider
             {
                 CleanupCommand(cmd);
                 throw;
-            }
-            finally
-            {
-
             }
         }
 
@@ -1418,6 +1431,7 @@ namespace EntitySpaces.MySQLProvider
                         DataRow[] singleRow = new DataRow[1];
                         singleRow[0] = row;
 
+                        bool hasError = false;
                         try
                         {
                             esTransactionScope.Enlist(cmd, request.ConnectionString, CreateIDbConnectionDelegate);
@@ -1434,6 +1448,7 @@ namespace EntitySpaces.MySQLProvider
                                     catch (Exception ex)
                                     {
                                         esTrace.Exception = ex.Message;
+                                        hasError = true;
                                         throw;
                                     }
                                 }
@@ -1441,7 +1456,15 @@ namespace EntitySpaces.MySQLProvider
                             else
                             #endregion
                             {
-                                da.Update(singleRow);
+                                try
+                                {
+                                    da.Update(singleRow);
+                                }
+                                catch
+                                {
+                                    hasError = true;
+                                    throw;
+                                }
                             }
 
                             if (row.HasErrors)
@@ -1451,6 +1474,13 @@ namespace EntitySpaces.MySQLProvider
                         }
                         finally
                         {
+                            // Roll back connection state before returning to pool if an error occurred
+                            if (hasError && cmd.Connection != null &&
+                                cmd.Connection.State == ConnectionState.Open &&
+                                cmd.Transaction != null)
+                            {
+                                try { cmd.Transaction.Rollback(); } catch { }
+                            }
                             esTransactionScope.DeEnlist(cmd);
                             dataTable.Rows.Clear();
                         }
@@ -1604,6 +1634,7 @@ namespace EntitySpaces.MySQLProvider
                     da.RowUpdated += new MySqlRowUpdatedEventHandler(OnRowUpdated);
                 }
 
+                bool hasError = false;
                 try
                 {
                     esTransactionScope.Enlist(cmd, request.ConnectionString, CreateIDbConnectionDelegate);
@@ -1620,6 +1651,7 @@ namespace EntitySpaces.MySQLProvider
                             catch (Exception ex)
                             {
                                 esTrace.Exception = ex.Message;
+                                hasError = true;
                                 throw;
                             }
                         }
@@ -1627,11 +1659,26 @@ namespace EntitySpaces.MySQLProvider
                     else
                     #endregion
                     {
-                        da.Update(singleRow);
+                        try
+                        {
+                            da.Update(singleRow);
+                        }
+                        catch
+                        {
+                            hasError = true;
+                            throw;
+                        }
                     }
                 }
                 finally
                 {
+                    // Roll back connection state before returning to pool if an error occurred
+                    if (hasError && cmd.Connection != null &&
+                        cmd.Connection.State == ConnectionState.Open &&
+                        cmd.Transaction != null)
+                    {
+                        try { cmd.Transaction.Rollback(); } catch { }
+                    }
                     esTransactionScope.DeEnlist(cmd);
                 }
 
