@@ -27,16 +27,18 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 -------------------------------------------------------------------------------
 */
 
+using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Data;
+
 using EntitySpaces.DynamicQuery;
 using EntitySpaces.Interfaces;
-using System;
-using System.Collections.Generic;
 
-using System.Data;
-#if DOTNET4
+
+#if NET48
 using System.Data.SqlClient;
-#endif
-#if DOTNET6 || DOTNET7|| DOTNET8 || DOTNET9
+#else
 using Microsoft.Data.SqlClient;
 #endif
 
@@ -45,6 +47,60 @@ namespace EntitySpaces.SqlClientProvider
 {
     class QueryBuilder
     {
+        // Server version cache keyed by connection string.
+        // Detected once per unique SQL Server instance via SELECT @@VERSION to avoid
+        // repeated round-trips. Use GetMajorVersion() to branch on server capabilities.
+        private static readonly ConcurrentDictionary<string, string> serverVersionCache =
+            new ConcurrentDictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>
+        /// Returns the cached full version string for the given connection string,
+        /// querying SELECT @@VERSION on first call per connection string.
+        /// </summary>
+        internal static string GetServerVersion(string connectionString)
+        {
+            return serverVersionCache.GetOrAdd(connectionString, cs =>
+            {
+                try
+                {
+                    using (SqlConnection conn = new SqlConnection(cs))
+                    {
+                        conn.Open();
+                        using (SqlCommand cmd = new SqlCommand("SELECT @@VERSION", conn))
+                        {
+                            object result = cmd.ExecuteScalar();
+                            return result != null ? result.ToString() : string.Empty;
+                        }
+                    }
+                }
+                catch
+                {
+                    // On failure return empty string; version-dependent logic will use defaults
+                    return string.Empty;
+                }
+            });
+        }
+
+        /// <summary>
+        /// Returns the major version number of the SQL Server instance (e.g. 15 for SQL Server 2019).
+        /// Returns 0 if the version cannot be determined.
+        /// </summary>
+        internal static int GetMajorVersion(string connectionString)
+        {
+            string version = GetServerVersion(connectionString);
+            if (string.IsNullOrWhiteSpace(version)) return 0;
+
+            // @@VERSION starts with "Microsoft SQL Server YYYY - Major.Minor.Build.Rev ..."
+            // Parse the first numeric token after the initial text
+            foreach (string token in version.Split(' ', '\t', '\n', '\r'))
+            {
+                string[] parts = token.Split('.');
+                if (parts.Length >= 2 && int.TryParse(parts[0], out int major) && major > 0)
+                    return major;
+            }
+            return 0;
+        }
+
         public static SqlCommand PrepareCommand(esDataRequest request)
         {
             StandardProviderParameters std = new StandardProviderParameters();
@@ -976,13 +1032,16 @@ namespace EntitySpaces.SqlClientProvider
 
         protected static string esArithmeticOperatorToString(esArithmeticOperator arithmeticOperator)
         {
+            // SQL Server uses + for both numeric addition and string concatenation.
+            // This is correct for T-SQL; other providers (e.g. PostgreSQL) override this
+            // method to return || for string concatenation instead.
             switch (arithmeticOperator)
             {
-                case esArithmeticOperator.Add: return " + ";
+                case esArithmeticOperator.Add:      return " + ";
                 case esArithmeticOperator.Subtract: return " - ";
                 case esArithmeticOperator.Multiply: return " * ";
-                case esArithmeticOperator.Divide: return " / ";
-                case esArithmeticOperator.Modulo: return " % ";
+                case esArithmeticOperator.Divide:   return " / ";
+                case esArithmeticOperator.Modulo:   return " % ";
                 default: return "";
             }
         }
@@ -1294,10 +1353,13 @@ namespace EntitySpaces.SqlClientProvider
 
         protected static string GetCastSql(esCastType castType)
         {
+            // T-SQL type mappings for CAST().
+            // Note: tinyint (0–255) is valid in SQL Server. PostgreSQL providers map
+            // esCastType.Byte to smallint instead because tinyint does not exist there.
             switch (castType)
             {
                 case esCastType.Boolean:   return "bit";
-                case esCastType.Byte:      return "tinyint";
+                case esCastType.Byte:      return "tinyint";   // valid in SQL Server; NOT valid in PostgreSQL
                 case esCastType.Char:      return "char";
                 case esCastType.DateTime:  return "datetime";
                 case esCastType.Double:    return "float";

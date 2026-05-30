@@ -47,6 +47,7 @@ using EntitySpaces.Interfaces;
 using System.Threading;
 using System.Diagnostics;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace EntitySpaces.SqlClientProvider
 {
@@ -307,6 +308,14 @@ namespace EntitySpaces.SqlClientProvider
                     }
                 }
             }
+            catch (esConcurrencyException concEx)
+            {
+                // esConcurrencyException thrown by SaveDynamicEntity / SaveDynamicCollection
+                // after translating SqlException error numbers (2627, 2601, 1205, etc.).
+                // Must be caught here before the SqlException handler so it lands in
+                // response.Exception instead of propagating to the caller unhandled.
+                response.Exception = concEx;
+            }
             catch (SqlException ex)
             {
                 esException es = Shared.CheckForConcurrencyException(ex);
@@ -321,6 +330,15 @@ namespace EntitySpaces.SqlClientProvider
             }
 
             response.Table = request.Table;
+
+#if DEBUG
+            System.IO.File.AppendAllText(@"C:\temp\es_sqlserver_debug.txt",
+                $"esSaveDataTable returning response.Exception="
+                + (response.Exception == null ? "NULL"
+                    : response.Exception.GetType().Name + ": " + response.Exception.Message)
+                + "\n");
+#endif
+
             return response;
         }
 
@@ -988,6 +1006,8 @@ namespace EntitySpaces.SqlClientProvider
         // This is used only to execute the Dynamic Query API
         static private void LoadDataTableFromDynamicQuery(esDataRequest request, esDataResponse response, SqlCommand cmd)
         {
+            bool hasError = false;
+
             try
             {
                 response.LastQuery = cmd.CommandText;
@@ -1045,14 +1065,28 @@ namespace EntitySpaces.SqlClientProvider
                     }
                 }
             }
-            catch (Exception) 
+            catch (Exception)
             {
+                hasError = true;
                 CleanupCommand(cmd);
                 throw;
             }
             finally
             {
-
+                // If an error occurred, ensure the connection is not returned to the pool in a
+                // potentially broken state by issuing a best-effort ROLLBACK.
+                if (hasError && cmd != null && cmd.Connection != null &&
+                    cmd.Connection.State == ConnectionState.Open)
+                {
+                    try
+                    {
+                        using (SqlCommand rollback = new SqlCommand("IF @@TRANCOUNT > 0 ROLLBACK", cmd.Connection))
+                        {
+                            rollback.ExecuteNonQuery();
+                        }
+                    }
+                    catch { /* best-effort rollback — ignore secondary errors */ }
+                }
             }
         }
 
@@ -1390,6 +1424,8 @@ namespace EntitySpaces.SqlClientProvider
                             continue;
                     }
 
+                    bool hasError = false;
+
                     try
                     {
                         esTransactionScope.Enlist(cmd, request.ConnectionString, CreateIDbConnectionDelegate);
@@ -1422,8 +1458,25 @@ namespace EntitySpaces.SqlClientProvider
                             throw new esConcurrencyException("Update failed to update any records for Table " + Shared.CreateFullName(request));
                         }
                     }
+                    catch (SqlException ex)
+                    {
+                        hasError = true;
+                        exception = true;
+
+                        // Translate SQL Server concurrency / constraint errors into esConcurrencyException
+                        esConcurrencyException ce = Shared.CheckForConcurrencyException(ex);
+                        Exception toFire = ce != null ? (Exception)ce : ex;
+
+                        request.FireOnError(packet, toFire.Message);
+
+                        if (!request.ContinueUpdateOnError)
+                        {
+                            throw ce != null ? (Exception)ce : ex;
+                        }
+                    }
                     catch (Exception ex)
                     {
+                        hasError = true;
                         exception = true;
 
                         request.FireOnError(packet, ex.Message);
@@ -1435,6 +1488,21 @@ namespace EntitySpaces.SqlClientProvider
                     }
                     finally
                     {
+                        // If an error occurred, issue a ROLLBACK before returning the connection to
+                        // the pool to avoid reusing a connection in a broken transaction state.
+                        if (hasError && cmd != null && cmd.Connection != null &&
+                            cmd.Connection.State == ConnectionState.Open)
+                        {
+                            try
+                            {
+                                using (SqlCommand rollback = new SqlCommand("IF @@TRANCOUNT > 0 ROLLBACK", cmd.Connection))
+                                {
+                                    rollback.ExecuteNonQuery();
+                                }
+                            }
+                            catch { /* best-effort rollback — ignore secondary errors */ }
+                        }
+
                         esTransactionScope.DeEnlist(cmd);
                         cmd.Dispose();
                     }
@@ -1482,6 +1550,15 @@ namespace EntitySpaces.SqlClientProvider
                     break;
             }
 
+            bool hasError = false;
+
+#if DEBUG
+            System.IO.File.AppendAllText(@"C:\temp\es_sqlserver_debug.txt",
+                $"SaveDynamicEntity RowState={request.EntitySavePacket.RowState} "
+                + $"CurrentValues={request.EntitySavePacket.CurrentValues?.Count} "
+                + $"ModifiedColumns={string.Join(",", request.EntitySavePacket.ModifiedColumns ?? new System.Collections.Generic.List<string>())}\n");
+#endif
+
             try
             {
                 esTransactionScope.Enlist(cmd, request.ConnectionString, CreateIDbConnectionDelegate);
@@ -1515,8 +1592,50 @@ namespace EntitySpaces.SqlClientProvider
                     throw new esConcurrencyException("Update failed to update any records for Table " + Shared.CreateFullName(request));
                 }
             }
+            catch (SqlException)
+            {
+                // Mark hasError so finally issues ROLLBACK before returning connection to pool.
+                // Do NOT translate to esConcurrencyException here. Let SqlException propagate
+                // to esSaveDataTable which already has catch(SqlException) +
+                // CheckForConcurrencyException + response.Exception. Translating here produces
+                // esConcurrencyException with no handler in esSaveDataTable, causing Save()
+                // to return silently with no error raised to the caller.
+                hasError = true;
+                throw;
+            }
+            catch
+            {
+                hasError = true;
+                throw;
+            }
             finally
             {
+#if DEBUG
+                System.IO.File.AppendAllText(@"C:\temp\es_sqlserver_debug.txt",
+                    $"SaveDynamicEntity finally hasError={hasError}\n"
+                    + $"Driver: {cmd?.Connection?.GetType().Assembly.GetName().Name} "
+                    + $"ServerVersion: {cmd?.Connection?.ServerVersion}\n"
+                    + $"FULL SQL:\n{cmd?.CommandText}\n\nPARAMS:\n"
+                    + string.Join("\n", cmd?.Parameters.Cast<SqlParameter>()
+                        .Select(p => $"  {p.ParameterName}={p.Value} dir={p.Direction}")
+                        ?? System.Linq.Enumerable.Empty<string>()) + "\n---\n");
+#endif
+                // If an error occurred, issue a ROLLBACK on the connection before returning it
+                // to the pool. This prevents the connection from being reused in a broken
+                // transaction state (analogous to PostgreSQL error 25P02 mitigation).
+                if (hasError && cmd != null && cmd.Connection != null &&
+                    cmd.Connection.State == ConnectionState.Open)
+                {
+                    try
+                    {
+                        using (SqlCommand rollback = new SqlCommand("IF @@TRANCOUNT > 0 ROLLBACK", cmd.Connection))
+                        {
+                            rollback.ExecuteNonQuery();
+                        }
+                    }
+                    catch { /* best-effort rollback — ignore secondary errors */ }
+                }
+
                 esTransactionScope.DeEnlist(cmd);
                 cmd.Dispose();
             }
