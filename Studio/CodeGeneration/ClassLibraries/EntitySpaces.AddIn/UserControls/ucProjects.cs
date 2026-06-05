@@ -313,7 +313,6 @@ namespace EntitySpaces.AddIn
 
                 splitContainer.Panel1Collapsed = false;
                 splitContainer.Panel2Collapsed = true;
-
                 isDirty = true;
             }
             catch (Exception ex)

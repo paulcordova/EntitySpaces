@@ -50,36 +50,52 @@ namespace EntitySpaces.AddIn
 
         public void RegisterAssemblies(string path)
         {
-            isLoaded = true;
+            // Validate path before marking as loaded.
+            // Previously isLoaded was set to true unconditionally at the top of this method,
+            // so if path was empty or did not exist the collection stayed empty but IsLoaded=true,
+            // preventing any retry when the correct path became available later.
+            if (string.IsNullOrEmpty(path) || !Directory.Exists(path))
+                return;
 
             string[] assemblies = Directory.GetFiles(path, "*.dll");
 
             foreach (string assemblyName in assemblies)
             {
-                Assembly assembly = Assembly.LoadFile(assemblyName);
-
-                Type[] types = assembly.GetExportedTypes();
-
-                foreach (Type type in types)
+                try
                 {
-                    if (type.IsSubclassOf(typeof(UserControl)))
+                    Assembly assembly = Assembly.LoadFile(assemblyName);
+
+                    Type[] types = assembly.GetExportedTypes();
+                  
+                    foreach (Type type in types)
                     {
-                        UserControl userControl = Activator.CreateInstance(type) as UserControl;
 
-                        ITemplateUI templateUI = userControl as ITemplateUI;
-
-                        if (templateUI != null)
+                        if (type.IsSubclassOf(typeof(UserControl)))
                         {
-                            esTemplateInfo templateInfo = templateUI.Init();
+                            UserControl userControl = Activator.CreateInstance(type) as UserControl;
 
-                            if (templateInfo != null)
+                            ITemplateUI templateUI = userControl as ITemplateUI;
+
+                            if (templateUI != null)
                             {
-                                templateUserInterfaces.Add(templateInfo);
+                                esTemplateInfo templateInfo = templateUI.Init();
+
+                                if (templateInfo != null)
+                                {
+                                    templateUserInterfaces.Add(templateInfo);
+                                }
                             }
                         }
                     }
                 }
+                catch { }
+                // Skip DLLs that cannot be loaded (e.g. native DLLs, wrong platform, etc.)
+                // and continue processing the remaining assemblies in the directory.
             }
+
+            // Only mark as loaded once at least the directory scan completed successfully.
+            // This allows a retry if the path was invalid on the first call.
+            isLoaded = true;
         }
     }
 }

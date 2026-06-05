@@ -9,7 +9,7 @@
     <StartupObject>
     </StartupObject>
     <NoStandardLibraries>false</NoStandardLibraries>
-    <AssemblyName>EntitySpaces2024.AddIn</AssemblyName>
+    <AssemblyName>EntitySpaces2025.AddIn</AssemblyName>
     <RootNamespace>EntitySpaces.AddIn</RootNamespace>
     <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
     <SignAssembly>true</SignAssembly>

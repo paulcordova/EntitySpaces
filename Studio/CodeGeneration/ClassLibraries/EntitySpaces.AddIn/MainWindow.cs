@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.CodeDom.Compiler;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -36,6 +36,7 @@ namespace EntitySpaces.AddIn.ES2025
 
         public MainWindow()
         {
+
             InitializeComponent();
 
             NotAConstructor();
@@ -175,6 +176,7 @@ namespace EntitySpaces.AddIn.ES2025
                     //    this.tabControl.TabPages.Remove(this.tabTemplates);
                     //    this.tabControl.TabPages.Remove(this.tabLanguageMappings);
                     //}
+
                 }
             }
             catch (Exception ex)
@@ -293,16 +295,20 @@ namespace EntitySpaces.AddIn.ES2025
 
         public void ShowTemplateUIControl()
         {
+
             try
             {
                 this.splitContainerTabControl.Panel1Collapsed = true;
                 this.splitContainerTabControl.Panel2Collapsed = false;
+
+
             }
             catch (Exception ex)
             {
                 this.ShowError(ex);
             }
         }
+
 
         private void buttonExecuteTemplateOk_Click(object sender, EventArgs e)
         {
@@ -406,19 +412,5 @@ namespace EntitySpaces.AddIn.ES2025
             catch { }
         }
 
-        internal static ProxySettings GetProxySettings(esSettings settings)
-        {
-            ProxySettings proxy = new ProxySettings();
-            proxy.UseProxy = settings.LicenseProxyEnable;
-            if (proxy.UseProxy)
-            {
-                proxy.Url = settings.LicenseProxyUrl;
-                proxy.UserName = settings.LicenseProxyUserName;
-                proxy.Password = settings.LicenseProxyPassword;
-                proxy.DomainName = settings.LicenseProxyDomainName;
-            }
-
-            return proxy;
-        }
     }
 }

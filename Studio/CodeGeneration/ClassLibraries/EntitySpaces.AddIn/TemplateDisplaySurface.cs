@@ -30,6 +30,15 @@ namespace EntitySpaces.AddIn
 
         static internal void Initialize(MainWindow mainWindow)
         {
+            // Only accept the first call — which comes from Form1 via NotAConstructor()
+            // with the real instance that has a valid Parent (Form1).
+            // RegisterAssemblies later instantiates ALL UserControl subclasses via reflection,
+            // including MainWindow itself, which would call NotAConstructor() → Initialize()
+            // again and overwrite MainWindow with a parentless reflection-created instance.
+            // That causes ShowTemplateUIControl() to operate on a control with Parent=NULL,
+            // making all layout changes invisible.
+            if (TemplateDisplaySurface.MainWindow != null) return;
+
             TemplateDisplaySurface.MainWindow = mainWindow;
         }
 
@@ -94,6 +103,7 @@ namespace EntitySpaces.AddIn
                     }
 
                     MainWindow.tabControlTemplateUI.SuspendLayout();
+                    MainWindow.tabControlTemplateUI.TabPages.Clear();
 
                     foreach (esTemplateInfo info in templateInfoCollection.Values)
                     {
@@ -131,10 +141,17 @@ namespace EntitySpaces.AddIn
                 if (!coll.IsLoaded)
                 {
                     coll.RegisterAssemblies(TemplateDisplaySurface.MainWindow.Settings.UIAssemblyPath);
+
+                    // If RegisterAssemblies found no UI assemblies in the configured path,
+                    // keep IsLoaded=false so the next call can retry with a corrected path.
+                    // This handles the case where UIAssemblyPath was invalid on first call
+                    // (e.g. UIAddIns\ subdirectory did not exist when running from source).
                 }
             }
             catch (Exception ex)
             {
+                // Reset so the next attempt can retry
+                coll.Clear();
                 MainWindow.ShowError(ex);
             }
         }
