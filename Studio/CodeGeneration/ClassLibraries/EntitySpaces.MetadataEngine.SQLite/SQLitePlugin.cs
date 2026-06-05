@@ -692,33 +692,6 @@ namespace EntitySpaces.MetadataEngine.SQLite
                         ta.Fill(allTables);
                     }
 
-                    // TEMP DEBUG
-                    System.IO.File.WriteAllText(@"C:temp\sqlite_fk_debug.txt",
-                        $"table={table}, allTables.Count={allTables.Rows.Count}\r\n");
-
-                    System.IO.File.AppendAllText(@"C:temp\sqlite_fk_debug.txt",
-                        "Columns: " + string.Join(", ",
-                        allTables.Columns.Cast<DataColumn>().Select(c => c.ColumnName)) + "\r\n");
-
-                    // TEMP DEBUG Verify FK exists in DB
-                    DataTable fkCheck = new DataTable();
-                    using (SQLiteDataAdapter pa = new SQLiteDataAdapter(
-                        "PRAGMA foreign_key_list(\"Product\")", cn))
-                    {
-                        pa.Fill(fkCheck);
-                    }
-                    System.IO.File.AppendAllText(@"C:temp\sqlite_fk_debug.txt",
-                        $"Direct PRAGMA Product FK rows: {fkCheck.Rows.Count}\r\n");
-
-                    // Also check the DDL of Product
-                    DataTable ddlCheck = new DataTable();
-                    using (SQLiteDataAdapter pa = new SQLiteDataAdapter(
-                        "SELECT sql FROM sqlite_master WHERE name='Product'", cn))
-                    {
-                        pa.Fill(ddlCheck);
-                    }
-                    System.IO.File.AppendAllText(@"C:temp\sqlite_fk_debug.txt",
-                        $"Product DDL: {ddlCheck.Rows[0][0]}\r\n");
 
                     foreach (DataRow tableRow in allTables.Rows)
                     {
