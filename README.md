@@ -456,6 +456,60 @@ var products = cat.ProductCollectionByCategoryId;
 // ProductCollection loaded via FK Category.Id → Product.CategoryId
 ```
 
+## Studio — Standalone Code Generator
+
+The EntitySpaces Standalone Studio is a WinForms application (net481) used to connect to databases and generate C# entity classes.
+
+### Supported databases in Studio
+
+| Database | Driver | Version |
+|----------|--------|---------|
+| SQL Server / Azure SQL | System.Data.SqlClient | — |
+| PostgreSQL | Npgsql | 8.0.8 |
+| MySQL | MySql.Data | 9.7.0 |
+| SQLite | System.Data.SQLite | 1.0.119 |
+| Oracle | Oracle.ManagedDataAccess | 23.5.1 |
+| Firebird | FirebirdSql.Data.FirebirdClient | 10.3.4 |
+
+### Assembly copy requirements (net481)
+
+The Studio loads database drivers via reflection at runtime. For net481 projects using the legacy `.csproj` format, NuGet references that resolve from the GAC are **not copied** to the output directory automatically — causing runtime assembly load failures when the metadata engine tries to instantiate the driver.
+
+Affected assemblies require explicit `HintPath` and `Private=True` in the `.csproj`:
+
+```xml
+<!-- Required for Npgsql — without Private=True the DLL is not copied to bin\Debug\ -->
+<Reference Include="Npgsql, Version=8.0.8.0, Culture=neutral, PublicKeyToken=5d8b90d52f46fda7">
+    <HintPath>packages\Npgsql.8.0.8\lib\netstandard2.0\Npgsql.dll</HintPath>
+    <Private>True</Private>
+</Reference>
+
+<!-- Required for System.ValueTuple — resolves from GAC without local copy otherwise -->
+<Reference Include="System.ValueTuple, Version=4.0.3.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51">
+    <HintPath>packages\System.ValueTuple.4.6.2\build\net471\System.ValueTuple.targets</HintPath>
+    <Private>True</Private>
+</Reference>
+```
+
+### Binding redirects (app.config)
+
+The `app.config` of both the Standalone and the `MetadataEngine` project must include binding redirects aligned with the **exact versions** of installed packages. Mismatched redirects cause silent resolution failures. Key entries that must match installed versions:
+
+```xml
+<dependentAssembly>
+    <assemblyIdentity name="ZstdSharp" publicKeyToken="8d151af33a4ad5cf" culture="neutral"/>
+    <bindingRedirect oldVersion="0.0.0.0-0.8.8.0" newVersion="0.8.8.0"/>
+</dependentAssembly>
+<dependentAssembly>
+    <assemblyIdentity name="Google.Protobuf" publicKeyToken="a7d26565bac4d604" culture="neutral"/>
+    <bindingRedirect oldVersion="0.0.0.0-3.35.0.0" newVersion="3.35.0.0"/>
+</dependentAssembly>
+<dependentAssembly>
+    <assemblyIdentity name="System.ValueTuple" publicKeyToken="cc7b13ffcd2ddd51" culture="neutral"/>
+    <bindingRedirect oldVersion="0.0.0.0-4.0.3.0" newVersion="4.0.3.0"/>
+</dependentAssembly>
+```
+
 ## Studio Metadata Engine
 
 The Studio metadata engine for SQLite has been rewritten to use native SQLite pragmas instead of `information_schema` (which SQLite does not support):
