@@ -197,10 +197,10 @@ namespace EntitySpaces.SQLiteProvider
                 sql += comma;
                 sql += "COUNT(*)";
 
-                if (query.countAll != null)
+                if (query.countAllAlias != null)
                 {
                     // Need DBMS string delimiter here
-                    sql += " AS " + Delimiters.StringOpen + query.countAll + Delimiters.StringClose;
+                    sql += " AS " + Delimiters.StringOpen + query.countAllAlias + Delimiters.StringClose;
                 }
             }
 
@@ -647,7 +647,8 @@ namespace EntitySpaces.SQLiteProvider
 
                 if (query.withRollup)
                 {
-                    sql += " WITH ROLLUP";
+                    // SQLite does not support WITH ROLLUP in any version.
+                    throw new NotSupportedException("SQLite does not support WITH ROLLUP.");
                 }
             }
 
@@ -855,7 +856,11 @@ namespace EntitySpaces.SQLiteProvider
             {
                 case esArithmeticOperator.Add:
 
-                    // MEG - 4/26/08, I'm not thrilled with this check here, will revist on future release
+                    // SQLite uses || for string concatenation, not +.
+                    // The + operator performs numeric addition and silently coerces
+                    // non-numeric strings to 0, producing wrong results on text columns.
+                    // We check whether either operand is typed as String and emit ||
+                    // in that case; numeric operands continue to use the + operator.
                     if (mathmaticalExpression.SelectItem1.Column.Datatype == esSystemType.String ||
                        (mathmaticalExpression.SelectItem1.HasMathmaticalExpression && mathmaticalExpression.SelectItem1.MathmaticalExpression.LiteralType == esSystemType.String) ||
                        (mathmaticalExpression.SelectItem1.HasMathmaticalExpression && mathmaticalExpression.SelectItem1.MathmaticalExpression.SelectItem1.Column.Datatype == esSystemType.String) ||
@@ -1041,10 +1046,11 @@ namespace EntitySpaces.SQLiteProvider
                             break;
 
                         case esQuerySubOperatorType.StdDev:
-                            sql += "STDEV(";
-
-                            stack.Push(")");
-                            break;
+                            // SQLite has no native STDEV function.
+                            // Requires a user-loaded math extension or a custom registered aggregate.
+                            throw new NotSupportedException(
+                                "SQLite does not natively support STDEV. " +
+                                "Register a custom aggregate or load a math extension.");
 
                         case esQuerySubOperatorType.Sum:
                             sql += "SUM(";
@@ -1053,10 +1059,11 @@ namespace EntitySpaces.SQLiteProvider
                             break;
 
                         case esQuerySubOperatorType.Var:
-                            sql += "VAR(";
-
-                            stack.Push(")");
-                            break;
+                            // SQLite has no native VAR function.
+                            // Requires a user-loaded math extension or a custom registered aggregate.
+                            throw new NotSupportedException(
+                                "SQLite does not natively support VAR. " +
+                                "Register a custom aggregate or load a math extension.");
 
                         case esQuerySubOperatorType.Cast:
                             sql += "CAST(";
@@ -1101,18 +1108,22 @@ namespace EntitySpaces.SQLiteProvider
         {
             switch (castType)
             {
-                case esCastType.Boolean: return "bit";
-                case esCastType.Byte: return "tinyint";
-                case esCastType.Char: return "character";
+                // SQLite type affinity rules (https://www.sqlite.org/datatype3.html):
+                //   "bit" and "tinyint" are not in the SQLite affinity type names list,
+                //   but SQLite is flexible — any unrecognised name gets NUMERIC affinity.
+                //   We still use canonical SQLite type names to be explicit and portable.
+                case esCastType.Boolean:  return "integer";   // SQLite has no BIT; store as 0/1 integer
+                case esCastType.Byte:     return "integer";   // SQLite has no TINYINT; smallest int is INTEGER
+                case esCastType.Char:     return "character";
                 case esCastType.DateTime: return "datetime";
-                case esCastType.Double: return "double";
-                case esCastType.Decimal: return "decimal";
-                case esCastType.Guid: return "varchar";
-                case esCastType.Int16: return "smallint";
-                case esCastType.Int32: return "integer";
-                case esCastType.Int64: return "bigint";
-                case esCastType.Single: return "real";
-                case esCastType.String: return "varchar";
+                case esCastType.Double:   return "double";
+                case esCastType.Decimal:  return "decimal";
+                case esCastType.Guid:     return "varchar";
+                case esCastType.Int16:    return "smallint";
+                case esCastType.Int32:    return "integer";
+                case esCastType.Int64:    return "bigint";
+                case esCastType.Single:   return "real";
+                case esCastType.String:   return "varchar";
 
                 default: return "error";
             }
@@ -1153,12 +1164,22 @@ namespace EntitySpaces.SQLiteProvider
 
             switch (iQuery.SubquerySearchCondition)
             {
-                case esSubquerySearchCondition.All: searchCondition = "ALL"; break;
-                case esSubquerySearchCondition.Any: searchCondition = "ANY"; break;
-                case esSubquerySearchCondition.Some: searchCondition = "SOME"; break;
+                case esSubquerySearchCondition.All:
+                    searchCondition = "ALL";
+                    break;
+
+                case esSubquerySearchCondition.Any:
+                case esSubquerySearchCondition.Some:
+                    // SQLite does NOT support ANY or SOME subquery operators (any version).
+                    // Equivalent workaround: rewrite the subquery using MIN().
+                    // e.g. col > ANY (SELECT x FROM t) => col > (SELECT MIN(x) FROM t)
+                    throw new NotSupportedException(
+                        "SQLite does not support ANY/SOME subquery operators. " +
+                        "Use MIN() in the subquery instead: col > (SELECT MIN(x) FROM ...)");
             }
 
             return searchCondition;
         }
     }
+    
 }

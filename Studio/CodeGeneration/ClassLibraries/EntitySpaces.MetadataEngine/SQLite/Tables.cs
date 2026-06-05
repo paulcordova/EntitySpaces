@@ -15,8 +15,14 @@ namespace EntitySpaces.MetadataEngine.SQLite
 		{
 			try
             {
-                string query = "select * from information_schema.tables where table_type = 'BASE TABLE' " +
-                                      " and table_schema = '" + this.Database.SchemaName + "' ORDER BY table_name;";
+                // SQLite has no information_schema — use sqlite_master instead.
+                // Filter type='table' to exclude views, triggers, and indexes.
+                // Exclude internal sqlite_* tables (e.g. sqlite_sequence) to avoid
+                // exposing SQLite internals in the Studio table list.
+                string query = "SELECT name AS TABLE_NAME, '' AS TABLE_SCHEMA " +
+                               "FROM sqlite_master " +
+                               "WHERE type = 'table' AND name NOT LIKE 'sqlite_%' " +
+                               "ORDER BY name;";
 
 				IDbConnection cn = ConnectionHelper.CreateConnection(this.dbRoot, this.Database.Name);
 

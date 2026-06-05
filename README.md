@@ -83,7 +83,7 @@ If your team understands SQL, you already understand EntitySpaces.
 | SQL Server | EntitySpaces.ORM.SqlServer.NET | ✅ Modernized | SQL Server 2016–2025 · Concurrency exception detection · Connection pool safety |
 | PostgreSQL | EntitySpaces.ORM.PostgreSQL.NET | ✅ Modernized | PG 12–17 · Npgsql 7–10 · Neon compatible |
 | MySQL | EntitySpaces.ORM.MySQL.NET | ✅ Modernized | MySQL 8.0.14+ · MariaDB 10.2+ · MySql.Data 9.x · Concurrency exception detection |
-| SQLite | EntitySpaces.ORM.SQLite.NET | ✅ Active | |
+| SQLite | EntitySpaces.ORM.SQLite.NET | ✅ Modernized | SQLite 3.x · System.Data.SQLite 1.0.119 · Auto-increment detection · FK enforcement · Concurrency exception detection |
 | Oracle | EntitySpaces.ORM.OracleManagedClient.NET | ✅ Active | Managed client only |
 | Firebird | EntitySpaces.ORM.Firebird.NET | ✅ Active | |
 
@@ -355,6 +355,130 @@ esConfigSettings.ConnectionInfo.Connections.Add(conn);
 ```
 
 > `conn.DatabaseVersion` is optional. When omitted, the provider auto-detects the server version from `SELECT @@VERSION` on the first call and caches it per connection string.
+
+---
+
+# SQLite Modernization
+
+> **Validated with:** SQLite 3.46.1 · System.Data.SQLite.Core 1.0.119 · Northwind model
+
+The SQLite provider has been significantly modernized for correct auto-increment detection, foreign key enforcement, and concurrency exception translation.
+
+## Auto-Increment Detection
+
+SQLite has two equivalent forms of auto-increment that EntitySpaces now correctly detects in both the provider and Studio code generator:
+
+| Form | DDL | Notes |
+|------|-----|-------|
+| Rowid alias | `"Id" INTEGER PRIMARY KEY` | Most common — no keyword required |
+| Explicit | `"Id" INTEGER PRIMARY KEY AUTOINCREMENT` | Stricter — never reuses deleted IDs |
+
+Both forms are detected and generate `c.IsAutoIncrement = true` in the class metadata, enabling correct `last_insert_rowid()` retrieval after insert.
+
+> **DDL Recommendation:** Use `INTEGER PRIMARY KEY` (without `AUTOINCREMENT`) for most tables.
+> SQLite automatically assigns the next available rowid — no `sqlite_sequence` overhead.
+> Use `AUTOINCREMENT` only when strict non-reuse of deleted IDs is required.
+
+### Explicit PK Insert on Auto-Increment Tables
+
+EntitySpaces detects whether a PK value was explicitly assigned and adjusts the INSERT accordingly:
+
+```csharp
+// Explicit PK — inserts value directly, rowid not generated
+var cat = new Category { Id = 999, CategoryName = "Special" };
+cat.Save();
+
+// Auto PK — SQLite generates the next rowid
+var cat = new Category { CategoryName = "Beverages" };
+cat.Save();
+Console.WriteLine(cat.Id); // populated after save
+```
+
+## Foreign Key Enforcement
+
+SQLite does not enforce foreign key constraints by default — `PRAGMA foreign_keys = ON` must be issued per connection. The provider now automatically appends `Foreign Keys=True` to the connection string, ensuring FK constraints are enforced on every connection without any configuration change.
+
+```csharp
+// FK violation now correctly raises esConcurrencyException
+var order = new Order { EmployeeId = 9999 }; // non-existent employee
+order.Save(); // throws esConcurrencyException
+```
+
+## Concurrency Exception Detection
+
+The provider translates SQLite constraint violations into `esConcurrencyException`, consistent with other EntitySpaces providers:
+
+| SQLite Code | Condition | Translated To |
+|-------------|-----------|---------------|
+| `19` (`SQLITE_CONSTRAINT`) | PK/UNIQUE/FK/CHECK violation | `esConcurrencyException` |
+
+```csharp
+try
+{
+    entity.Save();
+}
+catch (esConcurrencyException ex)
+{
+    // Duplicate key, FK violation, or CHECK constraint failure
+    Console.WriteLine(ex.Message);
+}
+```
+
+## Navigation Properties
+
+Foreign key relationships defined in the DDL are read by the Studio and generate navigation properties:
+
+```csharp
+// Load category with its products
+var cat = new Category();
+cat.LoadByPrimaryKey(1);
+
+var products = cat.ProductCollectionByCategoryId;
+// ProductCollection loaded via FK Category.Id → Product.CategoryId
+```
+
+## Studio Metadata Engine
+
+The Studio metadata engine for SQLite has been rewritten to use native SQLite pragmas instead of `information_schema` (which SQLite does not support):
+
+| Operation | Mechanism |
+|-----------|-----------|
+| List tables | `sqlite_master WHERE type='table'` |
+| Column info | `PRAGMA table_info(table)` |
+| Primary keys | `PRAGMA table_info(table)` — `pk > 0` |
+| Foreign keys | `PRAGMA foreign_key_list(table)` |
+| Auto-increment | DDL inspection via `sqlite_master` + rowid alias detection |
+
+## SQLite Connection String
+
+```csharp
+esProviderFactory.Factory = new EntitySpaces.Loader.esDataProviderFactory();
+
+esConnectionElement conn = new esConnectionElement();
+conn.Provider = "EntitySpaces.SQLiteProvider";
+conn.ConnectionString = "Data Source=C:\path\to\database.db;Version=3;Foreign Keys=True;";
+esConfigSettings.ConnectionInfo.Connections.Add(conn);
+```
+
+> **Note:** `Foreign Keys=True` is automatically appended by the provider if not present.
+> Including it explicitly in your connection string is recommended for clarity.
+
+## SQLite DDL Recommendations
+
+- Define `INTEGER PRIMARY KEY` inline on the column (not as a separate table constraint) to activate the rowid alias and enable auto-increment
+- Add `CHECK` constraints at the DDL level for data validation — the provider translates violations to `esConcurrencyException`
+- Always define `FOREIGN KEY` constraints to enable navigation property generation in the Studio
+
+```sql
+CREATE TABLE "Product" (
+    "Id"           INTEGER PRIMARY KEY,                          -- rowid alias: auto-increment
+    "ProductName"  TEXT,
+    "UnitPrice"    REAL NOT NULL DEFAULT 0 CHECK ("UnitPrice" >= 0),
+    "CategoryId"   INTEGER NOT NULL,
+    FOREIGN KEY ("CategoryId") REFERENCES "Category" ("Id")     -- enables navigation properties
+);
+```
+
 
 ---
 

@@ -264,6 +264,30 @@ namespace EntitySpaces.SQLiteProvider
             return new SQLiteConnection();
         }
 
+
+        // Enables SQLite foreign key enforcement on an open connection.
+        // SQLite requires PRAGMA foreign_keys = ON per connection — it is OFF by default.
+        // Without this, FK violations (e.g. referencing a non-existent EmployeeId) are
+        // silently accepted instead of raising SQLITE_CONSTRAINT (19).
+        static private void EnableForeignKeys(SQLiteConnection cn)
+        {
+            using (SQLiteCommand cmd = new SQLiteCommand("PRAGMA foreign_keys = ON", cn))
+            {
+                cmd.ExecuteNonQuery();
+            }
+        }
+
+        // Returns the connection string with Foreign Keys=True appended if not already present.
+        // This ensures all connections opened by esTransactionScope also enforce FKs.
+        static private string EnsureForeignKeysEnabled(string connectionString)
+        {
+            if (connectionString == null) return connectionString;
+            if (connectionString.IndexOf("Foreign Keys", StringComparison.OrdinalIgnoreCase) >= 0)
+                return connectionString;
+            string sep = connectionString.TrimEnd().EndsWith(";") ? "" : ";";
+            return connectionString + sep + "Foreign Keys=True;";
+        }
+
         static private void CleanupCommand(SQLiteCommand cmd)
         {
             if (cmd != null && cmd.Connection != null)
@@ -401,7 +425,7 @@ namespace EntitySpaces.SQLiteProvider
 
                 try
                 {
-                    esTransactionScope.Enlist(cmd, request.ConnectionString, CreateIDbConnectionDelegate);
+                    esTransactionScope.Enlist(cmd, EnsureForeignKeysEnabled(request.ConnectionString), CreateIDbConnectionDelegate);
 
                     #region Profiling
                     if (sTraceHandler != null)
@@ -546,7 +570,7 @@ namespace EntitySpaces.SQLiteProvider
 
                 try
                 {
-                    esTransactionScope.Enlist(cmd, request.ConnectionString, CreateIDbConnectionDelegate);
+                    esTransactionScope.Enlist(cmd, EnsureForeignKeysEnabled(request.ConnectionString), CreateIDbConnectionDelegate);
 
                     #region Profiling
                     if (sTraceHandler != null)
@@ -672,7 +696,7 @@ namespace EntitySpaces.SQLiteProvider
 
                 try
                 {
-                    esTransactionScope.Enlist(da.SelectCommand, request.ConnectionString, CreateIDbConnectionDelegate);
+                    esTransactionScope.Enlist(da.SelectCommand, EnsureForeignKeysEnabled(request.ConnectionString), CreateIDbConnectionDelegate);
 
                     #region Profiling
                     if (sTraceHandler != null)
@@ -740,7 +764,7 @@ namespace EntitySpaces.SQLiteProvider
 
                 try
                 {
-                    esTransactionScope.Enlist(da.SelectCommand, request.ConnectionString, CreateIDbConnectionDelegate);
+                    esTransactionScope.Enlist(da.SelectCommand, EnsureForeignKeysEnabled(request.ConnectionString), CreateIDbConnectionDelegate);
 
                     #region Profiling
                     if (sTraceHandler != null)
@@ -809,7 +833,7 @@ namespace EntitySpaces.SQLiteProvider
 
                 try
                 {
-                    esTransactionScope.Enlist(da.SelectCommand, request.ConnectionString, CreateIDbConnectionDelegate);
+                    esTransactionScope.Enlist(da.SelectCommand, EnsureForeignKeysEnabled(request.ConnectionString), CreateIDbConnectionDelegate);
 
                     #region Profiling
                     if (sTraceHandler != null)
@@ -878,7 +902,7 @@ namespace EntitySpaces.SQLiteProvider
 
                 try
                 {
-                    esTransactionScope.Enlist(da.SelectCommand, request.ConnectionString, CreateIDbConnectionDelegate);
+                    esTransactionScope.Enlist(da.SelectCommand, EnsureForeignKeysEnabled(request.ConnectionString), CreateIDbConnectionDelegate);
 
                     #region Profiling
                     if (sTraceHandler != null)
@@ -969,7 +993,7 @@ namespace EntitySpaces.SQLiteProvider
 
                 try
                 {
-                    esTransactionScope.Enlist(da.SelectCommand, request.ConnectionString, CreateIDbConnectionDelegate);
+                    esTransactionScope.Enlist(da.SelectCommand, EnsureForeignKeysEnabled(request.ConnectionString), CreateIDbConnectionDelegate);
 
                     #region Profiling
                     if (sTraceHandler != null)
@@ -1027,9 +1051,11 @@ namespace EntitySpaces.SQLiteProvider
                 SQLiteDataAdapter da = new SQLiteDataAdapter();
                 da.SelectCommand = cmd;
 
+                bool hasError = false;
+
                 try
                 {
-                    esTransactionScope.Enlist(da.SelectCommand, request.ConnectionString, CreateIDbConnectionDelegate);
+                    esTransactionScope.Enlist(da.SelectCommand, EnsureForeignKeysEnabled(request.ConnectionString), CreateIDbConnectionDelegate);
 
                     #region Profiling
                     if (sTraceHandler != null)
@@ -1053,8 +1079,18 @@ namespace EntitySpaces.SQLiteProvider
                         da.Fill(dataTable);
                     }
                 }
+                catch
+                {
+                    hasError = true;
+                    throw;
+                }
                 finally
                 {
+                    if (hasError && cmd.Connection != null &&
+                        cmd.Connection.State == ConnectionState.Open)
+                    {
+                        cmd.Connection.Close();
+                    }
                     esTransactionScope.DeEnlist(da.SelectCommand);
                 }
 
@@ -1063,7 +1099,7 @@ namespace EntitySpaces.SQLiteProvider
             catch (Exception ex)
             {
                 CleanupCommand(cmd);
-                throw ex;
+                throw;
             }
             finally
             {
@@ -1216,9 +1252,12 @@ namespace EntitySpaces.SQLiteProvider
                         DataRow[] singleRow = new DataRow[1];
                         singleRow[0] = row;
 
+                        // Track errors for safe connection cleanup before pool return
+                        bool hasError = false;
+
                         try
                         {
-                            esTransactionScope.Enlist(cmd, request.ConnectionString, CreateIDbConnectionDelegate);
+                            esTransactionScope.Enlist(cmd, EnsureForeignKeysEnabled(request.ConnectionString), CreateIDbConnectionDelegate);
 
                             #region Profiling
                             if (sTraceHandler != null)
@@ -1247,8 +1286,26 @@ namespace EntitySpaces.SQLiteProvider
                                 request.FireOnError(packet, row.RowError);
                             }
                         }
+                        catch (SQLiteException ex)
+                        {
+                            hasError = true;
+                            // Translate SQLITE_CONSTRAINT (19) to esConcurrencyException
+                            esConcurrencyException ce = Shared.CheckForConcurrencyException(ex);
+                            if (ce != null) throw ce;
+                            throw;
+                        }
+                        catch
+                        {
+                            hasError = true;
+                            throw;
+                        }
                         finally
                         {
+                            if (hasError && cmd != null && cmd.Connection != null &&
+                                cmd.Connection.State == ConnectionState.Open)
+                            {
+                                cmd.Connection.Close();
+                            }
                             esTransactionScope.DeEnlist(cmd);
                             dataTable.Rows.Clear();
                         }
@@ -1294,7 +1351,7 @@ namespace EntitySpaces.SQLiteProvider
                     try
                     {
                         cmd = da.DeleteCommand = Shared.BuildDynamicDeleteCommand(request);
-                        esTransactionScope.Enlist(cmd, request.ConnectionString, CreateIDbConnectionDelegate);
+                        esTransactionScope.Enlist(cmd, EnsureForeignKeysEnabled(request.ConnectionString), CreateIDbConnectionDelegate);
 
                         DataRow[] singleRow = new DataRow[1];
 
@@ -1400,13 +1457,18 @@ namespace EntitySpaces.SQLiteProvider
                 DataRow[] singleRow = new DataRow[1];
                 singleRow[0] = row;
 
+                // Track whether an error occurred so the finally block can close the connection
+                // before returning it to the pool — SQLite connections with a failed statement
+                // should not be reused without being properly closed first.
+                bool hasError = false;
+
                 try
                 {
                     if (!request.IgnoreComputedColumns)
                     {
                         da.RowUpdated += new EventHandler<System.Data.Common.RowUpdatedEventArgs>(OnRowUpdated);
                     }
-                    esTransactionScope.Enlist(cmd, request.ConnectionString, CreateIDbConnectionDelegate);
+                    esTransactionScope.Enlist(cmd, EnsureForeignKeysEnabled(request.ConnectionString), CreateIDbConnectionDelegate);
 
                     #region Profiling
                     if (sTraceHandler != null)
@@ -1430,8 +1492,30 @@ namespace EntitySpaces.SQLiteProvider
                         da.Update(singleRow);
                     }
                 }
+                catch (SQLiteException ex)
+                {
+                    hasError = true;
+                    // Translate SQLite constraint violations (SQLITE_CONSTRAINT = 19) to
+                    // esConcurrencyException so callers receive a typed exception consistent
+                    // with other EntitySpaces providers (PostgreSQL 23505, SQL Server 2627, etc.).
+                    esConcurrencyException ce = Shared.CheckForConcurrencyException(ex);
+                    if (ce != null) throw ce;
+                    throw;
+                }
+                catch
+                {
+                    hasError = true;
+                    throw;
+                }
                 finally
                 {
+                    // If an error occurred, close the connection explicitly before de-enlisting
+                    // to prevent a connection in a bad state from being returned to the pool.
+                    if (hasError && cmd != null && cmd.Connection != null &&
+                        cmd.Connection.State == ConnectionState.Open)
+                    {
+                        cmd.Connection.Close();
+                    }
                     esTransactionScope.DeEnlist(cmd);
                 }
 

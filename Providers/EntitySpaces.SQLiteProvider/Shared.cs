@@ -73,8 +73,31 @@ namespace EntitySpaces.SQLiteProvider
                 }
                 else if (col.IsAutoIncrement)
                 {
-                    props["AutoInc"] = col.Name;
-                    props["Source"] = request.ProviderMetadata.Source;
+                    // Check whether the caller supplied an explicit PK value.
+                    // SQLite rowid tables accept an explicit integer PK — in that case we
+                    // include the column in the INSERT and skip the last_insert_rowid() fetch,
+                    // because the row was inserted with a caller-supplied identity value.
+                    // When no explicit value is provided, omit the column so SQLite generates
+                    // the next rowid automatically and we retrieve it via last_insert_rowid().
+                    bool hasExplicitPkValue = packet.ModifiedColumns != null &&
+                                             packet.ModifiedColumns.Contains(col.Name);
+                    if (hasExplicitPkValue)
+                    {
+                        // Insert with caller-supplied PK — no auto-increment retrieval needed
+                        SQLiteParameter p = types[col.Name];
+                        cmd.Parameters.Add(CloneParameter(p));
+
+                        into   += comma + Delimiters.ColumnOpen + col.Name + Delimiters.ColumnClose;
+                        values += comma + p.ParameterName;
+                        comma   = ", ";
+                        // Do NOT set props["AutoInc"] — skip last_insert_rowid() in OnRowUpdated
+                    }
+                    else
+                    {
+                        // No explicit PK value — let SQLite generate the rowid
+                        props["AutoInc"] = col.Name;
+                        props["Source"]  = request.ProviderMetadata.Source;
+                    }
                 }
                 else if (col.IsConcurrency)
                 {
@@ -425,8 +448,18 @@ namespace EntitySpaces.SQLiteProvider
 
         static public esConcurrencyException CheckForConcurrencyException(SQLiteException ex)
         {
-            esConcurrencyException ce = null;
-            return ce;
+            // SQLite error codes relevant to concurrency / constraint violations:
+            //   19  SQLITE_CONSTRAINT  — general constraint failure (UNIQUE, PK, FK, CHECK, NOT NULL)
+            //   11  SQLITE_CORRUPT     — database file corrupt (not a concurrency issue, skip)
+            // System.Data.SQLite exposes the numeric code via SQLiteException.ErrorCode.
+            // We map SQLITE_CONSTRAINT (19) to esConcurrencyException so EntitySpaces callers
+            // receive the same typed exception they get from other providers (PostgreSQL 23505, etc.).
+            if (ex != null && (int)ex.ErrorCode == 19)
+            {
+                return new esConcurrencyException(ex.Message, ex);
+            }
+
+            return null;
         }
 
         static public void AddParameters(SQLiteCommand cmd, esDataRequest request)

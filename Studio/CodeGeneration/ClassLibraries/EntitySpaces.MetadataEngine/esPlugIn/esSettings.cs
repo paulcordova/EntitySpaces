@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
@@ -116,17 +116,30 @@ namespace EntitySpaces.MetadataEngine
         {
             get
             {
-                string path = @"C:\Program Files\EntitySpaces 2025\";
+                string defaultPath = @"C:\Program Files\EntitySpaces 2025\";
+                string path = defaultPath;
 
                 RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\EntitySpaces 2025", false);
                 if (key != null)
                 {
-                    path = (string)key.GetValue("Install_Dir");
+                    object val = key.GetValue("Install_Dir");
+                    string regPath = val as string;
 
-                    if (!path.EndsWith(@"\"))
+                    if (!string.IsNullOrEmpty(regPath))
                     {
-                        path += @"\";
+                        path = regPath;
+
+                        if (!path.EndsWith(@"\"))
+                        {
+                            path += @"\";
+                        }
                     }
+                }
+
+                // Ensure we never return null or empty
+                if (string.IsNullOrEmpty(path))
+                {
+                    path = defaultPath;
                 }
 
                 return path;
@@ -565,6 +578,14 @@ namespace EntitySpaces.MetadataEngine
                 settings.DriverInfoCollection.Add(new esSettingsDriverInfo() { Driver = settings.Driver, ConnectionString = settings.ConnectionString });
             }
 
+            // Validate and fix paths after loading from XML.
+            // This handles two scenarios:
+            //   1. Paths point to a previous installation that was uninstalled
+            //      (Directory.Exists returns false → replaced with current correct path)
+            //   2. Running from source with no registry Install_Dir
+            //      (paths are resolved from exe directory automatically)
+            AdjustPathsBasedOnPriorVersions(settings, @"Software\EntitySpaces 2025", "ES2025", true);
+
             return settings;
         }
 
@@ -675,71 +696,88 @@ namespace EntitySpaces.MetadataEngine
         {
             // File Locations
             RegistryKey key = Registry.CurrentUser.OpenSubKey(registry, false);
-            if (key != null)
-            {
-                string basePath = (string)key.GetValue("Install_Dir");
 
-                if (!basePath.EndsWith(@"\"))
+            if (currentVersion)
+            {
+                // For the current version: derive the installation base path from the registry
+                // if Install_Dir exists, otherwise fall back to the executable directory.
+                // This supports both installed (production) and source/development scenarios.
+                string basePath = null;
+
+                if (key != null && key.GetValue("Install_Dir") != null)
                 {
-                    basePath += @"\";
+                    basePath = (string)key.GetValue("Install_Dir");
+                    if (!basePath.EndsWith(@"\")) basePath += @"\";
                 }
 
-                if (!currentVersion)
+                if (basePath != null)
                 {
-                    if (settings.TemplatePath == basePath + @"CodeGeneration\Templates\")
-                    {
-                        settings.TemplatePath = string.Empty;
-                    }
+                    // Installed — fill empty or invalid paths with installation paths
+                    string installTemplate  = basePath + @"CodeGeneration\Templates\";
+                    string installUI        = basePath + @"CodeGeneration\Bin\UIAddIns\";
+                    string installCompiler  = basePath + @"CodeGeneration\Bin\";
+                    string installLangMap   = basePath + @"CodeGeneration\esLanguages.xml";
 
-                    if (settings.UIAssemblyPath == basePath + @"CodeGeneration\Bin\UIAddIns\")
-                    {
-                        settings.UIAssemblyPath = string.Empty;
-                    }
+                    if (string.IsNullOrEmpty(settings.TemplatePath)        || !Directory.Exists(settings.TemplatePath))
+                        settings.TemplatePath = installTemplate;
 
-                    if (settings.CompilerAssemblyPath == basePath + @"CodeGeneration\Bin\")
-                    {
-                        settings.CompilerAssemblyPath = string.Empty;
-                    }
+                    if (string.IsNullOrEmpty(settings.UIAssemblyPath)      || !Directory.Exists(settings.UIAssemblyPath))
+                        settings.UIAssemblyPath = installUI;
 
-                    if (settings.LanguageMappingFile == basePath + @"CodeGeneration\esLanguages.xml")
-                    {
-                        settings.LanguageMappingFile = string.Empty;
-                    }
+                    if (string.IsNullOrEmpty(settings.CompilerAssemblyPath)|| !Directory.Exists(settings.CompilerAssemblyPath))
+                        settings.CompilerAssemblyPath = installCompiler;
 
-                    string appPath = Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData) + @"\EntitySpaces\" + version;
-
-                    if (settings.UserMetadataFile == appPath + @"\esUserData.xml")
-                    {
-                        settings.UserMetadataFile = string.Empty;
-                    }
+                    if (string.IsNullOrEmpty(settings.LanguageMappingFile) || !File.Exists(settings.LanguageMappingFile))
+                        settings.LanguageMappingFile = installLangMap;
                 }
                 else
                 {
-                    if (settings.TemplatePath == string.Empty)
-                    {
-                        settings.TemplatePath = basePath + @"CodeGeneration\Templates\";
-                    }
+                    // Development / running from source — derive paths from the exe directory.
+                    // Exe lives in: ...\StandAlone\bin\x86\Debug\
+                    // CodeGeneration lives four levels up.
+                    string exeDir = Path.GetDirectoryName(
+                        Assembly.GetEntryAssembly()?.Location
+                        ?? Assembly.GetExecutingAssembly().Location);
 
-                    if (settings.UIAssemblyPath == string.Empty)
-                    {
-                        settings.UIAssemblyPath = basePath + @"CodeGeneration\Bin\UIAddIns\";
-                    }
+                    if (!exeDir.EndsWith(@"\")) exeDir += @"\";
 
-                    if (settings.CompilerAssemblyPath == string.Empty)
-                    {
-                        settings.CompilerAssemblyPath = basePath + @"CodeGeneration\Bin\";
-                    }
+                    string codeGenDir = Path.GetFullPath(Path.Combine(exeDir, @"..\..\..\..\"));
 
-                    if (settings.LanguageMappingFile == string.Empty)
-                    {
-                        settings.LanguageMappingFile = basePath + @"CodeGeneration\esLanguages.xml";
-                    }
+                    string devTemplate = Path.Combine(codeGenDir, @"Templates\");
+                    string devLangMap  = Path.Combine(codeGenDir, @"esLanguages.xml");
 
-                    if (settings.UserMetadataFile == string.Empty)
-                    {
-                        settings.UserMetadataFile = AppDataPath + @"\esUserData.xml";
-                    }
+                    // In development all DLLs (UI, compiler, plugins) live in the same bin directory
+                    if (string.IsNullOrEmpty(settings.TemplatePath)        || !Directory.Exists(settings.TemplatePath))
+                        settings.TemplatePath = devTemplate;
+
+                    if (string.IsNullOrEmpty(settings.UIAssemblyPath)      || !Directory.Exists(settings.UIAssemblyPath))
+                        settings.UIAssemblyPath = exeDir;
+
+                    if (string.IsNullOrEmpty(settings.CompilerAssemblyPath)|| !Directory.Exists(settings.CompilerAssemblyPath))
+                        settings.CompilerAssemblyPath = exeDir;
+
+                    if (string.IsNullOrEmpty(settings.LanguageMappingFile) || !File.Exists(settings.LanguageMappingFile))
+                        settings.LanguageMappingFile = devLangMap;
                 }
+
+                if (string.IsNullOrEmpty(settings.UserMetadataFile))
+                    settings.UserMetadataFile = AppDataPath + @"\esUserData.xml";
+            }
+            else
+            {
+                // Prior version — clear paths that still point to an old installation
+                if (key == null) return;
+
+                string basePath = key.GetValue("Install_Dir") as string ?? string.Empty;
+                if (!basePath.EndsWith(@"\")) basePath += @"\";
+
+                if (settings.TemplatePath        == basePath + @"CodeGeneration\Templates\")   settings.TemplatePath        = string.Empty;
+                if (settings.UIAssemblyPath       == basePath + @"CodeGeneration\Bin\UIAddIns\") settings.UIAssemblyPath    = string.Empty;
+                if (settings.CompilerAssemblyPath == basePath + @"CodeGeneration\Bin\")          settings.CompilerAssemblyPath = string.Empty;
+                if (settings.LanguageMappingFile  == basePath + @"CodeGeneration\esLanguages.xml") settings.LanguageMappingFile = string.Empty;
+
+                string appPath = Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData) + @"\EntitySpaces\" + version;
+                if (settings.UserMetadataFile == appPath + @"\esUserData.xml") settings.UserMetadataFile = string.Empty;
             }
         }
 
@@ -898,34 +936,16 @@ namespace EntitySpaces.MetadataEngine
             settings.Driver = "SQL";
             settings.ConnectionString = GetDefaultConnectionString(settings.Driver);
 
-            // File Locations
-            RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\EntitySpaces 2025", false);
-            if (key != null)
-            {
-                string basePath = (string)key.GetValue("Install_Dir");
+            // File Locations — set to empty so AdjustPathsBasedOnPriorVersions resolves
+            // them for both installed (registry Install_Dir present) and development
+            // (running from source, no Install_Dir key) scenarios.
+            settings.TemplatePath         = string.Empty;
+            settings.UIAssemblyPath       = string.Empty;
+            settings.CompilerAssemblyPath = string.Empty;
+            settings.LanguageMappingFile  = string.Empty;
 
-                if (!basePath.EndsWith(@"\"))
-                {
-                    basePath += @"\";
-                }
-
-                settings.TemplatePath = basePath + @"CodeGeneration\Templates\";     
-                settings.UIAssemblyPath = basePath + @"CodeGeneration\Bin\UIAddIns\";
-                settings.CompilerAssemblyPath = basePath + @"CodeGeneration\Bin\";
-                settings.LanguageMappingFile = basePath + @"CodeGeneration\esLanguages.xml";
-            }
-            else
-            {
-                //=========================================================================================
-                // Ultimately this branch of the "if" statement will never be used as there will always be
-                // a registry setting
-                //=========================================================================================
-
-                settings.TemplatePath = @"C:\svn\architecture\ES2019\CodeGeneration\Templates";
-                settings.UIAssemblyPath = @"C:\SVN\architecture\ES2019\CodeGeneration\ClassLibraries\EntitySpaces.TemplateUI\bin\x86\Debug";
-                settings.CompilerAssemblyPath = @"C:\SVN\architecture\ES2019\CodeGeneration\StandAlone\bin\x86\Debug";
-                settings.LanguageMappingFile = @"C:\svn\architecture\ES2019\CodeGeneration\esLanguages.xml";
-            }
+            // Resolve paths now — handles registry install and dev/source fallback
+            AdjustPathsBasedOnPriorVersions(settings, @"Software\EntitySpaces 2025", "ES2025", true);
 
             settings.OutputPath = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
             settings.UserMetadataFile = AppDataPath + @"\esUserData.xml";

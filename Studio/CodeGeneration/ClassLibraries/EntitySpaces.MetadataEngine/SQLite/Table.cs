@@ -18,13 +18,11 @@ namespace EntitySpaces.MetadataEngine.SQLite
 			{
 				if(null == _primaryKeys)
 				{
-                    string query = "SELECT  c.column_name " +
-                                   "FROM   information_schema.key_column_usage c " +
-                                   "INNER JOIN  information_schema.table_constraints t " +
-                                   "ON  c.constraint_name = t.constraint_name " +
-                                   "WHERE  c.table_name = '" + this.Name + "' " +
-                                   " AND c.table_schema = '" + this.Schema + "' " +
-                                   " AND  t.constraint_type = 'PRIMARY KEY' ";
+                    // SQLite has no information_schema.key_column_usage.
+                    // PRAGMA table_info is the authoritative source for PK columns:
+                    // the "pk" column holds the 1-based position of the column within
+                    // the primary key (0 = not part of PK, 1+ = PK member).
+                    string query = $"PRAGMA table_info(\"{this.Name}\")";
 
 					IDbConnection cn = ConnectionHelper.CreateConnection(this.dbRoot, this.Database.Name);
 
@@ -38,13 +36,14 @@ namespace EntitySpaces.MetadataEngine.SQLite
 					_primaryKeys.Table = this;
 					_primaryKeys.dbRoot = this.dbRoot;
 
-					string colName = "";
-
-					int count = metaData.Rows.Count;
-					for(int i = 0; i < count; i++)
+					foreach (DataRow row in metaData.Rows)
 					{
-						colName = metaData.Rows[i]["COLUMN_NAME"] as string;
-						_primaryKeys.AddColumn((Column)this.Columns[colName]);
+                        int pkIndex = row["pk"] != DBNull.Value ? Convert.ToInt32(row["pk"]) : 0;
+                        if (pkIndex > 0)
+                        {
+                            string colName = row["name"] as string;
+                            _primaryKeys.AddColumn((Column)this.Columns[colName]);
+                        }
 					}
 				}
 

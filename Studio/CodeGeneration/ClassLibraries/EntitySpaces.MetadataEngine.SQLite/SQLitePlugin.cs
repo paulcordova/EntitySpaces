@@ -1,4 +1,4 @@
-﻿/* 
+/* 
 -------------------------------------------------------------------------------
                            EntitySpaces, LLC
                        SOFTWARE LICENSE AGREEMENT
@@ -176,17 +176,16 @@ the Software.
 ------------------------------------------------------------------------------- 
 */
 
+using EntitySpaces.MetadataEngine;
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Text;
 using System.Data;
 using System.Data.Common;
-using System.Reflection;
-
-using EntitySpaces.MetadataEngine;
-
 using System.Data.SQLite;
+using System.Linq;
+using System.Reflection;
+using System.Text;
 
 namespace EntitySpaces.MetadataEngine.SQLite
 {
@@ -493,6 +492,78 @@ namespace EntitySpaces.MetadataEngine.SQLite
                         {
                             scale = Convert.ToInt16(dtRow["NUMERIC_SCALE"]);
                         }
+
+                    } // end for
+
+                    // Reliable auto-increment detection for SQLite.
+                    // SQLite has two equivalent forms of auto-increment:
+                    //   Form 1: INTEGER PRIMARY KEY            (rowid alias — no keyword required)
+                    //   Form 2: INTEGER PRIMARY KEY AUTOINCREMENT (explicit keyword, stricter)
+                    // GetSchema("Columns")["AUTOINCREMENT"] only returns true for Form 2,
+                    // missing most real-world tables (Northwind included) that use Form 1.
+                    // We use sqlite_master DDL + PRAGMA table_info to cover both forms.
+                    //
+                    // NOTE: cn was closed above after GetSchema("Columns"). Reopen it here
+                    // because sqlite_master and PRAGMA queries require an active connection.
+                    cn.Open();
+
+                    DataTable masterData = new DataTable();
+                    using (DbDataAdapter masterAdapter = new SQLiteDataAdapter(
+                        $"SELECT sql FROM sqlite_master WHERE type='table' AND name='{table}'", cn))
+                    {
+                        masterAdapter.Fill(masterData);
+                    }
+
+                    string tableDdl = masterData.Rows.Count > 0
+                        ? masterData.Rows[0]["sql"]?.ToString() ?? string.Empty
+                        : string.Empty;
+
+                    // PRAGMA table_info: cid | name | type | notnull | dflt_value | pk
+                    DataTable pragmaData = new DataTable();
+                    using (DbDataAdapter pragmaAdapter = new SQLiteDataAdapter(
+                        $"PRAGMA table_info(\"{table}\")", cn))
+                    {
+                        pragmaAdapter.Fill(pragmaData);
+                    }
+
+                    cn.Close();
+
+                    // Count PK columns — rowid alias requires exactly one INTEGER PK column
+                    int pkColCount = 0;
+                    foreach (DataRow r in pragmaData.Rows)
+                        if (Convert.ToInt32(r["pk"]) > 0) pkColCount++;
+
+                    bool hasExplicitAutoIncrement = tableDdl.IndexOf("AUTOINCREMENT",
+                        StringComparison.OrdinalIgnoreCase) >= 0;
+
+                    foreach (DataRow pkRow in pragmaData.Rows)
+                    {
+                        int pkIndex = pkRow["pk"] != DBNull.Value ? Convert.ToInt32(pkRow["pk"]) : 0;
+                        if (pkIndex <= 0) continue;
+
+                        string pkColName = pkRow["name"] as string ?? string.Empty;
+                        string pkColType = pkRow["type"] as string ?? string.Empty;
+
+                        // Form 1: single-column PK with type exactly INTEGER (rowid alias).
+                        // Type must be literally "INTEGER" — "INT", "INT4", etc. do not
+                        // create a rowid alias and therefore are not auto-increment.
+                        bool isRowidAlias = pkColCount == 1 &&
+                            string.Equals(pkColType.Trim(), "INTEGER", StringComparison.OrdinalIgnoreCase);
+
+                        if (!hasExplicitAutoIncrement && !isRowidAlias) continue;
+
+                        // Mark the matching metaData row as auto-increment
+                        foreach (DataRow metaRow in metaData.Rows)
+                        {
+                            if (string.Equals(metaRow["COLUMN_NAME"] as string, pkColName,
+                                StringComparison.OrdinalIgnoreCase))
+                            {
+                                metaRow["IS_AUTO_KEY"]        = true;
+                                metaRow["AUTO_KEY_SEED"]      = 1;
+                                metaRow["AUTO_KEY_INCREMENT"] = 1;
+                                break;
+                            }
+                        }
                     }
                 }
             }
@@ -503,30 +574,30 @@ namespace EntitySpaces.MetadataEngine.SQLite
 
         List<string> IPlugin.GetPrimaryKeyColumns(string database, string table)
         {
-            IDataReader reader = null;
             List<string> primaryKeys = new List<string>();
 
             try
             {
+                // GetSchema("Columns")["PRIMARY_KEY"] is unreliable in System.Data.SQLite 1.0.119
+                // — the column exists but is always false for rowid-alias PKs (INTEGER PRIMARY KEY
+                // without the AUTOINCREMENT keyword). PRAGMA table_info is the authoritative source:
+                // pk > 0 identifies PK columns; the value is the 1-based order within the PK.
                 using (SQLiteConnection cn = new SQLiteConnection(this.context.ConnectionString))
                 {
                     cn.Open();
-                    DataTable metaData = cn.GetSchema("Columns", new string[] { database, null, table });
+                    DataTable pragmaData = new DataTable();
+                    using (SQLiteDataAdapter adapter = new SQLiteDataAdapter(
+                        $"PRAGMA table_info(\"{table}\")", cn))
+                    {
+                        adapter.Fill(pragmaData);
+                    }
                     cn.Close();
 
-                    for (int i = 0; i < metaData.Rows.Count; i++)
+                    foreach (DataRow row in pragmaData.Rows)
                     {
-                        DataRow dtRow = metaData.Rows[i];
-
-                        if (dtRow["PRIMARY_KEY"] != DBNull.Value)
-                        {
-                            bool pk = (bool)dtRow["PRIMARY_KEY"];
-
-                            if (pk)
-                            {
-                                primaryKeys.Add((string)dtRow["COLUMN_NAME"]);
-                            }
-                        }
+                        int pkIndex = row["pk"] != DBNull.Value ? Convert.ToInt32(row["pk"]) : 0;
+                        if (pkIndex > 0)
+                            primaryKeys.Add(row["name"] as string ?? string.Empty);
                     }
                 }
             }
@@ -597,62 +668,120 @@ namespace EntitySpaces.MetadataEngine.SQLite
 
         DataTable IPlugin.GetForeignKeys(string database, string table)
         {
-            DataTable metaData = new DataTable();
+            DataTable metaData = context.CreateForeignKeysDataTable();
 
             try
             {
+                // GetSchema("ForeignKeys") in System.Data.SQLite 1.0.119 is unreliable:
+                // it misses FKs defined without an explicit "to" column (implicit PK reference)
+                // and does not expose on_update/on_delete actions.
+                // PRAGMA foreign_key_list is the authoritative source for FK metadata in SQLite.
+                //
+                // We scan every table to capture FKs in both directions:
+                //   - table is the FK child  (PRAGMA foreign_key_list(table))
+                //   - table is the PK parent (scan all other tables for references to table)
                 using (SQLiteConnection cn = new SQLiteConnection(this.context.ConnectionString))
                 {
                     cn.Open();
-                    DataTable dt = cn.GetSchema("ForeignKeys", new string[] { database, null, null }); //table });
-                    cn.Close();
 
-                    metaData = context.CreateForeignKeysDataTable();
-
-                    foreach (DataRow dtRow in dt.Rows)
+                    // Get all user tables
+                    DataTable allTables = new DataTable();
+                    using (SQLiteDataAdapter ta = new SQLiteDataAdapter(
+                        "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'", cn))
                     {
-                        string pkTable = (string)dtRow["TABLE_NAME"];
-                        string fkTable = (string)dtRow["FKEY_TO_TABLE"];
+                        ta.Fill(allTables);
+                    }
 
-                        if (pkTable != table && fkTable != table) continue;
+                    // TEMP DEBUG
+                    System.IO.File.WriteAllText(@"C:temp\sqlite_fk_debug.txt",
+                        $"table={table}, allTables.Count={allTables.Rows.Count}\r\n");
 
-                        DataRow row = metaData.NewRow();
-                        metaData.Rows.Add(row);
+                    System.IO.File.AppendAllText(@"C:temp\sqlite_fk_debug.txt",
+                        "Columns: " + string.Join(", ",
+                        allTables.Columns.Cast<DataColumn>().Select(c => c.ColumnName)) + "\r\n");
 
-                        DumpRow(dtRow);
+                    // TEMP DEBUG Verify FK exists in DB
+                    DataTable fkCheck = new DataTable();
+                    using (SQLiteDataAdapter pa = new SQLiteDataAdapter(
+                        "PRAGMA foreign_key_list(\"Product\")", cn))
+                    {
+                        pa.Fill(fkCheck);
+                    }
+                    System.IO.File.AppendAllText(@"C:temp\sqlite_fk_debug.txt",
+                        $"Direct PRAGMA Product FK rows: {fkCheck.Rows.Count}\r\n");
 
-                        row["FK_NAME"] = dtRow["CONSTRAINT_NAME"];
+                    // Also check the DDL of Product
+                    DataTable ddlCheck = new DataTable();
+                    using (SQLiteDataAdapter pa = new SQLiteDataAdapter(
+                        "SELECT sql FROM sqlite_master WHERE name='Product'", cn))
+                    {
+                        pa.Fill(ddlCheck);
+                    }
+                    System.IO.File.AppendAllText(@"C:temp\sqlite_fk_debug.txt",
+                        $"Product DDL: {ddlCheck.Rows[0][0]}\r\n");
 
-                        row["PK_TABLE_CATALOG"] = dtRow["FKEY_TO_CATALOG"];
-                        row["PK_TABLE_SCHEMA"] = dtRow["FKEY_TO_SCHEMA"];
-                        row["PK_TABLE_NAME"] = dtRow["FKEY_TO_TABLE"];
+                    foreach (DataRow tableRow in allTables.Rows)
+                    {
+                        string tbl = tableRow["name"] as string;
 
-                        row["FK_TABLE_CATALOG"] = dtRow["TABLE_CATALOG"];
-                        row["FK_TABLE_SCHEMA"] = dtRow["TABLE_SCHEMA"];
-                        row["FK_TABLE_NAME"] = dtRow["TABLE_NAME"];
-
-                        row["FK_COLUMN_NAME"] = dtRow["FKEY_FROM_COLUMN"];
-                        row["PK_COLUMN_NAME"] = dtRow["FKEY_TO_COLUMN"];
-
-                        cn.Open();
-                        DataTable colMetadata = cn.GetSchema("Columns", new string[] { database, null, (string)dtRow["TABLE_NAME"] });
-                        cn.Close();
-
-                        for (int i = 0; i < colMetadata.Rows.Count; i++)
+                        // PRAGMA foreign_key_list(T):
+                        //   id | seq | table | from | to | on_update | on_delete | match
+                        DataTable pragma = new DataTable();
+                        using (SQLiteDataAdapter pa = new SQLiteDataAdapter(
+                            $"PRAGMA foreign_key_list(\"{tbl}\")", cn))
                         {
-                            DataRow colRow = colMetadata.Rows[i];
+                            pa.Fill(pragma);
+                        }
 
-                            if (colRow["PRIMARY_KEY"] != DBNull.Value)
+                        if (pragma.Rows.Count == 0) continue;
+
+                        // Group by FK id (one id = one FK constraint, possibly multi-column)
+                        var groups = new SortedDictionary<int, System.Collections.Generic.List<DataRow>>();
+                        foreach (DataRow pr in pragma.Rows)
+                        {
+                            int id = Convert.ToInt32(pr["id"]);
+                            if (!groups.ContainsKey(id))
+                                groups[id] = new System.Collections.Generic.List<DataRow>();
+                            groups[id].Add(pr);
+                        }
+
+                        foreach (var kv in groups)
+                        {
+                            var rows = kv.Value;
+                            rows.Sort((a, b) => Convert.ToInt32(a["seq"]).CompareTo(Convert.ToInt32(b["seq"])));
+
+                            string pkTable = rows[0]["table"] as string;
+
+                            bool isFkSide = string.Equals(tbl,     table, StringComparison.OrdinalIgnoreCase);
+                            bool isPkSide = string.Equals(pkTable, table, StringComparison.OrdinalIgnoreCase);
+                            if (!isFkSide && !isPkSide) continue;
+
+                            // One metaData row per FK column (EntitySpaces expects one row per column)
+                            foreach (DataRow r in rows)
                             {
-                                bool pk = (bool)colRow["PRIMARY_KEY"];
+                                string toCol = r["to"] as string;
+                                if (string.IsNullOrEmpty(toCol))
+                                    toCol = ResolvePkColumn(cn, pkTable);
 
-                                if (pk)
-                                {
-                                    row["PK_NAME"] = colRow["COLUMN_NAME"];
-                                }
+                                string fkName = $"FK_{tbl}_{pkTable}_{kv.Key}";
+
+                                DataRow row = metaData.NewRow();
+                                row["FK_NAME"]          = fkName;
+                                row["PK_TABLE_CATALOG"] = database;
+                                row["PK_TABLE_SCHEMA"]  = string.Empty;
+                                row["PK_TABLE_NAME"]    = pkTable;
+                                row["FK_TABLE_CATALOG"] = database;
+                                row["FK_TABLE_SCHEMA"]  = string.Empty;
+                                row["FK_TABLE_NAME"]    = tbl;
+                                row["FK_COLUMN_NAME"]   = r["from"] as string;
+                                row["PK_COLUMN_NAME"]   = toCol;
+                                row["PK_NAME"]          = toCol;
+                                metaData.Rows.Add(row);
                             }
                         }
                     }
+
+                    cn.Close();
                 }
             }
             catch { }
@@ -780,6 +909,13 @@ namespace EntitySpaces.MetadataEngine.SQLite
             //return adapter;
         }
 
+        // Overload accepting an already-open IDbConnection — used by ForeignKeys.cs,
+        // Columns.cs, and other MetadataEngine files that manage connection lifetime.
+        static internal DbDataAdapter CreateAdapter(string query, IDbConnection conn)
+        {
+            return new SQLiteDataAdapter(query, (SQLiteConnection)conn);
+        }
+
         static internal IDbCommand CreateCommand(string commandText, string connStr)
         {
             SQLiteConnection cn = new SQLiteConnection(connStr);
@@ -847,5 +983,23 @@ namespace EntitySpaces.MetadataEngine.SQLite
         }
 
         #endregion
+
+        // Resolve the PK column name of a table when PRAGMA foreign_key_list returns
+        // an empty "to" field (FK references the PK implicitly without naming it).
+        private static string ResolvePkColumn(SQLiteConnection cn, string tableName)
+        {
+            DataTable pragma = new DataTable();
+            using (SQLiteDataAdapter pa = new SQLiteDataAdapter(
+                $"PRAGMA table_info(\"{tableName}\")", cn))
+            {
+                pa.Fill(pragma);
+            }
+            foreach (DataRow r in pragma.Rows)
+            {
+                int pk = r["pk"] != DBNull.Value ? Convert.ToInt32(r["pk"]) : 0;
+                if (pk == 1) return r["name"] as string ?? string.Empty;
+            }
+            return string.Empty;
+        }
     }
 }
