@@ -1,49 +1,43 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 	
   <PropertyGroup>
-    <TargetFrameworks>net48;net8.0;net9.0</TargetFrameworks>
-    <AssemblyVersion>2025.2.0</AssemblyVersion>
-    <FileVersion>2025.2.0</FileVersion>
-    <Version>2025.2.0</Version>
-    <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
-    <Description>EntitySpaces in .NET for SQL Server (single assembly install) fork from mikegriffin project and mattphi in github</Description>
-    <PackageProjectUrl>https://github.com/paulcordova/EntitySpaces</PackageProjectUrl>
-    <PackageTags>EntitySpaces, ORM, SQLServer</PackageTags>
-    <PackageReleaseNotes>Updated version for net 8-9 and .NetFramework 4.8.</PackageReleaseNotes>
-    <Product>EntitySpaces for SqlServer</Product>
-    <PackageIcon>esIcon.png</PackageIcon>
-	<RepositoryType>GitHub</RepositoryType>
-    <RepositoryUrl>https://github.com/paulcordova/EntitySpaces</RepositoryUrl>
-    <Title>EntitySpaces.ORM.SQLServer.NET for Net 8-9 and 4.8</Title>
-	<PackageId>$(AssemblyName)</PackageId>
-    <Authors>$(AssemblyName) paulcordova</Authors>
-    <Nullable>disable</Nullable>
-    <PackageReadmeFile>README.md</PackageReadmeFile>
-  </PropertyGroup>
+    <TargetFrameworks>net48;net8.0;net9.0;net10.0</TargetFrameworks>
+    <AssemblyVersion>2026.6.0.0</AssemblyVersion>
+    <FileVersion>2026.6.0.0</FileVersion>
+    <Version>2026.6.0</Version>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
 	
-	<PropertyGroup Condition="'$(TargetFramework)'=='net48'">
-		<DefineConstants>DOTNET4</DefineConstants>
-	</PropertyGroup>
-			
-	<PropertyGroup Condition="'$(TargetFramework)'=='net8.0'">
-		<DefineConstants>DOTNET8</DefineConstants>
-	</PropertyGroup>
-	<PropertyGroup Condition="'$(TargetFramework)'=='net9.0'">
-		<DefineConstants>DOTNET9</DefineConstants>
+    <Description>SqlServer provider for EntitySpaces ORM. .NET 4.8–10. Strongly-typed entities, dynamic SQL and stored procedures (single assembly install).</Description>
+    <PackageProjectUrl>https://github.com/paulcordova/EntitySpaces</PackageProjectUrl>
+    <PackageTags>EntitySpaces;ORM;SqlServer;MSSQL;ADO.NET;data-access;entity;legacy;dotnet;netframework;net8;net9;net10</PackageTags>
+    <PackageReleaseNotes>v2026.06.0 — Actively maintained fork. Added support for .NET 8, 9 and 10 while preserving .NET Framework 4.8 compatibility. No breaking changes from original EntitySpaces API.</PackageReleaseNotes>
+    <Product>EntitySpaces</Product>
+    <PackageIcon>esIcon.png</PackageIcon>
+	<RepositoryType>git</RepositoryType>
+    <RepositoryUrl>https://github.com/paulcordova/EntitySpaces</RepositoryUrl>
+    <Title>EntitySpaces.ORM.SqlServer.NET — .NET 4.8 to .NET 10</Title>
+	<PackageId>$(AssemblyName)</PackageId>
+    <Authors>paulcordova</Authors>
+    <Nullable>disable</Nullable>
+	<ImplicitUsings>false</ImplicitUsings>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+	
+	<PackageLicenseExpression>BSD-3-Clause</PackageLicenseExpression>
+	<PublishRepositoryUrl>true</PublishRepositoryUrl>
+	<IncludeSymbols>true</IncludeSymbols>
+	<SymbolPackageFormat>snupkg</SymbolPackageFormat>
+	<PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+  </PropertyGroup>
+
+	<PropertyGroup>
+		<GenerateAssemblyInfo>true</GenerateAssemblyInfo>
 	</PropertyGroup>
 
-	<PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Debug|Net9.0|AnyCPU'">
-		<WarningLevel>4</WarningLevel>
-	</PropertyGroup>
-	<PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Release|Net9.0|AnyCPU'">
-		<WarningLevel>4</WarningLevel>
-	</PropertyGroup>
-	<PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Debug|Net8.0|AnyCPU'">
-	  <WarningLevel>4</WarningLevel>
-	</PropertyGroup>
-	<PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Release|Net8.0|AnyCPU'">
-	  <WarningLevel>4</WarningLevel>
-	</PropertyGroup>
+	<ItemGroup>
+		<AssemblyAttribute Include="System.CLSCompliantAttribute">
+			<_Parameter1>false</_Parameter1>
+		</AssemblyAttribute>
+	</ItemGroup>
 
 	<ItemGroup>
     <Compile Include="..\EntitySpaces.Core\esCollectionWCFPacket.cs" Link="EntitySpaces.Core\esCollectionWCFPacket.cs" />
@@ -129,30 +123,16 @@
     <Compile Include="..\EntitySpaces.Interfaces\StandardProviderParameters.cs" Link="EntitySpaces.Interfaces\StandardProviderParameters.cs" />
   </ItemGroup>
 
-
-	<ItemGroup>
-		<PackageReference Include="Microsoft.CSharp" Version="4.7.0" />
-		<PackageReference Include="System.Runtime" Version="4.3.1" />
-		<PackageReference Include="System.Configuration.ConfigurationManager" Version="9.0.1" />
-		<PackageReference Include="System.Runtime.Extensions" Version="4.3.1" />
+	<ItemGroup Condition="'$(TargetFramework)' == 'net48'">
+		<Reference Include="Microsoft.CSharp" />
+		<Reference Include="System.Configuration" />
+		<PackageReference Include="System.Data.SqlClient" Version="4.9.1" />
 	</ItemGroup>
 	
-	<ItemGroup Condition="'$(TargetFramework)' == 'net48'">
-		<PackageReference Include="System.Data.SqlClient" Version="4.9.0" />
-		<PackageReference Include="System.ValueTuple" Version="4.5.0" />
-		<PackageReference Include="System.ComponentModel" Version="4.3.0" />
+	<ItemGroup Condition="'$(TargetFramework)' != 'net48'">
+		<PackageReference Include="System.Configuration.ConfigurationManager" Version="10.0.8" />
+		<PackageReference Include="Microsoft.Data.SqlClient" Version="7.0.1" />
 	</ItemGroup>
-
-	<ItemGroup Condition="'$(TargetFramework)' == 'net8.0'">
-		<PackageReference Include="Microsoft.Data.SqlClient" Version="6.0.1" />
-		<PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="9.0.1" />
-	</ItemGroup>
-
-	<ItemGroup Condition="'$(TargetFramework)' == 'net9.0'">
-		<PackageReference Include="Microsoft.Data.SqlClient" Version="6.0.1" />
-		<PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="9.0.1" />
-	</ItemGroup>
-  
 
   <ItemGroup>
     <None Update="EntitySpaces.ORM.nuspec">

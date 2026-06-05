@@ -2,19 +2,19 @@
 
 	<PropertyGroup>
 		<TargetFrameworks>net48;net8.0;net9.0;net10.0</TargetFrameworks>
-		<AssemblyVersion>2026.5.0.0</AssemblyVersion>
-		<FileVersion>2026.5.0.0</FileVersion>
-		<Version>2026.5.0</Version>
+		<AssemblyVersion>2026.6.0.0</AssemblyVersion>
+		<FileVersion>2026.6.0.0</FileVersion>
+		<Version>2026.6.0</Version>
 		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
 
 		<Description>PostgreSQL provider for EntitySpaces ORM. .NET 4.8–10. Strongly-typed entities, dynamic SQL and stored procedures (single assembly install).</Description>
 		<PackageProjectUrl>https://github.com/paulcordova/EntitySpaces</PackageProjectUrl>
 		<PackageTags>EntitySpaces;ORM;PostgreSQL;Postgres;ADO.NET;data-access;entity;legacy;dotnet;netframework;net8;net9;net10</PackageTags>
-		<PackageReleaseNotes>v2026.05.0 — Actively maintained fork. Added support for .NET 8, 9 and 10 while preserving .NET Framework 4.8 compatibility. No breaking changes from original EntitySpaces API.</PackageReleaseNotes>
+		<PackageReleaseNotes>v2026.06.0 — Actively maintained fork. Added support for .NET 8, 9 and 10 while preserving .NET Framework 4.8 compatibility. No breaking changes from original EntitySpaces API.</PackageReleaseNotes>
 		<Product>EntitySpaces</Product>
+		<PackageIcon>esIcon.png</PackageIcon> 
 		<RepositoryType>git</RepositoryType>
 		<RepositoryUrl>https://github.com/paulcordova/EntitySpaces</RepositoryUrl>
-		<PackageIcon>esIcon.png</PackageIcon>
 		<Title>EntitySpaces.ORM.PostgreSQL.NET — .NET 4.8 to .NET 10</Title>
 		<PackageId>$(AssemblyName)</PackageId>
 		<Authors>paulcordova</Authors>

@@ -1,25 +1,32 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>net48;Net8.0;Net9.0</TargetFrameworks>
-    <AssemblyVersion>2024.8.0.0</AssemblyVersion>
-    <FileVersion>2024.8.0.0</FileVersion>
-    <Version>2024.8.0.0</Version>
-    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
-    <Description>EntitySpaces in .NET for Oracle Server (Managed Client, single assembly install) fork from mikegriffin project and mattphi in github</Description>
+	<TargetFrameworks>net48;net8.0;net9.0;net10.0</TargetFrameworks>
+	<AssemblyVersion>2026.6.0.0</AssemblyVersion>
+	<FileVersion>2026.6.0.0</FileVersion>
+	<Version>2026.6.0</Version>
+	<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+
+    <Description>Oracle provider for EntitySpaces ORM. .NET 4.8–10. Strongly-typed entities, dynamic SQL and stored procedures (single assembly install).</Description>
     <PackageProjectUrl>https://github.com/paulcordova/EntitySpaces/</PackageProjectUrl>
-    <PackageTags>EntitySpaces, ORM, Oracle</PackageTags>
-    <PackageReleaseNotes>Updated version to operate with .NET 6-7-8 and .NetFramework 4.8</PackageReleaseNotes>
-    <RepositoryType>Github</RepositoryType>
-    <RepositoryUrl>https://github.com/paulcordova/EntitySpaces</RepositoryUrl>
+    <PackageTags>EntitySpaces;ORM;Oracle;OracleManagedClient;ADO.NET;data-access;entity;legacy;dotnet;netframework;net8;net9;net10</PackageTags>
+    <PackageReleaseNotes>v2026.06.0 — Actively maintained fork. Added support for .NET 8, 9 and 10 while preserving .NET Framework 4.8 compatibility. No breaking changes from original EntitySpaces API.</PackageReleaseNotes>
+	<Product>EntitySpaces</Product>
     <PackageIcon>esIcon.png</PackageIcon>
-	<Title>EntitySpaces.ORM.SqLite for Net 6-7-8 and 4.8</Title>
+    <RepositoryType>git</RepositoryType>
+    <RepositoryUrl>https://github.com/paulcordova/EntitySpaces</RepositoryUrl>
+	<Title>EntitySpaces.ORM.Oracle.NET — .NET 4.8 to .NET 10</Title>
     <PackageId>$(AssemblyName)</PackageId>
-    <Authors>$(AssemblyName) paulcordova</Authors>    <Product>EntitySpaces</Product>
-    <PackageIconUrl />
-    <PackageIconUrl />
-    <Product>EntitySpaces</Product>
-    <Company />
+    <Authors>paulcordova</Authors>
+	<Nullable>disable</Nullable>
+	<ImplicitUsings>false</ImplicitUsings>
+	<PackageReadmeFile>README.md</PackageReadmeFile>
+
+	<PackageLicenseExpression>BSD-3-Clause</PackageLicenseExpression>
+	<PublishRepositoryUrl>true</PublishRepositoryUrl>
+	<IncludeSymbols>true</IncludeSymbols>
+	<SymbolPackageFormat>snupkg</SymbolPackageFormat>
+	<PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
   </PropertyGroup>
 
 
@@ -107,78 +114,35 @@
     <Compile Include="..\EntitySpaces.Interfaces\StandardProviderParameters.cs" Link="EntitySpaces.Interfaces\StandardProviderParameters.cs" />
   </ItemGroup>
 
-    <PropertyGroup Condition="'$(TargetFramework)'=='net48'">
-    <DefineConstants>DOTNET4</DefineConstants>
-    </PropertyGroup>
-    <!--<PropertyGroup Condition="'$(TargetFramework)'=='net6.0'">
-    <DefineConstants>DOTNET5</DefineConstants>
-    </PropertyGroup>
-    <PropertyGroup Condition="'$(TargetFramework)'=='net7.0'">
-    <DefineConstants>DOTNET5</DefineConstants>
-    </PropertyGroup>-->
-    <PropertyGroup Condition="'$(TargetFramework)'=='net8.0'">
-    <DefineConstants>DOTNET8</DefineConstants>
-    </PropertyGroup>
-    <PropertyGroup Condition="'$(TargetFramework)'=='net9.0'">
-	    <DefineConstants>DOTNET9</DefineConstants>
-    </PropertyGroup>
-
-
-  <ItemGroup Condition="'$(TargetFramework)' == 'net48'">
-    <Reference Include="System.Configuration" />
-    <PackageReference Include="Microsoft.CSharp" Version="4.7.0" />
-	<PackageReference Include="System.Configuration.ConfigurationManager">
-		<Version>9.0.1</Version>
-	</PackageReference>
-    <PackageReference Include="Oracle.ManagedDataAccess" Version="23.7.0" />
-    <PackageReference Include="System.ValueTuple" Version="4.5.0" />
-    <PackageReference Include="System.ComponentModel" Version="4.3.0" />
-  </ItemGroup>
-  
-
-  <!--<ItemGroup Condition="'$(TargetFramework)' == 'net6.0'">
-    <PackageReference Include="Microsoft.CSharp" Version="4.7.0" />
-    <PackageReference Include="Oracle.ManagedDataAccess.Core" Version="23.5.1" />
-    <PackageReference Include="System.Configuration.ConfigurationManager">
-      <Version>8.0.0</Version>
-    </PackageReference>
-  </ItemGroup>-->
-
-  <!--<ItemGroup Condition="'$(TargetFramework)' == 'net7.0'">
-	<PackageReference Include="Microsoft.CSharp" Version="4.7.0" />
-    <PackageReference Include="Oracle.ManagedDataAccess.Core" Version="23.5.1" />
-    <PackageReference Include="System.Configuration.ConfigurationManager">
-		<Version>8.0.0</Version>
-	</PackageReference>
-  </ItemGroup>-->
+	<ItemGroup>
+		<!--<PackageReference Include="Oracle.ManagedDataAccess" Version="23.26.100" />-->
+	</ItemGroup>
 	
-  <ItemGroup Condition="'$(TargetFramework)' == 'net8.0'">
-    <PackageReference Include="Microsoft.CSharp" Version="4.7.0" />
-    <PackageReference Include="Oracle.ManagedDataAccess.Core" Version="23.7.0" />
-	<PackageReference Include="System.Configuration.ConfigurationManager">
-		<Version>9.0.1</Version>
-	</PackageReference>
-  </ItemGroup>
-
-	<ItemGroup Condition="'$(TargetFramework)' == 'net9.0'">
-		<PackageReference Include="Microsoft.CSharp" Version="4.7.0" />
-		<PackageReference Include="Oracle.ManagedDataAccess.Core" Version="23.7.0" />
-		<PackageReference Include="System.Configuration.ConfigurationManager">
-			<Version>9.0.1</Version>
-		</PackageReference>
+	<ItemGroup Condition="'$(TargetFramework)' == 'net48'">
+		<PackageReference Include="Oracle.ManagedDataAccess" Version="23.26.100" />
+		<Reference Include="Microsoft.CSharp" />
+		<Reference Include="System.Configuration" />
 	</ItemGroup>
 
+	<ItemGroup Condition="'$(TargetFramework)' != 'net48'">
+		<PackageReference Include="Oracle.ManagedDataAccess.Core" Version="23.26.100" />
+		<PackageReference Include="System.Configuration.ConfigurationManager" Version="10.0.3" />
+	</ItemGroup>
+	  
 	<ItemGroup>
-    <None Update="EntitySpaces.ORM.nuspec">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="readme.md">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="..\esIcon.png">
-      <Pack>True</Pack>
-      <PackagePath></PackagePath>
-    </None>
-  </ItemGroup>
+		<None Update="README.md">
+			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</None>
+
+		<None Include="..\esIcon.png">
+			<Pack>True</Pack>
+			<PackagePath></PackagePath>
+		</None>
+
+		<None Include="..\README.md">
+			<Pack>True</Pack>
+			<PackagePath>\</PackagePath>
+		</None>
+	</ItemGroup>
 
 </Project>
