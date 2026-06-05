@@ -42,17 +42,42 @@ namespace EntitySpaces.MetadataEngine.PostgreSQL
 		
 				PopulateArray(metaData);
 
-				// IsAutoKey logic
-				query = @"SELECT a.attname AS column_name, substring(pg_get_expr(ad.adbin, c.oid) " +
-					@"FROM '[\'""]+(.+?)[\'""]+') AS seq_name " +
-					"FROM pg_class c, pg_namespace n, pg_attribute a, pg_attrdef ad " +
-					"WHERE n.nspname = '" + this.Table.Schema + "' AND c.relname = '" + this.Table.Name + "' " +
-					"AND c.relnamespace = n.oid " +
-					"AND a.attrelid = c.oid  AND a.atthasdef = true " +
-					"AND ad.adrelid = c.oid AND ad.adnum = a.attnum " +
-					@"AND pg_get_expr(ad.adbin, c.oid) LIKE 'nextval(%'";
+                //New 
+                query = @"
+						SELECT 
+							a.attname AS column_name,
+							substring(
+								pg_get_expr(ad.adbin, c.oid)
+								FROM '''(.+?)'''
+							) AS seq_name
+						FROM pg_class c
+						JOIN pg_namespace n 
+							ON c.relnamespace = n.oid
+						JOIN pg_attribute a 
+							ON a.attrelid = c.oid
+						JOIN pg_attrdef ad 
+							ON ad.adrelid = c.oid 
+						   AND ad.adnum = a.attnum
+						WHERE n.nspname = '" + this.Table.Schema + @"'
+						AND c.relname = '" + this.Table.Name + @"'
+						AND pg_get_expr(ad.adbin, c.oid) LIKE 'nextval(%'
 
-				DataTable seqData = new DataTable();
+						UNION
+
+						SELECT
+							cols.column_name,
+							pg_get_serial_sequence(
+								cols.table_schema || '.' || cols.table_name,
+								cols.column_name
+							) AS seq_name
+						FROM information_schema.columns cols
+						WHERE cols.table_schema = '" + this.Table.Schema + @"'
+						AND cols.table_name = '" + this.Table.Name + @"'
+						AND cols.is_identity = 'YES'
+						";
+
+
+                DataTable seqData = new DataTable();
                 adapter = PostgreSQLDatabases.CreateAdapter(query, cn);
 				adapter.Fill(seqData);
 
@@ -69,10 +94,22 @@ namespace EntitySpaces.MetadataEngine.PostgreSQL
 						PostgreSQLColumn col = this[colName] as PostgreSQLColumn;
 						col._isAutoKey = true;
 
-//                      col.AutoKeyText = col.Default.Replace("nextval", "currval").Replace("\"", "\"\"");
+                        string seqName = rows[i]["seq_name"].ToString();
 
-						query = "SELECT min_value, increment_by FROM \"" + rows[i]["seq_name"] + "\"";
-                        adapter = PostgreSQLDatabases.CreateAdapter(query, cn);
+                        if (seqName.Contains("."))
+                        {
+                            seqName = seqName.Split('.')[1];
+                        }
+
+                        query = @"
+								SELECT 
+									start_value AS min_value,
+									increment_by
+								FROM pg_sequences
+								WHERE schemaname = '" + this.Table.Schema + @"'
+								AND sequencename = '" + seqName + "'";
+						
+						adapter = PostgreSQLDatabases.CreateAdapter(query, cn);
 						DataTable autokeyData = new DataTable();
 						adapter.Fill(autokeyData);
 

@@ -139,6 +139,7 @@ namespace EntitySpaces.Npgsql2Provider
                     // return them
                     p = cmd.Parameters.Add(CloneParameter(types[col.Name]));
                     p.Direction = ParameterDirection.InputOutput;
+                    p.Value = DBNull.Value; // required by Npgsql — null is not valid, use DBNull.Value
 
                     // Add to RETURNING instead of second SELECT
                     returningCols.Add(Delimiters.ColumnOpen + col.Name + Delimiters.ColumnClose);

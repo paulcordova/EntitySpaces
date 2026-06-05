@@ -1,31 +1,38 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-	<TargetFrameworks>net48;net8.0;net9.0</TargetFrameworks>
-	<AssemblyVersion>2025.2.0</AssemblyVersion>
-	<FileVersion>2025.2.0</FileVersion>
-	<Version>2025.2.0</Version>
-    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
-    <Description>EntitySpaces in .NET Standard Mode for PostgreSql (single assembly install) fork from mikegriffin project and mattphi in github</Description>
-    <PackageProjectUrl>https://github.com/paulcordova/EntitySpaces</PackageProjectUrl>
-    <PackageTags>EntitySpaces, ORM, Postgres, sql, database</PackageTags>
-	<PackageReleaseNotes>Updated version for net 8-9 and .NetFramework 4.8.</PackageReleaseNotes>
-    <Product>EntitySpaces ORM for PostgreSQL</Product>
-    <PackageIcon>esIcon.png</PackageIcon>
-	<RepositoryType>Github</RepositoryType>
-    <RepositoryUrl>https://github.com/paulcordova/EntitySpaces</RepositoryUrl>
-	<Title>EntitySpaces.ORM.MySQL.NET for Net 8-9 and 4.8</Title>
-	<PackageId>$(AssemblyName)</PackageId>
-    <Authors>$(AssemblyName) paulcordova</Authors>
-    <PackageIconUrl />
-    <Company />
-    <PackageReadmeFile>README.md</PackageReadmeFile>
-  </PropertyGroup>
-  
+	<PropertyGroup>
+		<TargetFrameworks>net48;net8.0;net9.0;net10.0</TargetFrameworks>
+		<AssemblyVersion>2026.5.0.0</AssemblyVersion>
+		<FileVersion>2026.5.0.0</FileVersion>
+		<Version>2026.5.0</Version>
+		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+
+		<Description>PostgreSQL provider for EntitySpaces ORM. .NET 4.8–10. Strongly-typed entities, dynamic SQL and stored procedures (single assembly install).</Description>
+		<PackageProjectUrl>https://github.com/paulcordova/EntitySpaces</PackageProjectUrl>
+		<PackageTags>EntitySpaces;ORM;PostgreSQL;Postgres;ADO.NET;data-access;entity;legacy;dotnet;netframework;net8;net9;net10</PackageTags>
+		<PackageReleaseNotes>v2026.05.0 — Actively maintained fork. Added support for .NET 8, 9 and 10 while preserving .NET Framework 4.8 compatibility. No breaking changes from original EntitySpaces API.</PackageReleaseNotes>
+		<Product>EntitySpaces</Product>
+		<RepositoryType>git</RepositoryType>
+		<RepositoryUrl>https://github.com/paulcordova/EntitySpaces</RepositoryUrl>
+		<PackageIcon>esIcon.png</PackageIcon>
+		<Title>EntitySpaces.ORM.PostgreSQL.NET — .NET 4.8 to .NET 10</Title>
+		<PackageId>$(AssemblyName)</PackageId>
+		<Authors>paulcordova</Authors>
+		<Nullable>disable</Nullable>
+		<ImplicitUsings>false</ImplicitUsings>
+		<PackageReadmeFile>README.md</PackageReadmeFile>
+
+		<PackageLicenseExpression>BSD-3-Clause</PackageLicenseExpression>
+		<PublishRepositoryUrl>true</PublishRepositoryUrl>
+		<IncludeSymbols>true</IncludeSymbols>
+		<SymbolPackageFormat>snupkg</SymbolPackageFormat>
+		<PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+	</PropertyGroup>
 
   <ItemGroup>
     <Compile Include="..\EntitySpaces.Core\esCollectionWCFPacket.cs" Link="EntitySpaces.Core\esCollectionWCFPacket.cs" />
     <Compile Include="..\EntitySpaces.Core\esEntity.cs" Link="EntitySpaces.Core\esEntity.cs" />
+    <Compile Include="..\EntitySpaces.Core\esDynamic.cs" Link="EntitySpaces.Core\esDynamic.cs" />
     <Compile Include="..\EntitySpaces.Core\esEntityCollection.Binding.cs" Link="EntitySpaces.Core\esEntityCollection.Binding.cs" />
     <Compile Include="..\EntitySpaces.Core\esEntityCollection.cs" Link="EntitySpaces.Core\esEntityCollection.cs" />
     <Compile Include="..\EntitySpaces.Core\esEntityCollectionBase.cs" Link="EntitySpaces.Core\esEntityCollectionBase.cs" />
@@ -62,6 +69,7 @@
     <Compile Include="..\EntitySpaces.DynamicQuery\OverClause\esWindowFrame.cs" Link="EntitySpaces.DynamicQuery\OverClause\esWindowFrame.cs" />	
     <Compile Include="..\EntitySpaces.Interfaces\DynamicQuery\esDynamicQuery.cs" Link="EntitySpaces.Interfaces\DynamicQuery\esDynamicQuery.cs" />
     <Compile Include="..\EntitySpaces.Interfaces\DynamicQuery\esDynamicQuery2.cs" Link="EntitySpaces.Interfaces\DynamicQuery\esDynamicQuery2.cs" />
+    <Compile Include="..\EntitySpaces.Interfaces\DynamicQuery\esDynamicQueryOver.cs" Link="EntitySpaces.Interfaces\DynamicQuery\esDynamicQueryOver.cs" />
     <Compile Include="..\EntitySpaces.Interfaces\DynamicQuery\IDynamicQueryInternal.cs" Link="EntitySpaces.Interfaces\DynamicQuery\IDynamicQueryInternal.cs" />
     <Compile Include="..\EntitySpaces.DynamicQuery\esGroupByItem.cs" Link="EntitySpaces.DynamicQuery\esGroupByItem.cs" />
     <Compile Include="..\EntitySpaces.DynamicQuery\esJoinItem.cs" Link="EntitySpaces.DynamicQuery\esJoinItem.cs" />
@@ -73,6 +81,7 @@
     <Compile Include="..\EntitySpaces.Interfaces\enums.cs" Link="EntitySpaces.Interfaces\enums.cs" />
     <Compile Include="..\EntitySpaces.Interfaces\esColumnMetadata.cs" Link="EntitySpaces.Interfaces\esColumnMetadata.cs" />
     <Compile Include="..\EntitySpaces.Interfaces\esColumnMetadataCollection.cs" Link="EntitySpaces.Interfaces\esColumnMetadataCollection.cs" />
+    <Compile Include="..\EntitySpaces.Interfaces\esConfigSection.cs" Link="EntitySpaces.Interfaces\esConfigSection.cs" />
     <Compile Include="..\EntitySpaces.Interfaces\esConfigSettings.cs" Link="EntitySpaces.Interfaces\esConfigSettings.cs" />
     <Compile Include="..\EntitySpaces.Interfaces\esConnection.cs" Link="EntitySpaces.Interfaces\esConnection.cs" />
     <Compile Include="..\EntitySpaces.Interfaces\esDataProvider.cs" Link="EntitySpaces.Interfaces\esDataProvider.cs" />
@@ -106,50 +115,30 @@
 
   </ItemGroup>
 
-	<ItemGroup Condition="'$(TargetFramework)' == 'net48'">
-		<PackageReference Include="Npgsql" Version="4.1.14" />
-		<PackageReference Include="Microsoft.CSharp" Version="4.7.0" />
-		<PackageReference Include="System.Text.Json" Version="4.7.2" />
-	</ItemGroup>
+  <ItemGroup Condition="'$(TargetFramework)' == 'net48'">
+	 <Reference Include="Microsoft.CSharp" />
+	 <Reference Include="System.Configuration" />
+	 <PackageReference Include="Npgsql" Version="8.0.8" />
+  </ItemGroup>
 
-	<ItemGroup Condition="'$(TargetFramework)' == 'net8.0'">
-		<PackageReference Include="Npgsql" Version="9.0.2" />
-		<PackageReference Include="System.Buffers" Version="4.6.0" />
-		<PackageReference Include="System.Runtime.CompilerServices.Unsafe" Version="6.1.0" />
-	</ItemGroup>
+  <ItemGroup Condition="'$(TargetFramework)' != 'net48'">
+	  <PackageReference Include="Npgsql" Version="10.0.3" />
+	  <PackageReference Include="System.Configuration.ConfigurationManager" Version="10.0.8" />
+  </ItemGroup>
 
-	<ItemGroup Condition="'$(TargetFramework)' == 'net9.0'">
-		<PackageReference Include="Npgsql" Version="9.0.2" />
-		<PackageReference Include="System.Buffers" Version="4.6.0" />
-		<PackageReference Include="System.Runtime.CompilerServices.Unsafe" Version="6.1.0" />
 
-	</ItemGroup>
-
-	<ItemGroup>
-		<PackageReference Include="Microsoft.CSharp" Version="4.7.0" />
-	</ItemGroup>
-
-	<ItemGroup>
-    <None Update="EntitySpaces.ORM.nuspec">
+  <ItemGroup>
+    <None Update="README.md">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-   
     <None Include="..\esIcon.png">
       <Pack>True</Pack>
       <PackagePath></PackagePath>
     </None>
-   
-    <None Include="..\README.md">
-      <Pack>True</Pack>
-      <PackagePath>\</PackagePath>
-    </None>
-
+	<None Include="..\README.md">
+		<Pack>True</Pack>
+		<PackagePath>\</PackagePath>
+	</None>
   </ItemGroup>
 
-	<!--<PropertyGroup>
-		<PackageReadmeFile>README.md</PackageReadmeFile>
-	</PropertyGroup>-->
-
-
-	
 </Project>
