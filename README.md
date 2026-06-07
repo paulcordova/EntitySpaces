@@ -84,7 +84,7 @@ If your team understands SQL, you already understand EntitySpaces.
 | PostgreSQL | EntitySpaces.ORM.PostgreSQL.NET | ✅ Modernized | PG 12–17 · Npgsql 7–10 · Neon compatible |
 | MySQL | EntitySpaces.ORM.MySQL.NET | ✅ Modernized | MySQL 8.0.14+ · MariaDB 10.2+ · MySql.Data 9.x · Concurrency exception detection |
 | SQLite | EntitySpaces.ORM.SQLite.NET | ✅ Modernized | SQLite 3.x · System.Data.SQLite 1.0.119 · Auto-increment detection · FK enforcement · Concurrency exception detection |
-| Oracle | EntitySpaces.ORM.OracleManagedClient.NET | ✅ Active | Managed client only |
+| Oracle | EntitySpaces.ORM.OracleManagedClient.NET | ✅ Modernized | Oracle 12c–19c · ODP.NET Managed · Oracle Cloud ATP · Concurrency exception detection · Connection pool safety · Navigation properties |
 | Firebird | EntitySpaces.ORM.Firebird.NET | ✅ Active | |
 
 ---
@@ -468,7 +468,7 @@ The EntitySpaces Standalone Studio is a WinForms application (net481) used to co
 | PostgreSQL | Npgsql | 8.0.8 |
 | MySQL | MySql.Data | 9.7.0 |
 | SQLite | System.Data.SQLite | 1.0.119 |
-| Oracle | Oracle.ManagedDataAccess | 23.5.1 |
+| Oracle | Oracle.ManagedDataAccess | 23.x |
 | Firebird | FirebirdSql.Data.FirebirdClient | 10.3.4 |
 
 ### Assembly copy requirements (net481)
@@ -555,7 +555,171 @@ CREATE TABLE "Product" (
 
 ---
 
-# MySQL / MariaDB Modernization
+# Oracle Modernization
+
+> **Validated with:** Oracle 19c · Oracle Autonomous Database (ATP) · ODP.NET Managed Client 23.x · .NET Framework 4.8 · .NET 8–10
+
+The Oracle provider has been significantly modernized for correctness, robustness, and compatibility with Oracle Cloud and modern ODP.NET versions.
+
+## Oracle Cloud (Autonomous Database) Connection
+
+Oracle Autonomous Database requires a **wallet** for TLS mutual authentication. Configure the wallet path via `oracle.manageddataaccess.client` in `app.config` — it cannot be passed inline in the connection string with ODP.NET Managed:
+
+```xml
+<!-- app.config — required for Oracle Autonomous Database (ATP) -->
+<oracle.manageddataaccess.client>
+  <version number="*">
+    <settings>
+      <setting name="TNS_ADMIN" value="C:\oracle\wallet"/>
+      <setting name="WALLET_LOCATION" value="C:\oracle\wallet"/>
+    </settings>
+  </version>
+</oracle.manageddataaccess.client>
+```
+
+Connection string using the service name from `tnsnames.ora`:
+
+```csharp
+esProviderFactory.Factory = new EntitySpaces.Loader.esDataProviderFactory();
+
+esConnectionElement conn = new esConnectionElement();
+conn.Provider = "EntitySpaces.OracleManagedClientProvider";
+conn.ConnectionString =
+    "Data Source=(description=(retry_count=20)(retry_delay=3)" +
+    "(address=(protocol=tcps)(port=1522)(host=adb.sa-valparaiso-1.oraclecloud.com))" +
+    "(connect_data=(service_name=g79d3cd3fdcb525_mydb_tp.adb.oraclecloud.com))" +
+    "(security=(ssl_server_dn_match=yes)));User Id=ADMIN;Password=mypassword;";
+esConfigSettings.ConnectionInfo.Connections.Add(conn);
+```
+
+> **Wallet location:** The wallet ZIP downloaded from Oracle Cloud Console must be extracted to a local folder. The `sqlnet.ora` inside must contain an absolute path:
+> ```
+> WALLET_LOCATION = (SOURCE = (METHOD = file) (METHOD_DATA = (DIRECTORY="C:\oracle\wallet")))
+> SSL_SERVER_DN_MATCH=yes
+> ```
+
+## Concurrency Exception Detection
+
+`CheckForConcurrencyException` translates Oracle-specific error numbers to `esConcurrencyException`, consistent with all other EntitySpaces providers:
+
+| Oracle Error | Condition | Translated To |
+|---|---|---|
+| `ORA-20101` | Custom stored-proc concurrency error | `esConcurrencyException` |
+| `ORA-00001` | Unique constraint violated (duplicate PK) | `esConcurrencyException` |
+| `ORA-00060` | Deadlock detected | `esConcurrencyException` |
+| `ORA-08177` | Can't serialize access for this transaction | `esConcurrencyException` |
+
+Uses `ex.Number` (not `ex.ErrorCode`) — ODP.NET returns the raw Oracle error number in `Number`, while `ErrorCode` returns an HResult-prefixed value.
+
+```csharp
+try
+{
+    product.Save();
+}
+catch (esConcurrencyException ex)
+{
+    // Duplicate key, deadlock, or serialization conflict
+    Console.WriteLine(ex.Message);
+}
+```
+
+## Connection Pool Safety
+
+All save and load operations implement safe connection pool management. If an error occurs, the provider:
+
+- Sets a `hasError` flag on exception
+- Issues `ROLLBACK` in the `finally` block before returning the connection to the pool
+- Prevents connections in an aborted transaction state from being reused
+
+This matches the same robustness pattern implemented in the PostgreSQL, MySQL, and SQL Server providers.
+
+## DBNull.Value for Output Parameters
+
+ODP.NET Managed requires `DBNull.Value` on all Output parameters — passing `null` throws a parameter exception at runtime. The provider assigns `DBNull.Value` in all cases: `HasDefault` columns, `DateModified`, `ModifiedBy`, and stored procedure output parameters.
+
+## Oracle Identity Columns
+
+Oracle 12c+ supports `GENERATED BY DEFAULT AS IDENTITY` — the same standard syntax as PostgreSQL. EntitySpaces detects identity columns via `ALL_TAB_COLUMNS.IDENTITY_COLUMN = 'YES'` and generates the correct `IsAutoIncrement = true` metadata for the code generator.
+
+```sql
+-- Recommended Oracle DDL for auto-increment PKs
+"Id" NUMBER(10) GENERATED BY DEFAULT AS IDENTITY NOT NULL
+```
+
+## Decimal Column Types
+
+Oracle uses `NUMBER(p,s)` for all exact numeric types. The provider maps `NUMBER` with `scale > 0` to `decimal` in generated C# code. Use `NUMBER(p,s)` for monetary values — not `BINARY_FLOAT` (IEEE 754 float) which is imprecise for financial data:
+
+```sql
+-- Recommended for prices, amounts, discounts
+"UnitPrice" NUMBER(18,4) DEFAULT 0 NOT NULL,
+"Discount"  NUMBER(8,4)  DEFAULT 0 NOT NULL,
+"Freight"   NUMBER(18,4) DEFAULT 0 NOT NULL
+```
+
+| Oracle Type | C# Type Generated |
+|---|---|
+| `NUMBER(p,0)` or `NUMBER(p)` | `int` / `long` |
+| `NUMBER(p,s)` where `s > 0` | `decimal` |
+| `BINARY_FLOAT` | `float` (mapped via provider) |
+| `VARCHAR2(n)` | `string` |
+| `DATE` | `DateTime` |
+| `CLOB` | `string` |
+| `BLOB` | `byte[]` |
+
+## Navigation Properties
+
+Foreign key relationships defined in the DDL are read by the Studio and generate `UpTo` navigation properties. The provider reads FK metadata from `ALL_CONSTRAINTS` and `ALL_CONS_COLUMNS`, correctly resolving both sides of each relationship:
+
+```csharp
+// Load product with its category
+var product = new Product();
+product.LoadByPrimaryKey(1);
+
+var category = product.UpToCategoryByCategory;
+// Navigates via FK Product.CategoryId → Category.Id
+
+var products = category.ProductCollectionByCategoryId;
+// Returns all products in this category
+```
+
+## Studio Metadata Engine — Oracle
+
+The Oracle metadata engine has been rewritten to use ODP.NET Managed (`Oracle.ManagedDataAccess`) instead of the legacy OLE DB driver. Key improvements:
+
+| Operation | Mechanism |
+|-----------|-----------|
+| List tables | `ALL_TABLES WHERE OWNER = schemaOwner` |
+| Column info | `ALL_TAB_COLUMNS` with `DATA_PRECISION`, `DATA_SCALE` |
+| Primary keys | `ALL_CONSTRAINTS` where `CONSTRAINT_TYPE = 'P'` |
+| Foreign keys | `ALL_CONSTRAINTS` + `ALL_CONS_COLUMNS` JOIN on `POSITION` |
+| Indexes | `ALL_INDEXES` + `ALL_IND_COLUMNS` per index |
+| Auto-increment | `ALL_TAB_COLUMNS.IDENTITY_COLUMN = 'YES'` |
+| Views | `ALL_VIEWS WHERE OWNER = schemaOwner` |
+| Stored procedures | `ALL_PROCEDURES` + `ALL_ARGUMENTS` |
+
+The `CreateConnection()` factory now correctly returns an `OracleConnection` (previously returned `OleDbConnection`, causing silent failures).
+
+## Oracle DDL Recommendations
+
+- Use `NUMBER(10)` for integer PKs — not `INTEGER` (which Oracle silently maps to `NUMBER(38)`)
+- Use `NUMBER(18,4)` for monetary values — not `BINARY_FLOAT`
+- Use `VARCHAR2(n)` — not `VARCHAR` (Oracle treats them identically but `VARCHAR2` is the canonical form)
+- Quote identifiers with double quotes to preserve mixed case: `"ProductName"` — otherwise Oracle uppercases all names
+- Define FK constraints in the DDL to enable navigation property generation in Studio
+
+```sql
+CREATE TABLE "Product" (
+    "Id"          NUMBER(10)   GENERATED BY DEFAULT AS IDENTITY NOT NULL,
+    "ProductName" VARCHAR2(40),
+    "UnitPrice"   NUMBER(18,4) DEFAULT 0 NOT NULL,
+    "CategoryId"  NUMBER(10)   NOT NULL,
+    CONSTRAINT pk_product          PRIMARY KEY ("Id"),
+    CONSTRAINT fk_product_category FOREIGN KEY ("CategoryId") REFERENCES "Category" ("Id")
+);
+```
+
+
 
 > **Validated with:** MySQL 8.0.28 · MariaDB 10.2 / 10.6 / 10.11 · MySql.Data 9.x
 

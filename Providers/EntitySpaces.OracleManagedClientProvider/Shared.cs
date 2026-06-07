@@ -68,6 +68,8 @@ namespace EntitySpaces.OracleManagedClientProvider
                 {
                     p = CloneParameter(types[col.Name]);
                     p.Direction = ParameterDirection.Output;
+                    // ODP.NET requires DBNull.Value on Output parameters — null throws "Parameter cannot be null"
+                    p.Value = DBNull.Value;
                     cmd.Parameters.Add(p);
 
                     computedColumns += computedComma + Delimiters.ColumnOpen + col.Name + Delimiters.ColumnClose;
@@ -516,7 +518,7 @@ namespace EntitySpaces.OracleManagedClientProvider
             {
                 p = cmd.Parameters[types[cols.DateModified.ColumnName].ParameterName];
                 p = cmd.Parameters[p.ParameterName];
-                p.Value = null;
+                p.Value = DBNull.Value;  // ODP.NET requires DBNull.Value, not null
                 p.Direction = ParameterDirection.Output;
             }
 
@@ -525,7 +527,7 @@ namespace EntitySpaces.OracleManagedClientProvider
                 p = cmd.Parameters[types[cols.ModifiedBy.ColumnName].ParameterName];
                 p.Size = (int)cols.FindByColumnName(cols.ModifiedBy.ColumnName).CharacterMaxLength;
                 p = cmd.Parameters[p.ParameterName];
-                p.Value = null;
+                p.Value = DBNull.Value;  // ODP.NET requires DBNull.Value, not null
                 p.Direction = ParameterDirection.Output;
             }
 
@@ -668,10 +670,27 @@ namespace EntitySpaces.OracleManagedClientProvider
         {
             esConcurrencyException ce = null;
 
-            if (ex.ErrorCode == 20101)
+            if (ex != null)
             {
-                ce = new esConcurrencyException(ex.Message, ex);
-                ce.Source = ex.Source;
+                // ORA-20101: custom application error raised by EntitySpaces stored procs
+                //            ("NO RECORDS WERE UPDATED" / "NO RECORDS WERE DELETED")
+                // ORA-00001: unique constraint violated (duplicate PK on insert)
+                // ORA-00060: deadlock detected while waiting for resource
+                // ORA-08177: can't serialize access for this transaction (serializable isolation)
+                //
+                // ex.Number contains the Oracle error number (sign-stripped, e.g. -20101 → 20101).
+                // Note: ORA-20101 is raised as a negative number by Raise_application_error,
+                //       but OracleException.Number returns the absolute value.
+                switch (ex.Number)
+                {
+                    case 20101:  // custom stored-proc concurrency error
+                    case 1:      // ORA-00001 unique constraint violated
+                    case 60:     // ORA-00060 deadlock detected
+                    case 8177:   // ORA-08177 can't serialize access
+                        ce = new esConcurrencyException(ex.Message, ex);
+                        ce.Source = ex.Source;
+                        break;
+                }
             }
 
             return ce;

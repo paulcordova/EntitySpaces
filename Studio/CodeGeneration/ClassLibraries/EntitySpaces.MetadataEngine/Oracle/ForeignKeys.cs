@@ -4,71 +4,70 @@ using Oracle.ManagedDataAccess.Client;
 
 namespace EntitySpaces.MetadataEngine.Oracle
 {
-	public class OracleForeignKeys : ForeignKeys
-	{
-		public OracleForeignKeys()
-		{
-
-		}
-        		
-
-override internal void LoadAll()
+    public class OracleForeignKeys : ForeignKeys
     {
-        try
+        public OracleForeignKeys()
         {
-            // Create a DataTable to hold foreign key metadata
-            DataTable metaData1 = new DataTable();
-            DataTable metaData2 = new DataTable();
-
-            // SQL queries to retrieve foreign key metadata
-            string query1 = "SELECT * FROM ALL_CONS_COLUMNS WHERE TABLE_NAME = '" + this.Table.Name + "' AND CONSTRAINT_NAME IN " +
-                            "(SELECT CONSTRAINT_NAME FROM ALL_CONSTRAINTS WHERE CONSTRAINT_TYPE = 'R' AND TABLE_NAME = '" +  this.Table.Name + "')";
-
-            string query2 = "SELECT * FROM ALL_CONS_COLUMNS WHERE CONSTRAINT_NAME IN " +
-                            "(SELECT CONSTRAINT_NAME FROM ALL_CONSTRAINTS WHERE CONSTRAINT_TYPE = 'R' AND TABLE_NAME = '" + this.Table.Name + "')";
-
-            // Execute queries and fill DataTables
-            using (OracleConnection cn = new OracleConnection(this.dbRoot.ConnectionString))
-            {
-                cn.Open();
-
-                // Execute the first query
-                using (OracleCommand cmd = new OracleCommand(query1, cn))
-                {
-                    //cmd.Parameters.Add(new OracleParameter(this.Table.Name));
-                    using (OracleDataAdapter adapter = new OracleDataAdapter(cmd))
-                    {
-                        adapter.Fill(metaData1);
-                    }
-                }
-
-                // Execute the second query
-                using (OracleCommand cmd = new OracleCommand(query2, cn))
-                {
-                    //cmd.Parameters.Add(new OracleParameter(this.Table.Name));
-                    using (OracleDataAdapter adapter = new OracleDataAdapter(cmd))
-                    {
-                        adapter.Fill(metaData2);
-                    }
-                }
-            }
-
-            // Import rows from the second DataTable into the first
-            foreach (DataRow row in metaData2.Rows)
-            {
-                metaData1.ImportRow(row);
-            }
-
-            // Populate the array with the combined metadata
-            PopulateArray(metaData1);
         }
-        catch (Exception ex)
+
+        override internal void LoadAll()
         {
-            // Handle exceptions, e.g., log the error
-            Console.WriteLine(ex.Message);
+            try
+            {
+                string query =
+                    "SELECT " +
+                    "  ''                                    AS PK_TABLE_CATALOG, " +
+                    "  pk.OWNER                              AS PK_TABLE_SCHEMA, " +
+                    "  pk.TABLE_NAME                         AS PK_TABLE_NAME, " +
+                    "  pkc.COLUMN_NAME                       AS PK_COLUMN_NAME, " +
+                    "  ''                                    AS FK_TABLE_CATALOG, " +
+                    "  fk.OWNER                              AS FK_TABLE_SCHEMA, " +
+                    "  fk.TABLE_NAME                         AS FK_TABLE_NAME, " +
+                    "  fkc.COLUMN_NAME                       AS FK_COLUMN_NAME, " +
+                    "  pk.CONSTRAINT_NAME                    AS PK_NAME, " +
+                    "  fk.CONSTRAINT_NAME                    AS FK_NAME, " +
+                    "  pkc.POSITION                          AS ORDINAL, " +
+                    "  'NO ACTION'                           AS UPDATE_RULE, " +
+                    "  fk.DELETE_RULE                        AS DELETE_RULE " +
+                    "FROM ALL_CONSTRAINTS fk " +
+                    "JOIN ALL_CONSTRAINTS pk " +
+                    "  ON pk.CONSTRAINT_NAME = fk.R_CONSTRAINT_NAME " +
+                    " AND pk.OWNER           = fk.R_OWNER " +
+                    "JOIN ALL_CONS_COLUMNS pkc " +
+                    "  ON pkc.CONSTRAINT_NAME = pk.CONSTRAINT_NAME " +
+                    " AND pkc.OWNER           = pk.OWNER " +
+                    "JOIN ALL_CONS_COLUMNS fkc " +
+                    "  ON fkc.CONSTRAINT_NAME = fk.CONSTRAINT_NAME " +
+                    " AND fkc.OWNER           = fk.OWNER " +
+                    " AND fkc.POSITION        = pkc.POSITION " +
+                    "WHERE fk.CONSTRAINT_TYPE = 'R' " +
+                    "  AND ( " +
+                    "    (pk.OWNER = '" + this.Table.Database.SchemaOwner + "' AND pk.TABLE_NAME = '" + this.Table.Name + "') " +
+                    "    OR " +
+                    "    (fk.OWNER = '" + this.Table.Database.SchemaOwner + "' AND fk.TABLE_NAME = '" + this.Table.Name + "') " +
+                    "  ) " +
+                    "ORDER BY fk.CONSTRAINT_NAME, pkc.POSITION";
+
+                DataTable metaData = new DataTable();
+
+                using (OracleConnection cn = new OracleConnection(this.dbRoot.ConnectionString))
+                {
+                    cn.Open();
+                    using (OracleCommand cmd = new OracleCommand(query, cn))
+                    {
+                        using (OracleDataAdapter adapter = new OracleDataAdapter(cmd))
+                        {
+                            adapter.Fill(metaData);
+                        }
+                    }
+                }
+
+                PopulateArray(metaData);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.Message);
+            }
         }
     }
-
-
-}
 }

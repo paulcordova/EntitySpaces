@@ -122,7 +122,7 @@ namespace EntitySpaces.MetadataEngine.Oracle
 		}
         public System.Data.IDbConnection CreateConnection()
         {
-            return new System.Data.OleDb.OleDbConnection();
+            return OracleDatabases.CreateConnection(string.Empty);
         }
     }
 }

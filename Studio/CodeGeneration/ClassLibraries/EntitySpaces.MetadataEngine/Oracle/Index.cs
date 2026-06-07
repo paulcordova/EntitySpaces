@@ -10,5 +10,14 @@ namespace EntitySpaces.MetadataEngine.Oracle
 		{
 
 		}
-	}
+
+        public override string Type
+        {
+            get
+            {
+                string type = this.GetString(Indexes.f_Type);
+                return type != null ? type.ToUpper() : string.Empty;
+            }
+        }
+    }
 }

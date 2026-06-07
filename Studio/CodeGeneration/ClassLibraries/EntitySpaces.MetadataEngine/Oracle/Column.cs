@@ -1,6 +1,7 @@
+using Oracle.ManagedDataAccess.Client;
 using System;
 using System.Data;
-using Oracle.ManagedDataAccess.Client;
+using System.IO;
 
 namespace EntitySpaces.MetadataEngine.Oracle
 {
@@ -36,9 +37,38 @@ namespace EntitySpaces.MetadataEngine.Oracle
             get
             {
                 OracleColumns cols = Columns as OracleColumns;
-                return this.GetString(cols.f_TypeName);
+                string rawType = this.GetString(cols.f_TypeName);
+
+                if (string.IsNullOrEmpty(rawType))
+                {
+                    return "object";
+                }
+
+                string cleanType = rawType.Trim().ToUpper();
+
+                // BINARY_FLOAT / BINARY_DOUBLE are Oracle native floating-point types.
+                // esLanguages.xml has no entries for them — map to FLOAT which is defined
+                // in the Oracle section and resolves to decimal/double correctly.
+                if (cleanType == "BINARY_FLOAT" || cleanType == "BINARY_DOUBLE")
+                {
+                    Log: System.IO.File.AppendAllText(@"C:\oracle\bf_debug.txt",
+                    this.Name + " | table=" + (Columns?.Table?.Name ?? "?") + "\n");
+                    return "FLOAT";
+                }
+
+                // EntitySpaces base engine gets confused with "NUMBER" when it has a scale > 0,
+                // causing it to look for aliases not present in esLanguages.xml and returning "Unknown".
+                // By overriding it to "FLOAT", we force a direct, safe mapping to "decimal" 
+                // since "FLOAT" is explicitly defined in the Oracle section of the XML.
+                if (cleanType == "NUMBER" && this.NumericScale > 0)
+                {
+                    return "FLOAT";
+                }
+
+                return cleanType;
             }
         }
+
 
         public override System.Boolean IsAutoKey
         {
@@ -90,7 +120,9 @@ namespace EntitySpaces.MetadataEngine.Oracle
                     break;
 
                 case "FLOAT":
-                    dtnf = precision > 0 ? name + "(" + precision + ")" : name;
+                case "BINARY_FLOAT":
+                case "BINARY_DOUBLE":
+                    dtnf = precision > 0 ? "FLOAT(" + precision + ")" : "FLOAT";
                     break;
 
                 case "INTEGER":
@@ -120,5 +152,5 @@ namespace EntitySpaces.MetadataEngine.Oracle
             return dtnf;
         }
 
-    }
-}
+    } //end class
+} //end namespace

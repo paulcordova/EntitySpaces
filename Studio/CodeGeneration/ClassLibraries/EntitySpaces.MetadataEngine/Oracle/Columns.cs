@@ -22,26 +22,25 @@ namespace EntitySpaces.MetadataEngine.Oracle
             try
             {
                 // Query to retrieve column information for the specified table in Oracle
-                string query = @"SELECT" + 
-                    " COLUMN_NAME, " +
-                    " DATA_TYPE AS TYPE_NAME," +
-                    " DATA_TYPE AS TYPE_NAMECOMPLETE," + 
-                    " DATA_LENGTH," +
-                    " CASE " +
-                    "    WHEN NULLABLE = 'Y' THEN '1'" +
-                    "    ELSE '0' " +
-                    " END AS IS_NULLABLE," +
-                    " DATA_DEFAULT AS COLUMN_DEFAULT," +
-                    " COLUMN_ID AS ORDINAL_POSITION" +
-                    " FROM " +
-                       " ALL_TAB_COLUMNS" +
-                    " WHERE" +
-                        " owner = '" + this.Table.Database.SchemaOwner + "'" +
-                        " AND TABLE_NAME = '" + this.Table.FullName + "'" +
-                    " ORDER BY"  +
-                    " COLUMN_ID";
+                string query = @"SELECT " +
+                " COLUMN_NAME, " +
+                " DATA_TYPE AS TYPE_NAME, " +
+                " DATA_TYPE AS TYPE_NAMECOMPLETE, " +
+                " DATA_LENGTH AS CHARACTER_MAXIMUM_LENGTH, " +
+                " DATA_PRECISION AS NUMERIC_PRECISION, " +    // Added
+                " DATA_SCALE AS NUMERIC_SCALE, " +            // Added
+                " CASE " +
+                "    WHEN NULLABLE = 'Y' THEN '1' " +
+                "    ELSE '0' " +
+                " END AS IS_NULLABLE, " +
+                " DATA_DEFAULT AS COLUMN_DEFAULT, " +
+                " COLUMN_ID AS ORDINAL_POSITION " +
+                " FROM ALL_TAB_COLUMNS " +
+                " WHERE owner = '" + this.Table.Database.SchemaOwner + "'" +
+                " AND TABLE_NAME = '" + this.Table.FullName + "'" +
+                " ORDER BY COLUMN_ID";
 
-                        
+
                 // Fill DataTable with metadata
                 DataTable metaData = new DataTable();
 
@@ -132,55 +131,62 @@ namespace EntitySpaces.MetadataEngine.Oracle
                 }
             }
         }
-    
 
-    override internal void LoadForView()
-    {
-        try
+
+        override internal void LoadForView()
         {
-            // Query to retrieve column information for the specified view in Oracle
-            string query =
-                "SELECT " +
-                "    column_name AS COLUMN_NAME, " +
-                "    data_type AS TYPE_NAME, " +
-                "    data_type AS TYPE_NAMECOMPLETE, " +
-                "    data_length AS DATA_LENGTH, " +
-                "    nullable AS IS_NULLABLE, " +
-                "    data_default AS COLUMN_DEFAULT, " +
-                "    column_id AS ORDINAL_POSITION " +
-                "FROM " +
-                "    all_tab_columns " +
-                "WHERE " +
-                "    owner = sys_context('userenv', 'CURRENT_SCHEMA') AND "  +
-                "    owner = '" + this.Table.Database.SchemaOwner +  "' AND"  +
-                "    table_name = '" + this.View.Name + "' " +
-                "ORDER BY column_id";
+            try
+            {
+                // Determine the schema owner and table name dynamically
+                // If this.Table is null, we are dealing with a View
+                string schemaOwner = (this.Table != null) ? this.Table.Database.SchemaOwner : this.View.Database.SchemaOwner;
+                string objectName = (this.Table != null) ? this.Table.Name : this.View.Name;
 
-            // Create the connection using Oracle.ManagedDataAccess
-            IDbConnection cn = new OracleConnection(this.dbRoot.ConnectionString);
-            cn.Open();
+                // Query to retrieve column information
+                // We use the variables defined above to avoid NullReferenceException
+                string query = @"SELECT " +
+               "    column_name AS COLUMN_NAME, " +
+               "    data_type AS TYPE_NAME, " +
+               "    data_type AS TYPE_NAMECOMPLETE, " +
+               "    data_length AS CHARACTER_MAXIMUM_LENGTH, " +
+               "    data_precision AS NUMERIC_PRECISION, " +  // Added
+               "    data_scale AS NUMERIC_SCALE, " +          // Added
+               "    nullable AS IS_NULLABLE, " +
+               "    data_default AS COLUMN_DEFAULT, " +
+               "    column_id AS ORDINAL_POSITION " +
+               "FROM all_tab_columns " +
+               "WHERE owner = '" + schemaOwner + "' " +
+               "AND table_name = '" + objectName + "' " +
+               "ORDER BY column_id";
 
-            // Fill DataTable with metadata
-            DataTable metaData = new DataTable();
-            DbDataAdapter adapter = new OracleDataAdapter(query, (OracleConnection)cn);
-            adapter.Fill(metaData);
-            cn.Close();
+                // ConnectionHelper needs to know which database name to use
+                string dbName = (this.Table != null) ? this.Table.Database.Name : this.View.Database.Name;
 
-            // Rename columns to match the existing code expectations
-            if (metaData.Columns.Contains("TYPE_NAME"))
-                f_TypeName = metaData.Columns["TYPE_NAME"];
+                using (IDbConnection cn = ConnectionHelper.CreateConnection(this.dbRoot, dbName))
+                {
+                    DataTable metaData = new DataTable();
 
-            if (metaData.Columns.Contains("TYPE_NAMECOMPLETE"))
-                f_TypeNameComplete = metaData.Columns["TYPE_NAMECOMPLETE"];
+                    // Using explicit cast to OracleConnection
+                    using (OracleDataAdapter adapter = new OracleDataAdapter(query, (OracleConnection)cn))
+                    {
+                        adapter.Fill(metaData);
+                    }
 
-            // Populate the array with the metadata
-            PopulateArray(metaData);
+                    if (metaData.Columns.Contains("TYPE_NAME"))
+                        f_TypeName = metaData.Columns["TYPE_NAME"];
+
+                    if (metaData.Columns.Contains("TYPE_NAMECOMPLETE"))
+                        f_TypeNameComplete = metaData.Columns["TYPE_NAMECOMPLETE"];
+
+                    PopulateArray(metaData);
+                }
+            }
+            catch (Exception ex)
+            {
+                // Log the exception to understand what's failing if it still does
+                Console.WriteLine("Error in LoadForView: " + ex.Message);
+            }
         }
-        catch
-        {
-            // Handle any exceptions or errors
-        }
-    }
 
-} // end class
+    } // end class
 } // end namespace

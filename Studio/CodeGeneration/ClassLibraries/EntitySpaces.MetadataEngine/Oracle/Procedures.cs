@@ -1,6 +1,7 @@
 using System;
 using System.Data;
 using Oracle.ManagedDataAccess.Client;
+using OdpNet = Oracle.ManagedDataAccess.Client;
 
 namespace EntitySpaces.MetadataEngine.Oracle
 {
@@ -16,25 +17,23 @@ namespace EntitySpaces.MetadataEngine.Oracle
         {
             try
             {
-                // Create a DataTable to hold procedure metadata
                 DataTable metaData = new DataTable();
 
-                // SQL query to retrieve procedure metadata
-                string query = "SELECT * FROM ALL_PROCEDURES WHERE " + "" +
-                                " OBJECT_OWNER = '" + Database.SchemaOwner + "'";
-                
+                string query = "SELECT * FROM ALL_PROCEDURES WHERE " +
+                                " OBJECT_OWNER = :databaseOwner";
 
-                // Execute the query and fill the DataTable
                 using (OracleConnection cn = new OracleConnection(this.dbRoot.ConnectionString))
                 {
                     cn.Open();
 
                     using (OracleCommand cmd = new OracleCommand(query, cn))
                     {
-                        // Add parameter to the command
-                        cmd.Parameters.Add(new OracleParameter(this.Database.Name));
+                        cmd.BindByName = true;
 
-                        // Fill the DataTable with the query result
+                        // Use full ODP.NET type to avoid collision with local OracleParameter class.
+                        // OracleParameter(string name, object value) — sets both bind name and value.
+                        cmd.Parameters.Add(new OdpNet.OracleParameter("databaseOwner", this.Database.SchemaOwner));
+
                         using (OracleDataAdapter adapter = new OracleDataAdapter(cmd))
                         {
                             adapter.Fill(metaData);
@@ -42,12 +41,10 @@ namespace EntitySpaces.MetadataEngine.Oracle
                     }
                 }
 
-                // Populate the array with the procedure metadata
                 PopulateArray(metaData);
             }
             catch (Exception ex)
             {
-                // Handle exceptions, e.g., log the error
                 Console.WriteLine(ex.Message);
             }
         }

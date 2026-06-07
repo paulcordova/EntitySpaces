@@ -934,9 +934,10 @@ namespace EntitySpaces.OracleManagedClientProvider
             return response;
         }
 
-        // This is used only to execute the Dynamic Query API
         static private void LoadDataTableFromDynamicQuery(esDataRequest request, esDataResponse response, OracleCommand cmd)
         {
+            bool hasError = false;
+
             try
             {
                 response.LastQuery = cmd.CommandText;
@@ -983,12 +984,27 @@ namespace EntitySpaces.OracleManagedClientProvider
             }
             catch (Exception)
             {
+                hasError = true;
                 CleanupCommand(cmd);
                 throw;
             }
             finally
             {
-
+                // If an error occurred, attempt ROLLBACK to release any aborted transaction
+                // before the connection is returned to the pool
+                if (hasError && cmd != null && cmd.Connection != null
+                    && cmd.Connection.State == ConnectionState.Open)
+                {
+                    try
+                    {
+                        using (OracleCommand rollback = cmd.Connection.CreateCommand())
+                        {
+                            rollback.CommandText = "ROLLBACK";
+                            rollback.ExecuteNonQuery();
+                        }
+                    }
+                    catch { /* best-effort rollback — ignore secondary errors */ }
+                }
             }
         }
 
@@ -1052,7 +1068,8 @@ namespace EntitySpaces.OracleManagedClientProvider
                             {
                                 if (param.Direction == ParameterDirection.Output)
                                 {
-                                    param.Value = null;
+                                    // ODP.NET requires DBNull.Value on Output parameters — null throws "Parameter cannot be null"
+                                    param.Value = DBNull.Value;
                                 }
                                 else
                                 {
@@ -1062,7 +1079,7 @@ namespace EntitySpaces.OracleManagedClientProvider
                                     }
                                     else
                                     {
-                                        param.Value = null;
+                                        param.Value = DBNull.Value;
                                     }
                                 }
                             }
@@ -1191,7 +1208,7 @@ namespace EntitySpaces.OracleManagedClientProvider
                 {
                     count = cmd.ExecuteNonQuery();
                 }
-                // hd, 19.03.2014: eingef�gt, da immer -1 von ODP.Net zur�ckgegeben wird
+                // hd, 19.03.2014: eingefügt, da immer -1 von ODP.Net zurückgegeben wird
                 if (count < 0)
                 {
                     count = count * -1;
@@ -1266,6 +1283,8 @@ namespace EntitySpaces.OracleManagedClientProvider
                             continue;
                     }
 
+                    bool hasError = false;
+
                     try
                     {
                         esTransactionScope.Enlist(cmd, request.ConnectionString, CreateIDbConnectionDelegate);
@@ -1293,7 +1312,7 @@ namespace EntitySpaces.OracleManagedClientProvider
                             count = cmd.ExecuteNonQuery();
                         }
 
-                        // hd, 19.03.2014: eingef�gt, da immer -1 von ODP.Net zur�ckgegeben wird
+                        // hd, 19.03.2014: eingefügt, da immer -1 von ODP.Net zurückgegeben wird
                         if (count < 0)
                         {
                             count = count * -1;
@@ -1301,17 +1320,6 @@ namespace EntitySpaces.OracleManagedClientProvider
                         if (count < 1)
                         {
                             throw new esConcurrencyException("Update failed to update any records");
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        exception = true;
-
-                        request.FireOnError(packet, ex.Message);
-
-                        if (!request.ContinueUpdateOnError)
-                        {
-                            throw;
                         }
 
                         if (!exception && packet.RowState != esDataRowState.Deleted && cmd.Parameters != null)
@@ -1322,21 +1330,61 @@ namespace EntitySpaces.OracleManagedClientProvider
                                 {
                                     case ParameterDirection.Output:
                                     case ParameterDirection.InputOutput:
-
                                         packet.CurrentValues[param.SourceColumn] = param.Value;
                                         break;
                                 }
                             }
                         }
+                    }
+                    catch (OracleException ex)
+                    {
+                        hasError = true;
+                        exception = true;
 
+                        // Translate known Oracle concurrency errors to esConcurrencyException
+                        esConcurrencyException ce = Shared.CheckForConcurrencyException(ex);
+                        Exception toThrow = ce != null ? (Exception)ce : ex;
+
+                        request.FireOnError(packet, toThrow.Message);
+
+                        if (!request.ContinueUpdateOnError)
+                        {
+                            throw toThrow;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        hasError = true;
+                        exception = true;
+
+                        request.FireOnError(packet, ex.Message);
+
+                        if (!request.ContinueUpdateOnError)
+                        {
+                            throw;
+                        }
                     }
                     finally
                     {
+                        // If an error occurred, ROLLBACK before returning connection to pool —
+                        // an aborted Oracle transaction must be explicitly rolled back
+                        if (hasError && cmd != null && cmd.Connection != null
+                            && cmd.Connection.State == ConnectionState.Open)
+                        {
+                            try
+                            {
+                                using (OracleCommand rollback = cmd.Connection.CreateCommand())
+                                {
+                                    rollback.CommandText = "ROLLBACK";
+                                    rollback.ExecuteNonQuery();
+                                }
+                            }
+                            catch { /* best-effort rollback — ignore secondary errors */ }
+                        }
+
                         esTransactionScope.DeEnlist(cmd);
                         cmd.Dispose();
                     }
-
-
                 }
 
                 scope.Complete();
@@ -1364,6 +1412,8 @@ namespace EntitySpaces.OracleManagedClientProvider
                     break;
             }
 
+            bool hasError = false;
+
             try
             {
                 esTransactionScope.Enlist(cmd, request.ConnectionString, CreateIDbConnectionDelegate);
@@ -1390,7 +1440,7 @@ namespace EntitySpaces.OracleManagedClientProvider
                 {
                     count = cmd.ExecuteNonQuery();
                 }
-                // hd, 19.03.2014: eingef�gt, da immer -1 von ODP.Net zur�ckgegeben wird
+                // hd, 19.03.2014: eingefügt, da immer -1 von ODP.Net zurückgegeben wird
                 if (count < 0)
                 {
                     count = count * -1;
@@ -1399,7 +1449,6 @@ namespace EntitySpaces.OracleManagedClientProvider
                 {
                     throw new esConcurrencyException("Update failed to update any records");
                 }
-
 
                 if (request.EntitySavePacket.RowState != esDataRowState.Deleted && cmd.Parameters != null)
                 {
@@ -1418,20 +1467,46 @@ namespace EntitySpaces.OracleManagedClientProvider
                                 {
                                     request.EntitySavePacket.CurrentValues[param.SourceColumn] = param.Value;
                                 }
-                                //request.EntitySavePacket.CurrentValues[param.SourceColumn] = param.Value;
                                 break;
                         }
                     }
                 }
+            }
+            catch (OracleException ex)
+            {
+                hasError = true;
 
-
+                // Translate known Oracle concurrency errors to esConcurrencyException
+                esConcurrencyException ce = Shared.CheckForConcurrencyException(ex);
+                if (ce != null) throw ce;
+                throw;
+            }
+            catch (Exception)
+            {
+                hasError = true;
+                throw;
             }
             finally
             {
+                // If an error occurred, ROLLBACK before returning connection to pool —
+                // an aborted Oracle transaction must be explicitly rolled back
+                if (hasError && cmd != null && cmd.Connection != null
+                    && cmd.Connection.State == ConnectionState.Open)
+                {
+                    try
+                    {
+                        using (OracleCommand rollback = cmd.Connection.CreateCommand())
+                        {
+                            rollback.CommandText = "ROLLBACK";
+                            rollback.ExecuteNonQuery();
+                        }
+                    }
+                    catch { /* best-effort rollback — ignore secondary errors */ }
+                }
+
                 esTransactionScope.DeEnlist(cmd);
                 cmd.Dispose();
             }
-
 
             return null;
         }

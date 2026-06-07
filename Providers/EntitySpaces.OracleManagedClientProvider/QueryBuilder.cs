@@ -948,7 +948,8 @@ namespace EntitySpaces.OracleManagedClientProvider
             {
                 case esArithmeticOperator.Add:
 
-                    // MEG - 4/26/08, I'm not thrilled with this check here, will revist on future release
+                    // Oracle uses || for string concatenation (not +). Detect string operands
+                    // and return the correct operator accordingly.
                     if (mathmaticalExpression.SelectItem1.Column.Datatype == esSystemType.String ||
                        (mathmaticalExpression.SelectItem1.HasMathmaticalExpression && mathmaticalExpression.SelectItem1.MathmaticalExpression.LiteralType == esSystemType.String) ||
                        (mathmaticalExpression.SelectItem1.HasMathmaticalExpression && mathmaticalExpression.SelectItem1.MathmaticalExpression.SelectItem1.Column.Datatype == esSystemType.String) ||
@@ -1202,7 +1203,7 @@ namespace EntitySpaces.OracleManagedClientProvider
             switch (castType)
             {
                 case esCastType.Boolean: return "NUMBER";
-                case esCastType.Byte: return "RAW";
+                case esCastType.Byte: return "NUMBER(3)";  // RAW is binary/hex, not a numeric byte — NUMBER(3) holds 0..255
                 case esCastType.Char: return "CHAR";
                 case esCastType.DateTime: return "TIMESTAMP";
                 case esCastType.Double: return "NUMBER";

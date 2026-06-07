@@ -1,6 +1,7 @@
 using System;
 using System.Data;
 using Oracle.ManagedDataAccess.Client;
+using OdpNet = Oracle.ManagedDataAccess.Client;
 
 namespace EntitySpaces.MetadataEngine.Oracle
 {
@@ -15,10 +16,8 @@ namespace EntitySpaces.MetadataEngine.Oracle
         {
             try
             {
-                // Create a DataTable to hold procedure parameters metadata
                 DataTable metaData = new DataTable();
 
-                // SQL query to retrieve procedure parameters metadata
                 string query = @"SELECT * 
                                 FROM ALL_ARGUMENTS 
                                 WHERE OBJECT_OWNER = :databaseOwner 
@@ -26,18 +25,19 @@ namespace EntitySpaces.MetadataEngine.Oracle
                                   AND OBJECT_TYPE = 'PROCEDURE'
                                 ORDER BY SEQUENCE";
 
-                // Execute the query and fill the DataTable
                 using (OracleConnection cn = new OracleConnection(this.dbRoot.ConnectionString))
                 {
                     cn.Open();
 
                     using (OracleCommand cmd = new OracleCommand(query, cn))
                     {
-                        // Add parameters to the command
-                        cmd.Parameters.Add(new OracleParameter(this.Procedure.Database.Name));
-                        cmd.Parameters.Add(new OracleParameter(this.Procedure.Name));
+                        cmd.BindByName = true;
 
-                        // Fill the DataTable with the query result
+                        // Use full ODP.NET type to avoid collision with local OracleParameter class.
+                        // OracleParameter(string name, object value) — sets both bind name and value.
+                        cmd.Parameters.Add(new OdpNet.OracleParameter("databaseOwner", this.Procedure.Database.Name));
+                        cmd.Parameters.Add(new OdpNet.OracleParameter("procedureName", this.Procedure.Name));
+
                         using (OracleDataAdapter adapter = new OracleDataAdapter(cmd))
                         {
                             adapter.Fill(metaData);
@@ -45,12 +45,10 @@ namespace EntitySpaces.MetadataEngine.Oracle
                     }
                 }
 
-                // Populate the array with the procedure parameters metadata
                 PopulateArray(metaData);
             }
             catch (Exception ex)
             {
-                // Handle exceptions, e.g., log the error
                 Console.WriteLine(ex.Message);
             }
         }
