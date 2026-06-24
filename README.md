@@ -84,7 +84,7 @@ If your team understands SQL, you already understand EntitySpaces.
 | PostgreSQL | EntitySpaces.ORM.PostgreSQL.NET | ✅ Modernized | PG 12–17 · Npgsql 7–10 · Neon compatible |
 | MySQL | EntitySpaces.ORM.MySQL.NET | ✅ Modernized | MySQL 8.0.14+ · MariaDB 10.2+ · MySql.Data 9.x · Concurrency exception detection |
 | SQLite | EntitySpaces.ORM.SQLite.NET | ✅ Modernized | SQLite 3.x · System.Data.SQLite 1.0.119 · Auto-increment detection · FK enforcement · Concurrency exception detection |
-| Oracle | EntitySpaces.ORM.OracleManagedClient.NET | ✅ Modernized | Oracle 12c–19c · ODP.NET Managed · Oracle Cloud ATP · Concurrency exception detection · Connection pool safety · Navigation properties |
+| Oracle | EntitySpaces.ORM.OracleManagedClient.NET | ✅ Modernized | Oracle 12c–19c · ODP.NET Managed · Oracle Cloud ATP · Concurrency exception detection · Connection pool safety · Navigation properties · Thread-safe parameter cache · .NET 8 compatible |
 | Firebird | EntitySpaces.ORM.Firebird.NET | ✅ Active | |
 
 ---
@@ -683,7 +683,111 @@ var products = category.ProductCollectionByCategoryId;
 // Returns all products in this category
 ```
 
-## Studio Metadata Engine — Oracle
+## Thread-Safe Parameter Cache
+
+The parameter cache was upgraded from a locked `Dictionary` to a `ConcurrentDictionary`, eliminating contention in multi-threaded environments:
+
+```csharp
+// Before — required explicit lock on every access
+lock (parameterCache)
+{
+    if (!parameterCache.ContainsKey(dataID)) { ... }
+}
+
+// After — lock-free, atomic GetOrAdd
+return parameterCache.GetOrAdd(dataID, id => BuildParameterDictionary(...));
+```
+
+This improves throughput in web applications or any scenario where multiple threads execute queries against Oracle concurrently. Each `DataID` (one per entity type) is built once and reused safely across threads.
+
+## Case-Sensitive Identifier Handling
+
+Oracle stores quoted identifiers with their exact case. The provider uses double-quote delimiters (`"`) consistently for table and column names, ensuring queries match the schema exactly as created:
+
+```sql
+-- Generated correctly with double quotes — matches Oracle stored case
+SELECT od."Id", od."OrderId" FROM "OrderDetail" od WHERE od."OrderId" = :OrderId1
+
+-- String literals use single quotes — Oracle standard
+WHERE "CategoryName" = 'Beverages'
+```
+
+The `Delimiters` class was corrected to use single quotes (`'`) for string literals and double quotes (`"`) for identifiers — previously they were both set to double quotes, which caused `ORA-00911` (invalid character) on string comparisons.
+
+## .NET 8 Compatibility
+
+The connection setup was adjusted for full compatibility with .NET 8. In .NET 8, `ConfigurationManager` does not automatically bind the `oracle.manageddataaccess.client` section from `app.config` without an explicit call. The recommended initialization pattern:
+
+```csharp
+// Force wallet path before any Oracle connection attempt
+Environment.SetEnvironmentVariable("TNS_ADMIN", @"C:\oracle\wallet");
+
+// Explicitly open the exe configuration so ODP.NET reads the wallet section
+var config = ConfigurationManager.OpenExeConfiguration(ConfigurationUserLevel.None);
+
+esProviderFactory.Factory = new EntitySpaces.Loader.esDataProviderFactory();
+
+esConnectionElement conn = new esConnectionElement();
+conn.Provider = "EntitySpaces.ORM.OracleManagedClient.NET";
+conn.ConnectionString = ConfigurationManager.ConnectionStrings["develop"].ConnectionString;
+esConfigSettings.ConnectionInfo.Connections.Add(conn);
+```
+
+## TransactionScope and ODP.NET Managed
+
+ODP.NET Managed does **not** support Distributed Transaction Coordinator (DTC/MSDTC). Using `TransactionScope(RequiresNew)` causes a "transaction within transaction" error when cleanup code inside a `finally` block opens a new connection after an Oracle error has aborted the current transaction.
+
+The correct pattern for test cleanup or any post-error operation is `TransactionScopeOption.Suppress`:
+
+```csharp
+// Wrap cleanup in Suppress to exit the ambient transaction
+using (var suppress = new TransactionScope(TransactionScopeOption.Suppress))
+{
+    var cleanup = new Product();
+    if (cleanup.LoadByPrimaryKey(id))
+    {
+        cleanup.MarkAsDeleted();
+        cleanup.Save();
+    }
+    suppress.Complete();
+}
+```
+
+Or using the `RunWithoutTransaction` helper provided in `OracleTestBase`:
+
+```csharp
+finally
+{
+    RunWithoutTransaction(() =>
+    {
+        var cleanup = new Product();
+        if (cleanup.LoadByPrimaryKey(id))
+        {
+            cleanup.MarkAsDeleted();
+            cleanup.Save();
+        }
+    });
+}
+```
+
+> **Root cause:** After any Oracle error (ORA-00001, ORA-02291, etc.), Oracle leaves the transaction in `ABORTED` state. No further operations are allowed on that connection until an explicit `ROLLBACK` is issued. The provider handles this automatically via `hasError` + `ROLLBACK` in `finally` blocks, but `TransactionScope` promotion to DTC must be avoided entirely.
+
+## Unit Test Suite — NorthWind Oracle
+
+A complete integration test suite validates all Oracle provider operations against the NorthWind database schema. Tests cover:
+
+- CRUD operations for all entities (`Category`, `Customer`, `Employee`, `Product`, `OrderTop`, `OrderDetail`)
+- Auto-increment identity column assignment via `GENERATED BY DEFAULT AS IDENTITY`
+- Navigation properties (`UpTo`, collection navigation)
+- FK constraint violation detection (ORA-02291)
+- Unique constraint violation → `esConcurrencyException` (ORA-00001)
+- Check constraint validation (ORA-02290)
+- `INNER JOIN`, `GROUP BY`, `UNION`, subqueries, `OUTER APPLY`
+- Transaction rollback behavior
+
+Tests run sequentially (no parallelization) due to Oracle Cloud Free Tier connection pool limits. Each test cleans up its own data via `RunWithoutTransaction` in `finally` blocks.
+
+
 
 The Oracle metadata engine has been rewritten to use ODP.NET Managed (`Oracle.ManagedDataAccess`) instead of the legacy OLE DB driver. Key improvements:
 

@@ -6,8 +6,9 @@ namespace EntitySpaces.OracleManagedClientProvider
         private const string tableClose = "\"";
         private const string columnOpen = "\"";
         private const string columnClose = "\"";
-        private const string stringOpen = "\"";
-        private const string stringClose = "\"";
+        private const string stringOpen = "'"; // Important: This must be a single quote.
+        private const string stringClose = "'"; // Important: This must be a single quote.
+                                                // 
         private const string aliasOpen = "'";
         private const string aliasClose = "'";
         private const string storedProcNameOpen = "\"";

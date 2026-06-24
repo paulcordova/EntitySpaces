@@ -57,7 +57,7 @@ namespace EntitySpaces.OracleManagedClientProvider
                 int begRow = ((query.pageNumber.Value - 1) * query.pageSize.Value) + 1;
                 int endRow = begRow + (query.pageSize.Value - 1);
                 // The WITH statement
-                sql += "WITH \"withStatement\" AS (";
+                sql += "WITH withStatement AS (";
                 if (selectAll)
                 {
                     sql += " SELECT ";
@@ -78,17 +78,19 @@ namespace EntitySpaces.OracleManagedClientProvider
                     sql += "SELECT " + select + ", ROW_NUMBER() OVER(" + orderBy + ") AS ESRN ";
                 }
                 sql += "FROM " + from + join + where + groupBy + ") ";
-                // The actual select
-                if (selectAll || join.Length > 0 || groupBy.Length > 0 || query.distinct)
-                {
-                    sql += "SELECT " +
-                        Delimiters.TableOpen + "withStatement" + Delimiters.TableClose
-                        + ".* FROM \"withStatement\" ";
-                }
-                else
-                {
-                    sql += "SELECT " + select + " FROM \"withStatement\" ";
-                }
+                // The actual select — outer query references the CTE alias withStatement.
+                //
+                // FIX 1: withStatement is a CTE alias, NOT a schema object — must NOT be
+                //        quoted with double quotes. Oracle would try to find a stored object
+                //        named "withStatement" and throw ORA-00942.
+                //
+                // FIX 2: The inner "select" string contains table-aliased column references
+                //        (e.g. o."Id", o."CustomerId") valid only inside the CTE where the
+                //        alias "o" is defined. Reusing the same string in the outer query
+                //        causes ORA-00904 because the alias no longer exists there.
+                //        Solution: always SELECT withStatement.* in the outer query —
+                //        the CTE already contains exactly the projected columns.
+                sql += "SELECT withStatement.* FROM withStatement ";
                 sql += "WHERE ESRN BETWEEN " + begRow + " AND " + endRow;
                 sql += " ORDER BY ESRN ASC";
             }
