@@ -29,6 +29,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 using System;
 using System.Collections.Generic;
+using System.Collections.Concurrent;
 using System.Data;
 
 #if NET48
@@ -48,71 +49,60 @@ namespace EntitySpaces.SqlClientProvider
             return GetParameters(request.DataID, request.ProviderMetadata, request.Columns);
         }
 
-        static public Dictionary<string, SqlParameter> GetParameters(Guid dataID, 
+        static public Dictionary<string, SqlParameter> GetParameters(Guid dataID,
             esProviderSpecificMetadata providerMetadata, esColumnMetadataCollection columns)
         {
-            lock (parameterCache)
+            return parameterCache.GetOrAdd(dataID, id =>
             {
-                if (!parameterCache.ContainsKey(dataID))
+                Dictionary<string, SqlParameter> types = new Dictionary<string, SqlParameter>();
+
+                SqlParameter param1;
+                foreach (esColumnMetadata col in columns)
                 {
-                    // The Parameters for this Table haven't been cached yet, this is a one time operation
-                    Dictionary<string, SqlParameter> types = new Dictionary<string, SqlParameter>();
-
-                    SqlParameter param1;
-                    foreach (esColumnMetadata col in columns)
+                    esTypeMap typeMap = providerMetadata.GetTypeMap(col.PropertyName);
+                    if (typeMap != null)
                     {
-                        esTypeMap typeMap = providerMetadata.GetTypeMap(col.PropertyName);
-                        if (typeMap != null)
+                        string nativeType = typeMap.NativeType;
+                        SqlDbType dbType = Cache.NativeTypeToDbType(nativeType);
+
+                        param1 = new SqlParameter(Delimiters.Param + col.PropertyName, dbType, 0, col.PropertyName);
+                        param1.SourceColumn = col.Name;
+
+                        switch (dbType)
                         {
-                            string nativeType = typeMap.NativeType;
-                            SqlDbType dbType = Cache.NativeTypeToDbType(nativeType);
+                            case SqlDbType.BigInt:
+                            case SqlDbType.Decimal:
+                            case SqlDbType.Float:
+                            case SqlDbType.Int:
+                            case SqlDbType.Money:
+                            case SqlDbType.Real:
+                            case SqlDbType.SmallMoney:
+                            case SqlDbType.TinyInt:
+                            case SqlDbType.SmallInt:
+                                param1.Size = (int)col.CharacterMaxLength;
+                                param1.Precision = (byte)col.NumericPrecision;
+                                param1.Scale = (byte)col.NumericScale;
+                                break;
 
-                            param1 = new SqlParameter(Delimiters.Param + col.PropertyName, dbType, 0, col.PropertyName);
-                            param1.SourceColumn = col.Name;
+                            case SqlDbType.DateTime:
+                                param1.Precision = 23;
+                                param1.Scale = 3;
+                                break;
 
-                            switch (dbType)
-                            {
-                                case SqlDbType.BigInt:
-                                case SqlDbType.Decimal:
-                                case SqlDbType.Float:
-                                case SqlDbType.Int:
-                                case SqlDbType.Money:
-                                case SqlDbType.Real:
-                                case SqlDbType.SmallMoney:
-                                case SqlDbType.TinyInt:
-                                case SqlDbType.SmallInt:
+                            case SqlDbType.SmallDateTime:
+                                param1.Precision = 16;
+                                break;
 
-                                    param1.Size = (int)col.CharacterMaxLength;
-                                    param1.Precision = (byte)col.NumericPrecision;
-                                    param1.Scale = (byte)col.NumericScale;
-                                    break;
-
-                                case SqlDbType.DateTime:
-
-                                    param1.Precision = 23;
-                                    param1.Scale = 3;
-                                    break;
-
-                                case SqlDbType.SmallDateTime:
-
-                                    param1.Precision = 16;
-                                    break;
-
-                                case SqlDbType.Udt:
-
-                                    SetUdtTypeNameToAvoidMonoError(param1, typeMap);
-                                    break;
-
-                            }
-                            types[col.Name] = param1;
+                            case SqlDbType.Udt:
+                                SetUdtTypeNameToAvoidMonoError(param1, typeMap);
+                                break;
                         }
+                        types[col.Name] = param1;
                     }
-
-                    parameterCache[dataID] = types;
                 }
-            }
 
-            return parameterCache[dataID];
+                return types;
+            });
         }
 
         static private void SetUdtTypeNameToAvoidMonoError(SqlParameter param, esTypeMap typeMap)
@@ -167,7 +157,7 @@ namespace EntitySpaces.SqlClientProvider
             return param.Clone() as SqlParameter;
         }
         
-        static private Dictionary<Guid, Dictionary<string, SqlParameter>> parameterCache
-            = new Dictionary<Guid, Dictionary<string, SqlParameter>>();
+        static private ConcurrentDictionary<Guid, Dictionary<string, SqlParameter>> parameterCache
+            = new ConcurrentDictionary<Guid, Dictionary<string, SqlParameter>>();
     }
 }

@@ -29,6 +29,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 using System;
 using System.Collections.Generic;
+using System.Collections.Concurrent;
 
 using EntitySpaces.Interfaces;
 
@@ -46,48 +47,42 @@ namespace EntitySpaces.SQLiteProvider
         static public Dictionary<string, SQLiteParameter> GetParameters(Guid dataID,
             esProviderSpecificMetadata providerMetadata, esColumnMetadataCollection columns)
         {
-            lock (parameterCache)
+            return parameterCache.GetOrAdd(dataID, id =>
             {
-                if (!parameterCache.ContainsKey(dataID))
+                Dictionary<string, SQLiteParameter> types = new Dictionary<string, SQLiteParameter>();
+
+                SQLiteParameter param1;
+                foreach (esColumnMetadata col in columns)
                 {
-                    // The Parameters for this Table haven't been cached yet, this is a one time operation
-                    Dictionary<string, SQLiteParameter> types = new Dictionary<string, SQLiteParameter>();
-
-                    SQLiteParameter param1;
-                    foreach (esColumnMetadata col in columns)
+                    esTypeMap typeMap = providerMetadata.GetTypeMap(col.PropertyName);
+                    if (typeMap != null)
                     {
-                        esTypeMap typeMap = providerMetadata.GetTypeMap(col.PropertyName);
-                        if (typeMap != null)
+                        string nativeType = typeMap.NativeType;
+                        System.Data.DbType dbType = Cache.NativeTypeToDbType(nativeType);
+
+                        param1 = new SQLiteParameter(Delimiters.Param + col.PropertyName, dbType, 0, col.Name);
+                        param1.SourceColumn = col.Name;
+
+                        switch (dbType)
                         {
-                            string nativeType = typeMap.NativeType;
-                            System.Data.DbType dbType = Cache.NativeTypeToDbType(nativeType);
+                            case System.Data.DbType.Int64:
+                            //case VistaDBType.Int:
+                            //case VistaDBType.SmallInt:
+                            //case VistaDBType.Decimal:
+                            //case VistaDBType.Float:
+                            //case VistaDBType.Money:
+                            //case VistaDBType.SmallMoney:
 
-                            param1 = new SQLiteParameter(Delimiters.Param + col.PropertyName, dbType, 0, col.Name);
-                            param1.SourceColumn = col.Name;
+                                param1.Size = (int)col.CharacterMaxLength;
+                                break;
 
-                            switch (dbType)
-                            {
-                                case System.Data.DbType.Int64:
-                                //case VistaDBType.Int:
-                                //case VistaDBType.SmallInt:
-                                //case VistaDBType.Decimal:
-                                //case VistaDBType.Float:
-                                //case VistaDBType.Money:
-                                //case VistaDBType.SmallMoney:
-
-                                    param1.Size = (int)col.CharacterMaxLength;
-                                    break;
-
-                            }
-                            types[col.Name] = param1;
                         }
+                        types[col.Name] = param1;
                     }
-
-                    parameterCache[dataID] = types;
                 }
-            }
 
-            return parameterCache[dataID];
+                return types;
+            });
         }
 
         static private System.Data.DbType NativeTypeToDbType(string nativeType)
@@ -118,7 +113,7 @@ namespace EntitySpaces.SQLiteProvider
             return param.Clone() as SQLiteParameter;
         }
 
-        static private Dictionary<Guid, Dictionary<string, SQLiteParameter>> parameterCache
-            = new Dictionary<Guid, Dictionary<string, SQLiteParameter>>();
+        static private ConcurrentDictionary<Guid, Dictionary<string, SQLiteParameter>> parameterCache
+            = new ConcurrentDictionary<Guid, Dictionary<string, SQLiteParameter>>();
     }
 }

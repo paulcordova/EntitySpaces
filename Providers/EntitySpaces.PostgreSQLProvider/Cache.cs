@@ -29,6 +29,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 using System;
 using System.Collections.Generic;
+using System.Collections.Concurrent;
 
 using EntitySpaces.Interfaces;
 
@@ -47,55 +48,49 @@ namespace EntitySpaces.Npgsql2Provider
         static public Dictionary<string, NpgsqlParameter> GetParameters(Guid dataID,
             esProviderSpecificMetadata providerMetadata, esColumnMetadataCollection columns)
         {
-            lock (parameterCache)
+            return parameterCache.GetOrAdd(dataID, id =>
             {
-                if (!parameterCache.ContainsKey(dataID))
+                Dictionary<string, NpgsqlParameter> types = new Dictionary<string, NpgsqlParameter>();
+
+                NpgsqlParameter param1;
+                foreach (esColumnMetadata col in columns)
                 {
-                    // The Parameters for this Table haven't been cached yet, this is a one time operation
-                    Dictionary<string, NpgsqlParameter> types = new Dictionary<string, NpgsqlParameter>();
-
-                    NpgsqlParameter param1;
-                    foreach (esColumnMetadata col in columns)
+                    esTypeMap typeMap = providerMetadata.GetTypeMap(col.PropertyName);
+                    if (typeMap != null)
                     {
-                        esTypeMap typeMap = providerMetadata.GetTypeMap(col.PropertyName);
-                        if (typeMap != null)
+                        string nativeType = typeMap.NativeType;
+                        NpgsqlDbType dbType = Cache.NativeTypeToDbType(nativeType);
+
+                        param1 = new NpgsqlParameter(Delimiters.Param + col.PropertyName, dbType, 0, col.Name);
+                        param1.SourceColumn = col.Name;
+
+                        switch (dbType)
                         {
-                            string nativeType = typeMap.NativeType;
-                            NpgsqlDbType dbType = Cache.NativeTypeToDbType(nativeType);
+                            case NpgsqlDbType.Numeric:
 
-                            param1 = new NpgsqlParameter(Delimiters.Param + col.PropertyName, dbType, 0, col.Name);
-                            param1.SourceColumn = col.Name;
+                                if (col.NumericPrecision > 0)
+                                {
+                                    param1.Precision = (byte)col.NumericPrecision;
+                                    param1.Scale = (byte)col.NumericScale;
+                                }
 
-                            switch (dbType)
-                            {
-                                case NpgsqlDbType.Numeric:
+                                break;
 
-                                    if (col.NumericPrecision > 0)
-                                    {
-                                        param1.Precision = (byte)col.NumericPrecision;
-                                        param1.Scale = (byte)col.NumericScale;
-                                    }
+                            case NpgsqlDbType.Char:
 
-                                    break;
+                                if (col.CharacterMaxLength > 0)
+                                {
+                                    param1.Size = (int)col.CharacterMaxLength;
+                                }
 
-                                case NpgsqlDbType.Char:
-
-                                    if (col.CharacterMaxLength > 0)
-                                    {
-                                        param1.Size = (int)col.CharacterMaxLength;
-                                    }
-
-                                    break;
-                            }
-                            types[col.Name] = param1;
+                                break;
                         }
+                        types[col.Name] = param1;
                     }
-
-                    parameterCache[dataID] = types;
                 }
-            }
 
-            return parameterCache[dataID];
+                return types;
+            });
         }
 
         static private NpgsqlDbType NativeTypeToDbType(string nativeType)
@@ -143,7 +138,7 @@ namespace EntitySpaces.Npgsql2Provider
             return param.Clone() as NpgsqlParameter;
         }
 
-        static private Dictionary<Guid, Dictionary<string, NpgsqlParameter>> parameterCache
-            = new Dictionary<Guid, Dictionary<string, NpgsqlParameter>>();
+        static private ConcurrentDictionary<Guid, Dictionary<string, NpgsqlParameter>> parameterCache
+            = new ConcurrentDictionary<Guid, Dictionary<string, NpgsqlParameter>>();
     }
 }

@@ -29,6 +29,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 using System;
 using System.Collections.Generic;
+using System.Collections.Concurrent;
 
 using EntitySpaces.Interfaces;
 
@@ -46,61 +47,55 @@ namespace EntitySpaces.MySQLProvider
         static public Dictionary<string, MySqlParameter> GetParameters(Guid dataID,
             esProviderSpecificMetadata providerMetadata, esColumnMetadataCollection columns)
         {
-            lock (parameterCache)
+            return parameterCache.GetOrAdd(dataID, id =>
             {
-                if (!parameterCache.ContainsKey(dataID))
+                Dictionary<string, MySqlParameter> types = new Dictionary<string, MySqlParameter>();
+
+                MySqlParameter param1;
+                foreach (esColumnMetadata col in columns)
                 {
-                    // The Parameters for this Table haven't been cached yet, this is a one time operation
-                    Dictionary<string, MySqlParameter> types = new Dictionary<string, MySqlParameter>();
-
-                    MySqlParameter param1;
-                    foreach (esColumnMetadata col in columns)
+                    esTypeMap typeMap = providerMetadata.GetTypeMap(col.PropertyName);
+                    if (typeMap != null)
                     {
-                        esTypeMap typeMap = providerMetadata.GetTypeMap(col.PropertyName);
-                        if (typeMap != null)
+                        string nativeType = typeMap.NativeType;
+                        MySqlDbType dbType = Cache.NativeTypeToDbType(nativeType);
+
+                        param1 = new MySqlParameter(Delimiters.Param + col.PropertyName, dbType, 0, col.Name);
+                        param1.SourceColumn = col.Name;
+
+                        switch (dbType)
                         {
-                            string nativeType = typeMap.NativeType;
-                            MySqlDbType dbType = Cache.NativeTypeToDbType(nativeType);
+                            case MySqlDbType.Decimal:
+                            case MySqlDbType.NewDecimal:
+                            case MySqlDbType.Double:
+                            case MySqlDbType.Float:
+                            case MySqlDbType.Int16:
+                            case MySqlDbType.Int24:
+                            case MySqlDbType.Int32:
+                            case MySqlDbType.Int64:
+                            case MySqlDbType.UInt16:
+                            case MySqlDbType.UInt24:
+                            case MySqlDbType.UInt32:
+                            case MySqlDbType.UInt64:
 
-                            param1 = new MySqlParameter(Delimiters.Param + col.PropertyName, dbType, 0, col.Name);
-                            param1.SourceColumn = col.Name;
+                                param1.Size = (int)col.CharacterMaxLength;
+                                param1.Precision = (byte)col.NumericPrecision;
+                                param1.Scale = (byte)col.NumericScale;
+                                break;
 
-                            switch (dbType)
-                            {
-                                case MySqlDbType.Decimal:
-                                case MySqlDbType.NewDecimal:
-                                case MySqlDbType.Double:
-                                case MySqlDbType.Float:
-                                case MySqlDbType.Int16:
-                                case MySqlDbType.Int24:
-                                case MySqlDbType.Int32:
-                                case MySqlDbType.Int64:
-                                case MySqlDbType.UInt16:
-                                case MySqlDbType.UInt24:
-                                case MySqlDbType.UInt32:
-                                case MySqlDbType.UInt64:
+                            case MySqlDbType.String:
+                            case MySqlDbType.VarString:
+                            case MySqlDbType.VarChar:
+                                param1.Size = (int)col.CharacterMaxLength;
+                                break;
 
-                                    param1.Size = (int)col.CharacterMaxLength;
-                                    param1.Precision = (byte)col.NumericPrecision;
-                                    param1.Scale = (byte)col.NumericScale;
-                                    break;
-
-                                case MySqlDbType.String:
-                                case MySqlDbType.VarString:
-                                case MySqlDbType.VarChar:
-                                    param1.Size = (int)col.CharacterMaxLength;
-                                    break;
-
-                            }
-                            types[col.Name] = param1;
                         }
+                        types[col.Name] = param1;
                     }
-
-                    parameterCache[dataID] = types;
                 }
-            }
 
-            return parameterCache[dataID];
+                return types;
+            });
         }
 
         static private MySqlDbType NativeTypeToDbType(string nativeType)
@@ -161,7 +156,7 @@ namespace EntitySpaces.MySQLProvider
             return param.Clone() as MySqlParameter;
         }
         
-        static private Dictionary<Guid, Dictionary<string, MySqlParameter>> parameterCache
-            = new Dictionary<Guid, Dictionary<string, MySqlParameter>>();
+        static private ConcurrentDictionary<Guid, Dictionary<string, MySqlParameter>> parameterCache
+            = new ConcurrentDictionary<Guid, Dictionary<string, MySqlParameter>>();
     }
 }

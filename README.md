@@ -50,8 +50,26 @@ This fork focuses on:
 - Clean compilation with warnings resolved
 - Correct exception propagation and improved debug support (`LastQuery` always available)
 - Reliable NuGet packaging
+- Thread-safe parameter cache using `ConcurrentDictionary` across all providers, eliminating lock contention in multi-threaded environments
 
 The goal is not to redesign EntitySpaces, but to preserve and evolve its proven architecture for current .NET ecosystems.
+
+---
+## Why Now? The Bridge from Legacy to Modern Web
+
+Transitioning legacy WinForms and WebForms applications to the web is one of the greatest challenges—and opportunities—in enterprise software today. These systems often rely on outdated threading models and explicit locking mechanisms that fail under the concurrent load of modern web servers.
+
+This fork addresses these foundational issues head-on. By refactoring the core parameter cache to use `ConcurrentDictionary` across **every** supported database provider, EntitySpaces now delivers true thread-safety without the bottlenecks of explicit `lock` statements. This unlocks several critical advantages for modernization projects:
+
+- **Scalability under Web Load**: Your application handles concurrent HTTP requests efficiently, eliminating contention and deadlocks in the data access layer when hosted in IIS, Kestrel, or cloud environments.
+
+- **Cloud-Ready Connection Management**: Safe connection pool handling ensures that errors during `Save()` or `Load()` don't leave connections in a broken state. This prevents resource leaks and application crashes, a common pain point when moving legacy apps to the cloud.
+
+- **Preserve Business Logic, Modernize the UI**: Paired with modern web frameworks like **Wisej.NET**—which mirrors the WinForms programming model—you can lift-and-shift your existing business logic and EntitySpaces queries directly to the web. There is no need to rewrite hundreds of stored procedures or complex SQL joins.
+
+- **Future-Proof Multi-Provider Support**: With automatic engine detection and full support for SQL Server, PostgreSQL, MySQL, SQLite, and Oracle, your modernized application is ready for Azure, AWS, Oracle Cloud, or hybrid on-premise environments without locking you into a single vendor.
+
+Your teams already know SQL and your existing ORM patterns. This modernization path preserves that investment while giving your applications a future-proof, web-ready architecture. Time-to-market is measured in weeks, not years.
 
 ---
 
