@@ -398,13 +398,14 @@ namespace EntitySpaces.SQLiteProvider
         {
             esDataResponse response = new esDataResponse();
             SQLiteCommand cmd = null;
+            bool hasError = false;
 
             try
             {
                 cmd = new SQLiteCommand();
                 if (request.CommandTimeout != null) cmd.CommandTimeout = request.CommandTimeout.Value;
-                if (request.Parameters != null)	Shared.AddParameters(cmd, request);
-                
+                if (request.Parameters != null) Shared.AddParameters(cmd, request);
+
                 switch (request.QueryType)
                 {
                     case esQueryType.TableDirect:
@@ -439,6 +440,7 @@ namespace EntitySpaces.SQLiteProvider
                             catch (Exception ex)
                             {
                                 esTrace.Exception = ex.Message;
+                                hasError = true;
                                 throw;
                             }
                         }
@@ -449,8 +451,23 @@ namespace EntitySpaces.SQLiteProvider
                         response.RowsEffected = cmd.ExecuteNonQuery();
                     }
                 }
+                catch
+                {
+                    hasError = true;
+                    throw;
+                }
                 finally
                 {
+                    // Close the connection if an error occurred to prevent reuse of a broken state
+                    if (hasError && cmd != null && cmd.Connection != null && cmd.Connection.State == ConnectionState.Open)
+                    {
+                        try
+                        {
+                            cmd.Connection.Close();
+                        }
+                        catch { /* best-effort close — ignore secondary errors */ }
+                    }
+
                     esTransactionScope.DeEnlist(cmd);
                 }
 
@@ -472,6 +489,7 @@ namespace EntitySpaces.SQLiteProvider
         {
             esDataResponse response = new esDataResponse();
             SQLiteCommand cmd = null;
+            bool hasError = false;
 
             try
             {
@@ -516,6 +534,7 @@ namespace EntitySpaces.SQLiteProvider
                         catch (Exception ex)
                         {
                             esTrace.Exception = ex.Message;
+                            hasError = true;
                             throw;
                         }
                     }
@@ -526,10 +545,28 @@ namespace EntitySpaces.SQLiteProvider
                     response.DataReader = cmd.ExecuteReader(CommandBehavior.CloseConnection);
                 }
             }
-            catch (Exception ex)
+            catch
             {
-                CleanupCommand(cmd);
-                response.Exception = ex;
+                hasError = true;
+                throw;
+            }
+            finally
+            {
+                // Close the connection if an error occurred to prevent reuse of a broken state
+                if (hasError && cmd != null && cmd.Connection != null && cmd.Connection.State == ConnectionState.Open)
+                {
+                    try
+                    {
+                        cmd.Connection.Close();
+                    }
+                    catch { /* best-effort close — ignore secondary errors */ }
+                }
+
+                // If an error occurred, also ensure the connection is closed (CommandBehavior.CloseConnection may not have fired)
+                if (hasError)
+                {
+                    CleanupCommand(cmd);
+                }
             }
 
             return response;
@@ -539,6 +576,7 @@ namespace EntitySpaces.SQLiteProvider
         {
             esDataResponse response = new esDataResponse();
             SQLiteCommand cmd = null;
+            bool hasError = false;
 
             try
             {
@@ -584,6 +622,7 @@ namespace EntitySpaces.SQLiteProvider
                             catch (Exception ex)
                             {
                                 esTrace.Exception = ex.Message;
+                                hasError = true;
                                 throw;
                             }
                         }
@@ -594,8 +633,23 @@ namespace EntitySpaces.SQLiteProvider
                         response.Scalar = cmd.ExecuteScalar();
                     }
                 }
+                catch
+                {
+                    hasError = true;
+                    throw;
+                }
                 finally
                 {
+                    // Close the connection if an error occurred to prevent reuse of a broken state
+                    if (hasError && cmd != null && cmd.Connection != null && cmd.Connection.State == ConnectionState.Open)
+                    {
+                        try
+                        {
+                            cmd.Connection.Close();
+                        }
+                        catch { /* best-effort close — ignore secondary errors */ }
+                    }
+
                     esTransactionScope.DeEnlist(cmd);
                 }
 
@@ -678,6 +732,7 @@ namespace EntitySpaces.SQLiteProvider
         static private esDataResponse LoadDataSetFromStoredProcedure(esDataRequest request)
         {
             esDataResponse response = new esDataResponse();
+            bool hasError = false;
             SQLiteCommand cmd = null;
 
             try
@@ -734,12 +789,20 @@ namespace EntitySpaces.SQLiteProvider
             }
             catch (Exception ex)
             {
+                hasError = true;
                 CleanupCommand(cmd);
                 throw ex;
             }
             finally
             {
-
+                if (hasError && cmd != null && cmd.Connection != null && cmd.Connection.State == ConnectionState.Open)
+                {
+                    try
+                    {
+                        cmd.Connection.Close();
+                    }
+                    catch { /* best-effort */ }
+                }
             }
 
             return response;
@@ -749,6 +812,7 @@ namespace EntitySpaces.SQLiteProvider
         {
             esDataResponse response = new esDataResponse();
             SQLiteCommand cmd = null;
+            bool hasError = false;
 
             try
             {
@@ -802,12 +866,20 @@ namespace EntitySpaces.SQLiteProvider
             }
             catch (Exception ex)
             {
+                hasError = true;
                 CleanupCommand(cmd);
                 throw ex;
             }
             finally
             {
-
+                if (hasError && cmd != null && cmd.Connection != null && cmd.Connection.State == ConnectionState.Open)
+                {
+                    try
+                    {
+                        cmd.Connection.Close();
+                    }
+                    catch { /* best-effort */ }
+                }
             }
 
             return response;
@@ -817,6 +889,7 @@ namespace EntitySpaces.SQLiteProvider
         {
             esDataResponse response = new esDataResponse();
             SQLiteCommand cmd = null;
+            bool hasError = false;
 
             try
             {
@@ -871,12 +944,20 @@ namespace EntitySpaces.SQLiteProvider
             }
             catch (Exception ex)
             {
+                hasError = true;
                 CleanupCommand(cmd);
                 throw ex;
             }
             finally
             {
-
+                if (hasError && cmd != null && cmd.Connection != null && cmd.Connection.State == ConnectionState.Open)
+                {
+                    try
+                    {
+                        cmd.Connection.Close();
+                    }
+                    catch { /* best-effort */ }
+                }
             }
 
             return response;
@@ -886,6 +967,7 @@ namespace EntitySpaces.SQLiteProvider
         {
             esDataResponse response = new esDataResponse();
             SQLiteCommand cmd = null;
+            bool hasError = false;
 
             try
             {
@@ -940,12 +1022,20 @@ namespace EntitySpaces.SQLiteProvider
             }
             catch (Exception ex)
             {
+                hasError = true;
                 CleanupCommand(cmd);
                 throw ex;
             }
             finally
             {
-
+                if (hasError && cmd != null && cmd.Connection != null && cmd.Connection.State == ConnectionState.Open)
+                {
+                    try
+                    {
+                        cmd.Connection.Close();
+                    }
+                    catch { /* best-effort */ }
+                }
             }
 
             return response;
@@ -955,6 +1045,7 @@ namespace EntitySpaces.SQLiteProvider
         {
             esDataResponse response = new esDataResponse();
             SQLiteCommand cmd = null;
+            bool hasError = false;
 
             try
             {
@@ -1026,12 +1117,20 @@ namespace EntitySpaces.SQLiteProvider
             }
             catch (Exception ex)
             {
+                hasError = true;
                 CleanupCommand(cmd);
                 throw ex;
             }
             finally
             {
-
+                if (hasError && cmd != null && cmd.Connection != null && cmd.Connection.State == ConnectionState.Open)
+                {
+                    try
+                    {
+                        cmd.Connection.Close();
+                    }
+                    catch { /* best-effort */ }
+                }
             }
 
             return response;

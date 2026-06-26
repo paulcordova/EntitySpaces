@@ -346,13 +346,14 @@ namespace EntitySpaces.SqlClientProvider
         {
             esDataResponse response = new esDataResponse();
             SqlCommand cmd = null;
+            bool hasError = false;
 
             try
             {
                 cmd = new SqlCommand();
-                if(request.CommandTimeout != null) cmd.CommandTimeout = request.CommandTimeout.Value;
-                if(request.Parameters != null) Shared.AddParameters(cmd, request);
-                
+                if (request.CommandTimeout != null) cmd.CommandTimeout = request.CommandTimeout.Value;
+                if (request.Parameters != null) Shared.AddParameters(cmd, request);
+
                 switch (request.QueryType)
                 {
                     case esQueryType.TableDirect:
@@ -387,6 +388,7 @@ namespace EntitySpaces.SqlClientProvider
                             catch (Exception ex)
                             {
                                 esTrace.Exception = ex.Message;
+                                hasError = true;
                                 throw;
                             }
                         }
@@ -397,8 +399,26 @@ namespace EntitySpaces.SqlClientProvider
                         response.RowsEffected = cmd.ExecuteNonQuery();
                     }
                 }
+                catch
+                {
+                    hasError = true;
+                    throw;
+                }
                 finally
                 {
+                    // Roll back any active transaction before releasing the connection to the pool
+                    if (hasError && cmd != null && cmd.Connection != null && cmd.Connection.State == ConnectionState.Open)
+                    {
+                        try
+                        {
+                            using (SqlCommand rollback = new SqlCommand("IF @@TRANCOUNT > 0 ROLLBACK", cmd.Connection))
+                            {
+                                rollback.ExecuteNonQuery();
+                            }
+                        }
+                        catch { /* best-effort rollback — ignore secondary errors */ }
+                    }
+
                     esTransactionScope.DeEnlist(cmd);
                 }
 
@@ -420,12 +440,13 @@ namespace EntitySpaces.SqlClientProvider
         {
             esDataResponse response = new esDataResponse();
             SqlCommand cmd = null;
+            bool hasError = false;
 
             try
             {
                 cmd = new SqlCommand();
-                if(request.CommandTimeout != null) cmd.CommandTimeout = request.CommandTimeout.Value;
-                if(request.Parameters != null) Shared.AddParameters(cmd, request);
+                if (request.CommandTimeout != null) cmd.CommandTimeout = request.CommandTimeout.Value;
+                if (request.Parameters != null) Shared.AddParameters(cmd, request);
 
                 switch (request.QueryType)
                 {
@@ -464,6 +485,7 @@ namespace EntitySpaces.SqlClientProvider
                         catch (Exception ex)
                         {
                             esTrace.Exception = ex.Message;
+                            hasError = true;
                             throw;
                         }
                     }
@@ -474,10 +496,31 @@ namespace EntitySpaces.SqlClientProvider
                     response.DataReader = cmd.ExecuteReader(CommandBehavior.CloseConnection);
                 }
             }
-            catch (Exception ex)
+            catch
             {
-                CleanupCommand(cmd);
-                response.Exception = ex;
+                hasError = true;
+                throw;
+            }
+            finally
+            {
+                // Roll back any active transaction before releasing the connection to the pool
+                if (hasError && cmd != null && cmd.Connection != null && cmd.Connection.State == ConnectionState.Open)
+                {
+                    try
+                    {
+                        using (SqlCommand rollback = new SqlCommand("IF @@TRANCOUNT > 0 ROLLBACK", cmd.Connection))
+                        {
+                            rollback.ExecuteNonQuery();
+                        }
+                    }
+                    catch { /* best-effort rollback — ignore secondary errors */ }
+                }
+
+                // If an error occurred, also ensure the connection is closed (CommandBehavior.CloseConnection may not have fired)
+                if (hasError)
+                {
+                    CleanupCommand(cmd);
+                }
             }
 
             return response;
@@ -487,12 +530,13 @@ namespace EntitySpaces.SqlClientProvider
         {
             esDataResponse response = new esDataResponse();
             SqlCommand cmd = null;
+            bool hasError = false;
 
             try
             {
                 cmd = new SqlCommand();
-                if(request.CommandTimeout != null) cmd.CommandTimeout = request.CommandTimeout.Value;
-                if(request.Parameters != null) Shared.AddParameters(cmd, request);
+                if (request.CommandTimeout != null) cmd.CommandTimeout = request.CommandTimeout.Value;
+                if (request.Parameters != null) Shared.AddParameters(cmd, request);
 
                 switch (request.QueryType)
                 {
@@ -532,6 +576,7 @@ namespace EntitySpaces.SqlClientProvider
                             catch (Exception ex)
                             {
                                 esTrace.Exception = ex.Message;
+                                hasError = true;
                                 throw;
                             }
                         }
@@ -542,8 +587,26 @@ namespace EntitySpaces.SqlClientProvider
                         response.Scalar = cmd.ExecuteScalar();
                     }
                 }
+                catch
+                {
+                    hasError = true;
+                    throw;
+                }
                 finally
                 {
+                    // Roll back any active transaction before releasing the connection to the pool
+                    if (hasError && cmd != null && cmd.Connection != null && cmd.Connection.State == ConnectionState.Open)
+                    {
+                        try
+                        {
+                            using (SqlCommand rollback = new SqlCommand("IF @@TRANCOUNT > 0 ROLLBACK", cmd.Connection))
+                            {
+                                rollback.ExecuteNonQuery();
+                            }
+                        }
+                        catch { /* best-effort rollback — ignore secondary errors */ }
+                    }
+
                     esTransactionScope.DeEnlist(cmd);
                 }
 
@@ -627,6 +690,7 @@ namespace EntitySpaces.SqlClientProvider
         {
             esDataResponse response = new esDataResponse();
             SqlCommand cmd = null;
+            bool hasError = false;
 
             try
             {
@@ -682,12 +746,23 @@ namespace EntitySpaces.SqlClientProvider
             }
             catch 
             {
+                hasError = true;
                 CleanupCommand(cmd);
                 throw;
             }
             finally
             {
-
+                if (hasError && cmd != null && cmd.Connection != null && cmd.Connection.State == ConnectionState.Open)
+                {
+                    try
+                    {
+                        using (SqlCommand rollback = new SqlCommand("IF @@TRANCOUNT > 0 ROLLBACK", cmd.Connection))
+                        {
+                            rollback.ExecuteNonQuery();
+                        }
+                    }
+                    catch { /* best-effort rollback, ignore secondary errors */ }
+                }
             }
 
             return response;
@@ -697,6 +772,7 @@ namespace EntitySpaces.SqlClientProvider
         {
             esDataResponse response = new esDataResponse();
             SqlCommand cmd = null;
+            bool hasError = false;
 
             try
             {
@@ -704,8 +780,8 @@ namespace EntitySpaces.SqlClientProvider
 
                 cmd = new SqlCommand();
                 cmd.CommandType = CommandType.Text;
-                if(request.CommandTimeout != null) cmd.CommandTimeout = request.CommandTimeout.Value;
-                if(request.Parameters != null) Shared.AddParameters(cmd, request);
+                if (request.CommandTimeout != null) cmd.CommandTimeout = request.CommandTimeout.Value;
+                if (request.Parameters != null) Shared.AddParameters(cmd, request);
 
                 SqlDataAdapter da = new SqlDataAdapter();
                 cmd.CommandText = request.QueryText;
@@ -727,6 +803,7 @@ namespace EntitySpaces.SqlClientProvider
                             catch (Exception ex)
                             {
                                 esTrace.Exception = ex.Message;
+                                hasError = true;
                                 throw;
                             }
                         }
@@ -748,16 +825,27 @@ namespace EntitySpaces.SqlClientProvider
                 {
                     Shared.GatherReturnParameters(cmd, request, response);
                 }
-                
             }
             catch
             {
+                hasError = true;
                 CleanupCommand(cmd);
                 throw;
             }
             finally
             {
-
+                // Roll back any active transaction before releasing the connection to the pool
+                if (hasError && cmd != null && cmd.Connection != null && cmd.Connection.State == ConnectionState.Open)
+                {
+                    try
+                    {
+                        using (SqlCommand rollback = new SqlCommand("IF @@TRANCOUNT > 0 ROLLBACK", cmd.Connection))
+                        {
+                            rollback.ExecuteNonQuery();
+                        }
+                    }
+                    catch { /* best-effort rollback — ignore secondary errors */ }
+                }
             }
 
             return response;
@@ -767,6 +855,7 @@ namespace EntitySpaces.SqlClientProvider
         {
             esDataResponse response = new esDataResponse();
             SqlCommand cmd = null;
+            bool hasError = false;
 
             try
             {
@@ -775,8 +864,8 @@ namespace EntitySpaces.SqlClientProvider
                 cmd = new SqlCommand();
                 cmd.CommandType = CommandType.StoredProcedure;
                 cmd.CommandText = Shared.CreateFullName(request);
-                if(request.CommandTimeout != null) cmd.CommandTimeout = request.CommandTimeout.Value;
-                if(request.Parameters != null) Shared.AddParameters(cmd, request);
+                if (request.CommandTimeout != null) cmd.CommandTimeout = request.CommandTimeout.Value;
+                if (request.Parameters != null) Shared.AddParameters(cmd, request);
 
                 SqlDataAdapter da = new SqlDataAdapter();
                 da.SelectCommand = cmd;
@@ -797,6 +886,7 @@ namespace EntitySpaces.SqlClientProvider
                             catch (Exception ex)
                             {
                                 esTrace.Exception = ex.Message;
+                                hasError = true;
                                 throw;
                             }
                         }
@@ -821,12 +911,24 @@ namespace EntitySpaces.SqlClientProvider
             }
             catch
             {
+                hasError = true;
                 CleanupCommand(cmd);
                 throw;
             }
             finally
             {
-
+                // Roll back any active transaction before releasing the connection to the pool
+                if (hasError && cmd != null && cmd.Connection != null && cmd.Connection.State == ConnectionState.Open)
+                {
+                    try
+                    {
+                        using (SqlCommand rollback = new SqlCommand("IF @@TRANCOUNT > 0 ROLLBACK", cmd.Connection))
+                        {
+                            rollback.ExecuteNonQuery();
+                        }
+                    }
+                    catch { /* best-effort rollback — ignore secondary errors */ }
+                }
             }
 
             return response;
@@ -836,6 +938,7 @@ namespace EntitySpaces.SqlClientProvider
         {
             esDataResponse response = new esDataResponse();
             SqlCommand cmd = null;
+            bool hasError = false;
 
             try
             {
@@ -843,8 +946,8 @@ namespace EntitySpaces.SqlClientProvider
 
                 cmd = new SqlCommand();
                 cmd.CommandType = CommandType.Text;
-                if(request.CommandTimeout != null) cmd.CommandTimeout = request.CommandTimeout.Value;
-                if(request.Parameters != null) Shared.AddParameters(cmd, request);
+                if (request.CommandTimeout != null) cmd.CommandTimeout = request.CommandTimeout.Value;
+                if (request.Parameters != null) Shared.AddParameters(cmd, request);
 
                 SqlDataAdapter da = new SqlDataAdapter();
                 cmd.CommandText = request.QueryText;
@@ -866,6 +969,7 @@ namespace EntitySpaces.SqlClientProvider
                             catch (Exception ex)
                             {
                                 esTrace.Exception = ex.Message;
+                                hasError = true;
                                 throw;
                             }
                         }
@@ -890,12 +994,24 @@ namespace EntitySpaces.SqlClientProvider
             }
             catch
             {
+                hasError = true;
                 CleanupCommand(cmd);
                 throw;
             }
             finally
             {
-
+                // Roll back any active transaction before releasing the connection to the pool
+                if (hasError && cmd != null && cmd.Connection != null && cmd.Connection.State == ConnectionState.Open)
+                {
+                    try
+                    {
+                        using (SqlCommand rollback = new SqlCommand("IF @@TRANCOUNT > 0 ROLLBACK", cmd.Connection))
+                        {
+                            rollback.ExecuteNonQuery();
+                        }
+                    }
+                    catch { /* best-effort rollback — ignore secondary errors */ }
+                }
             }
 
             return response;
@@ -905,6 +1021,7 @@ namespace EntitySpaces.SqlClientProvider
         {
             esDataResponse response = new esDataResponse();
             SqlCommand cmd = null;
+            bool hasError = false;
 
             try
             {
@@ -912,12 +1029,12 @@ namespace EntitySpaces.SqlClientProvider
 
                 cmd = new SqlCommand();
                 cmd.CommandType = CommandType.Text;
-                if(request.CommandTimeout != null) cmd.CommandTimeout = request.CommandTimeout.Value;
+                if (request.CommandTimeout != null) cmd.CommandTimeout = request.CommandTimeout.Value;
 
                 string mmQuery = request.QueryText;
 
                 string[] sections = mmQuery.Split('|');
-                string[] tables  = sections[0].Split(',');
+                string[] tables = sections[0].Split(',');
                 string[] columns = sections[1].Split(',');
 
                 string prefix = String.Empty;
@@ -973,6 +1090,7 @@ namespace EntitySpaces.SqlClientProvider
                             catch (Exception ex)
                             {
                                 esTrace.Exception = ex.Message;
+                                hasError = true;
                                 throw;
                             }
                         }
@@ -992,12 +1110,24 @@ namespace EntitySpaces.SqlClientProvider
             }
             catch
             {
+                hasError = true;
                 CleanupCommand(cmd);
                 throw;
             }
             finally
             {
-
+                // Roll back any active transaction before releasing the connection to the pool
+                if (hasError && cmd != null && cmd.Connection != null && cmd.Connection.State == ConnectionState.Open)
+                {
+                    try
+                    {
+                        using (SqlCommand rollback = new SqlCommand("IF @@TRANCOUNT > 0 ROLLBACK", cmd.Connection))
+                        {
+                            rollback.ExecuteNonQuery();
+                        }
+                    }
+                    catch { /* best-effort rollback — ignore secondary errors */ }
+                }
             }
 
             return response;
@@ -1163,6 +1293,7 @@ namespace EntitySpaces.SqlClientProvider
 
         #endregion
 
+
         static private DataTable SaveStoredProcCollection(esDataRequest request)
         {
             if (request.CollectionSavePacket == null) return null;
@@ -1182,6 +1313,7 @@ namespace EntitySpaces.SqlClientProvider
                     {
                         cmd = null;
                         exception = false;
+                        bool hasError = false; // Tracks per-packet connection state
 
                         #region Setup Commands
                         switch (packet.RowState)
@@ -1257,6 +1389,7 @@ namespace EntitySpaces.SqlClientProvider
                                     catch (Exception ex)
                                     {
                                         esTrace.Exception = ex.Message;
+                                        hasError = true;
                                         throw;
                                     }
                                 }
@@ -1274,6 +1407,7 @@ namespace EntitySpaces.SqlClientProvider
                         }
                         catch (Exception ex)
                         {
+                            hasError = true;
                             exception = true;
                             request.FireOnError(packet, ex.Message);
                             if (!request.ContinueUpdateOnError)
@@ -1299,6 +1433,19 @@ namespace EntitySpaces.SqlClientProvider
                             }
                         }
                         #endregion
+
+                        // Roll back the per-packet connection before it is released
+                        if (hasError && cmd != null && cmd.Connection != null && cmd.Connection.State == ConnectionState.Open)
+                        {
+                            try
+                            {
+                                using (SqlCommand rollback = new SqlCommand("IF @@TRANCOUNT > 0 ROLLBACK", cmd.Connection))
+                                {
+                                    rollback.ExecuteNonQuery();
+                                }
+                            }
+                            catch { /* best-effort rollback — ignore secondary errors */ }
+                        }
                     }
 
                     scope.Complete();
@@ -1336,6 +1483,8 @@ namespace EntitySpaces.SqlClientProvider
                     return null;
             }
 
+            bool hasError = false;
+
             try
             {
                 esTransactionScope.Enlist(cmd, request.ConnectionString, CreateIDbConnectionDelegate);
@@ -1353,6 +1502,7 @@ namespace EntitySpaces.SqlClientProvider
                         catch (Exception ex)
                         {
                             esTrace.Exception = ex.Message;
+                            hasError = true;
                             throw;
                         }
                     }
@@ -1368,8 +1518,26 @@ namespace EntitySpaces.SqlClientProvider
                     throw new esConcurrencyException("Update failed to update any records @ " + cmd.CommandText);
                 }
             }
+            catch
+            {
+                hasError = true;
+                throw;
+            }
             finally
             {
+                // Roll back any active transaction before releasing the connection to the pool
+                if (hasError && cmd != null && cmd.Connection != null && cmd.Connection.State == ConnectionState.Open)
+                {
+                    try
+                    {
+                        using (SqlCommand rollback = new SqlCommand("IF @@TRANCOUNT > 0 ROLLBACK", cmd.Connection))
+                        {
+                            rollback.ExecuteNonQuery();
+                        }
+                    }
+                    catch { /* best-effort rollback — ignore secondary errors */ }
+                }
+
                 esTransactionScope.DeEnlist(cmd);
                 cmd.Dispose();
             }

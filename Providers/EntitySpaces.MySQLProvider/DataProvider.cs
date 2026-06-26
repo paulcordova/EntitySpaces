@@ -374,12 +374,13 @@ namespace EntitySpaces.MySQLProvider
         {
             esDataResponse response = new esDataResponse();
             MySqlCommand cmd = null;
+            bool hasError = false;
 
             try
             {
                 cmd = new MySqlCommand();
-                if(request.CommandTimeout != null) cmd.CommandTimeout = request.CommandTimeout.Value;
-                if(request.Parameters != null) Shared.AddParameters(cmd, request);
+                if (request.CommandTimeout != null) cmd.CommandTimeout = request.CommandTimeout.Value;
+                if (request.Parameters != null) Shared.AddParameters(cmd, request);
 
                 switch (request.QueryType)
                 {
@@ -415,6 +416,7 @@ namespace EntitySpaces.MySQLProvider
                             catch (Exception ex)
                             {
                                 esTrace.Exception = ex.Message;
+                                hasError = true;
                                 throw;
                             }
                         }
@@ -425,8 +427,26 @@ namespace EntitySpaces.MySQLProvider
                         response.RowsEffected = cmd.ExecuteNonQuery();
                     }
                 }
+                catch
+                {
+                    hasError = true;
+                    throw;
+                }
                 finally
                 {
+                    // Roll back any active transaction before releasing the connection to the pool
+                    if (hasError && cmd != null && cmd.Connection != null && cmd.Connection.State == ConnectionState.Open)
+                    {
+                        try
+                        {
+                            using (MySqlCommand rollback = new MySqlCommand("ROLLBACK", cmd.Connection))
+                            {
+                                rollback.ExecuteNonQuery();
+                            }
+                        }
+                        catch { /* best-effort rollback — ignore secondary errors */ }
+                    }
+
                     esTransactionScope.DeEnlist(cmd);
                 }
 
@@ -448,12 +468,13 @@ namespace EntitySpaces.MySQLProvider
         {
             esDataResponse response = new esDataResponse();
             MySqlCommand cmd = null;
+            bool hasError = false;
 
             try
             {
                 cmd = new MySqlCommand();
-                if(request.CommandTimeout != null) cmd.CommandTimeout = request.CommandTimeout.Value;
-                if(request.Parameters != null) Shared.AddParameters(cmd, request);
+                if (request.CommandTimeout != null) cmd.CommandTimeout = request.CommandTimeout.Value;
+                if (request.Parameters != null) Shared.AddParameters(cmd, request);
 
                 switch (request.QueryType)
                 {
@@ -492,6 +513,7 @@ namespace EntitySpaces.MySQLProvider
                         catch (Exception ex)
                         {
                             esTrace.Exception = ex.Message;
+                            hasError = true;
                             throw;
                         }
                     }
@@ -502,10 +524,31 @@ namespace EntitySpaces.MySQLProvider
                     response.DataReader = cmd.ExecuteReader(CommandBehavior.CloseConnection);
                 }
             }
-            catch (Exception ex)
+            catch
             {
-                CleanupCommand(cmd);
-                response.Exception = ex;
+                hasError = true;
+                throw;
+            }
+            finally
+            {
+                // Roll back any active transaction before releasing the connection to the pool
+                if (hasError && cmd != null && cmd.Connection != null && cmd.Connection.State == ConnectionState.Open)
+                {
+                    try
+                    {
+                        using (MySqlCommand rollback = new MySqlCommand("ROLLBACK", cmd.Connection))
+                        {
+                            rollback.ExecuteNonQuery();
+                        }
+                    }
+                    catch { /* best-effort rollback — ignore secondary errors */ }
+                }
+
+                // If an error occurred, also ensure the connection is closed (CommandBehavior.CloseConnection may not have fired)
+                if (hasError)
+                {
+                    CleanupCommand(cmd);
+                }
             }
 
             return response;
@@ -515,12 +558,13 @@ namespace EntitySpaces.MySQLProvider
         {
             esDataResponse response = new esDataResponse();
             MySqlCommand cmd = null;
+            bool hasError = false;
 
             try
             {
                 cmd = new MySqlCommand();
-                if(request.CommandTimeout != null) cmd.CommandTimeout = request.CommandTimeout.Value;
-                if(request.Parameters != null) Shared.AddParameters(cmd, request);
+                if (request.CommandTimeout != null) cmd.CommandTimeout = request.CommandTimeout.Value;
+                if (request.Parameters != null) Shared.AddParameters(cmd, request);
 
                 switch (request.QueryType)
                 {
@@ -560,6 +604,7 @@ namespace EntitySpaces.MySQLProvider
                             catch (Exception ex)
                             {
                                 esTrace.Exception = ex.Message;
+                                hasError = true;
                                 throw;
                             }
                         }
@@ -570,8 +615,26 @@ namespace EntitySpaces.MySQLProvider
                         response.Scalar = cmd.ExecuteScalar();
                     }
                 }
+                catch
+                {
+                    hasError = true;
+                    throw;
+                }
                 finally
                 {
+                    // Roll back any active transaction before releasing the connection to the pool
+                    if (hasError && cmd != null && cmd.Connection != null && cmd.Connection.State == ConnectionState.Open)
+                    {
+                        try
+                        {
+                            using (MySqlCommand rollback = new MySqlCommand("ROLLBACK", cmd.Connection))
+                            {
+                                rollback.ExecuteNonQuery();
+                            }
+                        }
+                        catch { /* best-effort rollback — ignore secondary errors */ }
+                    }
+
                     esTransactionScope.DeEnlist(cmd);
                 }
 
@@ -655,6 +718,7 @@ namespace EntitySpaces.MySQLProvider
         {
             esDataResponse response = new esDataResponse();
             MySqlCommand cmd = null;
+            bool hasError = false;
 
             try
             {
@@ -710,12 +774,23 @@ namespace EntitySpaces.MySQLProvider
             }
             catch (Exception)
             {
+                hasError = true;
                 CleanupCommand(cmd);
                 throw;
             }
             finally
             {
-
+                if (hasError && cmd != null && cmd.Connection != null && cmd.Connection.State == ConnectionState.Open)
+                {
+                    try
+                    {
+                        using (MySqlCommand rollback = new MySqlCommand("ROLLBACK", cmd.Connection))
+                        {
+                            rollback.ExecuteNonQuery();
+                        }
+                    }
+                    catch { /* best-effort rollback */ }
+                }
             }
 
             return response;
@@ -725,6 +800,7 @@ namespace EntitySpaces.MySQLProvider
         {
             esDataResponse response = new esDataResponse();
             MySqlCommand cmd = null;
+            bool hasError = false;
 
             try
             {
@@ -732,8 +808,8 @@ namespace EntitySpaces.MySQLProvider
 
                 cmd = new MySqlCommand();
                 cmd.CommandType = CommandType.Text;
-                if(request.CommandTimeout != null) cmd.CommandTimeout = request.CommandTimeout.Value;
-                if(request.Parameters != null) Shared.AddParameters(cmd, request);
+                if (request.CommandTimeout != null) cmd.CommandTimeout = request.CommandTimeout.Value;
+                if (request.Parameters != null) Shared.AddParameters(cmd, request);
 
                 MySqlDataAdapter da = new MySqlDataAdapter();
                 cmd.CommandText = request.QueryText;
@@ -755,6 +831,7 @@ namespace EntitySpaces.MySQLProvider
                             catch (Exception ex)
                             {
                                 esTrace.Exception = ex.Message;
+                                hasError = true;
                                 throw;
                             }
                         }
@@ -779,12 +856,24 @@ namespace EntitySpaces.MySQLProvider
             }
             catch (Exception)
             {
+                hasError = true;
                 CleanupCommand(cmd);
                 throw;
             }
             finally
             {
-
+                // Roll back any active transaction before releasing the connection to the pool
+                if (hasError && cmd != null && cmd.Connection != null && cmd.Connection.State == ConnectionState.Open)
+                {
+                    try
+                    {
+                        using (MySqlCommand rollback = new MySqlCommand("ROLLBACK", cmd.Connection))
+                        {
+                            rollback.ExecuteNonQuery();
+                        }
+                    }
+                    catch { /* best-effort rollback — ignore secondary errors */ }
+                }
             }
 
             return response;
@@ -794,6 +883,7 @@ namespace EntitySpaces.MySQLProvider
         {
             esDataResponse response = new esDataResponse();
             MySqlCommand cmd = null;
+            bool hasError = false;
 
             try
             {
@@ -848,12 +938,23 @@ namespace EntitySpaces.MySQLProvider
             }
             catch (Exception)
             {
+                hasError = true;
                 CleanupCommand(cmd);
                 throw;
             }
             finally
             {
-
+                if (hasError && cmd != null && cmd.Connection != null && cmd.Connection.State == ConnectionState.Open)
+                {
+                    try
+                    {
+                        using (MySqlCommand rollback = new MySqlCommand("ROLLBACK", cmd.Connection))
+                        {
+                            rollback.ExecuteNonQuery();
+                        }
+                    }
+                    catch { /* best-effort rollback */ }
+                }
             }
 
             return response;
@@ -863,6 +964,7 @@ namespace EntitySpaces.MySQLProvider
         {
             esDataResponse response = new esDataResponse();
             MySqlCommand cmd = null;
+            bool hasError = false;
 
             try
             {
@@ -917,12 +1019,23 @@ namespace EntitySpaces.MySQLProvider
             }
             catch (Exception)
             {
+                hasError = true;
                 CleanupCommand(cmd);
                 throw;
             }
             finally
             {
-
+                if (hasError && cmd != null && cmd.Connection != null && cmd.Connection.State == ConnectionState.Open)
+                {
+                    try
+                    {
+                        using (MySqlCommand rollback = new MySqlCommand("ROLLBACK", cmd.Connection))
+                        {
+                            rollback.ExecuteNonQuery();
+                        }
+                    }
+                    catch { /* best-effort rollback */ }
+                }
             }
 
             return response;
@@ -932,6 +1045,7 @@ namespace EntitySpaces.MySQLProvider
         {
             esDataResponse response = new esDataResponse();
             MySqlCommand cmd = null;
+            bool hasError = false;
 
             try
             {
@@ -1003,12 +1117,23 @@ namespace EntitySpaces.MySQLProvider
             }
             catch (Exception)
             {
+                hasError = true;
                 CleanupCommand(cmd);
                 throw;
             }
             finally
             {
-
+                if (hasError && cmd != null && cmd.Connection != null && cmd.Connection.State == ConnectionState.Open)
+                {
+                    try
+                    {
+                        using (MySqlCommand rollback = new MySqlCommand("ROLLBACK", cmd.Connection))
+                        {
+                            rollback.ExecuteNonQuery();
+                        }
+                    }
+                    catch { /* best-effort rollback */ }
+                }
             }
 
             return response;
@@ -1275,6 +1400,7 @@ namespace EntitySpaces.MySQLProvider
         static private DataTable SaveStoredProcEntity(esDataRequest request)
         {
             bool needToDelete = request.EntitySavePacket.RowState == esDataRowState.Deleted;
+            bool hasError = false;
 
             DataTable dataTable = CreateDataTable(request);
 
@@ -1328,6 +1454,7 @@ namespace EntitySpaces.MySQLProvider
                             }
                             catch (Exception ex)
                             {
+                                hasError = true;
                                 esTrace.Exception = ex.Message;
                                 throw;
                             }
@@ -1339,8 +1466,24 @@ namespace EntitySpaces.MySQLProvider
                         da.Update(singleRow);
                     }
                 }
+                catch
+                {
+                    hasError = true;
+                    throw;
+                }
                 finally
                 {
+                    if (hasError && cmd != null && cmd.Connection != null && cmd.Connection.State == ConnectionState.Open)
+                    {
+                        try
+                        {
+                            using (MySqlCommand rollback = new MySqlCommand("ROLLBACK", cmd.Connection))
+                            {
+                                rollback.ExecuteNonQuery();
+                            }
+                        }
+                        catch { /* best-effort rollback */ }
+                    }
                     esTransactionScope.DeEnlist(cmd);
                 }
 

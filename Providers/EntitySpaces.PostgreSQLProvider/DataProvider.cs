@@ -309,6 +309,7 @@ namespace EntitySpaces.Npgsql2Provider
         {
             esDataResponse response = new esDataResponse();
             NpgsqlCommand cmd = null;
+            bool hasError = false;
 
             try
             {
@@ -350,6 +351,7 @@ namespace EntitySpaces.Npgsql2Provider
                             catch (Exception ex)
                             {
                                 esTrace.Exception = ex.Message;
+                                hasError = true;
                                 throw;
                             }
                         }
@@ -360,8 +362,26 @@ namespace EntitySpaces.Npgsql2Provider
                         response.RowsEffected = cmd.ExecuteNonQuery();
                     }
                 }
+                catch
+                {
+                    hasError = true;
+                    throw;
+                }
                 finally
                 {
+                    // Roll back any active transaction before releasing the connection to the pool
+                    if (hasError && cmd != null && cmd.Connection != null && cmd.Connection.State == ConnectionState.Open)
+                    {
+                        try
+                        {
+                            using (NpgsqlCommand rollback = new NpgsqlCommand("ROLLBACK", cmd.Connection))
+                            {
+                                rollback.ExecuteNonQuery();
+                            }
+                        }
+                        catch { /* best-effort rollback — ignore secondary errors */ }
+                    }
+
                     esTransactionScope.DeEnlist(cmd);
                 }
 
@@ -383,6 +403,7 @@ namespace EntitySpaces.Npgsql2Provider
         {
             esDataResponse response = new esDataResponse();
             NpgsqlCommand cmd = null;
+            bool hasError = false;
 
             try
             {
@@ -427,6 +448,7 @@ namespace EntitySpaces.Npgsql2Provider
                         catch (Exception ex)
                         {
                             esTrace.Exception = ex.Message;
+                            hasError = true;
                             throw;
                         }
                     }
@@ -437,10 +459,31 @@ namespace EntitySpaces.Npgsql2Provider
                     response.DataReader = cmd.ExecuteReader(CommandBehavior.CloseConnection);
                 }
             }
-            catch (Exception ex)
+            catch
             {
-                CleanupCommand(cmd);
-                response.Exception = ex;
+                hasError = true;
+                throw;
+            }
+            finally
+            {
+                // Roll back any active transaction before releasing the connection to the pool
+                if (hasError && cmd != null && cmd.Connection != null && cmd.Connection.State == ConnectionState.Open)
+                {
+                    try
+                    {
+                        using (NpgsqlCommand rollback = new NpgsqlCommand("ROLLBACK", cmd.Connection))
+                        {
+                            rollback.ExecuteNonQuery();
+                        }
+                    }
+                    catch { /* best-effort rollback — ignore secondary errors */ }
+                }
+
+                // If an error occurred, also ensure the connection is closed (CommandBehavior.CloseConnection may not have fired)
+                if (hasError)
+                {
+                    CleanupCommand(cmd);
+                }
             }
 
             return response;
@@ -450,6 +493,7 @@ namespace EntitySpaces.Npgsql2Provider
         {
             esDataResponse response = new esDataResponse();
             NpgsqlCommand cmd = null;
+            bool hasError = false;
 
             try
             {
@@ -495,6 +539,7 @@ namespace EntitySpaces.Npgsql2Provider
                             catch (Exception ex)
                             {
                                 esTrace.Exception = ex.Message;
+                                hasError = true;
                                 throw;
                             }
                         }
@@ -505,8 +550,26 @@ namespace EntitySpaces.Npgsql2Provider
                         response.Scalar = cmd.ExecuteScalar();
                     }
                 }
+                catch
+                {
+                    hasError = true;
+                    throw;
+                }
                 finally
                 {
+                    // Roll back any active transaction before releasing the connection to the pool
+                    if (hasError && cmd != null && cmd.Connection != null && cmd.Connection.State == ConnectionState.Open)
+                    {
+                        try
+                        {
+                            using (NpgsqlCommand rollback = new NpgsqlCommand("ROLLBACK", cmd.Connection))
+                            {
+                                rollback.ExecuteNonQuery();
+                            }
+                        }
+                        catch { /* best-effort rollback — ignore secondary errors */ }
+                    }
+
                     esTransactionScope.DeEnlist(cmd);
                 }
 
@@ -590,6 +653,7 @@ namespace EntitySpaces.Npgsql2Provider
         {
             esDataResponse response = new esDataResponse();
             NpgsqlCommand cmd = null;
+            bool hasError = false;
 
             try
             {
@@ -645,12 +709,23 @@ namespace EntitySpaces.Npgsql2Provider
             }
             catch (Exception ex)
             {
+                hasError = true;
                 CleanupCommand(cmd);
                 throw ex;
             }
             finally
             {
-
+                if (hasError && cmd != null && cmd.Connection != null && cmd.Connection.State == ConnectionState.Open)
+                {
+                    try
+                    {
+                        using (NpgsqlCommand rollback = new NpgsqlCommand("ROLLBACK", cmd.Connection))
+                        {
+                            rollback.ExecuteNonQuery();
+                        }
+                    }
+                    catch { /* best-effort rollback */ }
+                }
             }
 
             return response;
@@ -660,6 +735,7 @@ namespace EntitySpaces.Npgsql2Provider
         {
             esDataResponse response = new esDataResponse();
             NpgsqlCommand cmd = null;
+            bool hasError = false;
 
             try
             {
@@ -713,12 +789,23 @@ namespace EntitySpaces.Npgsql2Provider
             }
             catch (Exception ex)
             {
+                hasError = true;
                 CleanupCommand(cmd);
                 throw ex;
             }
             finally
             {
-
+                if (hasError && cmd != null && cmd.Connection != null && cmd.Connection.State == ConnectionState.Open)
+                {
+                    try
+                    {
+                        using (NpgsqlCommand rollback = new NpgsqlCommand("ROLLBACK", cmd.Connection))
+                        {
+                            rollback.ExecuteNonQuery();
+                        }
+                    }
+                    catch { /* best-effort rollback */ }
+                }
             }
 
             return response;
@@ -728,6 +815,7 @@ namespace EntitySpaces.Npgsql2Provider
         {
             esDataResponse response = new esDataResponse();
             NpgsqlCommand cmd = null;
+            bool hasError = false;
 
             try
             {
@@ -782,12 +870,23 @@ namespace EntitySpaces.Npgsql2Provider
             }
             catch (Exception ex)
             {
+                hasError = true;
                 CleanupCommand(cmd);
                 throw ex;
             }
             finally
             {
-
+                if (hasError && cmd != null && cmd.Connection != null && cmd.Connection.State == ConnectionState.Open)
+                {
+                    try
+                    {
+                        using (NpgsqlCommand rollback = new NpgsqlCommand("ROLLBACK", cmd.Connection))
+                        {
+                            rollback.ExecuteNonQuery();
+                        }
+                    }
+                    catch { /* best-effort rollback */ }
+                }
             }
 
             return response;
@@ -797,6 +896,7 @@ namespace EntitySpaces.Npgsql2Provider
         {
             esDataResponse response = new esDataResponse();
             NpgsqlCommand cmd = null;
+            bool hasError = false;
 
             try
             {
@@ -851,12 +951,23 @@ namespace EntitySpaces.Npgsql2Provider
             }
             catch (Exception ex)
             {
+                hasError = true;
                 CleanupCommand(cmd);
                 throw ex;
             }
             finally
             {
-
+                if (hasError && cmd != null && cmd.Connection != null && cmd.Connection.State == ConnectionState.Open)
+                {
+                    try
+                    {
+                        using (NpgsqlCommand rollback = new NpgsqlCommand("ROLLBACK", cmd.Connection))
+                        {
+                            rollback.ExecuteNonQuery();
+                        }
+                    }
+                    catch { /* best-effort rollback */ }
+                }
             }
 
             return response;
@@ -866,6 +977,7 @@ namespace EntitySpaces.Npgsql2Provider
         {
             esDataResponse response = new esDataResponse();
             NpgsqlCommand cmd = null;
+            bool hasError = false;
 
             try
             {
@@ -934,6 +1046,7 @@ namespace EntitySpaces.Npgsql2Provider
                             catch (Exception ex)
                             {
                                 esTrace.Exception = ex.Message;
+                                hasError = true;
                                 throw;
                             }
                         }
@@ -953,12 +1066,24 @@ namespace EntitySpaces.Npgsql2Provider
             }
             catch (Exception ex)
             {
+                hasError = true;
                 CleanupCommand(cmd);
                 throw ex;
             }
             finally
             {
-
+                // Roll back any active transaction before releasing the connection to the pool
+                if (hasError && cmd != null && cmd.Connection != null && cmd.Connection.State == ConnectionState.Open)
+                {
+                    try
+                    {
+                        using (NpgsqlCommand rollback = new NpgsqlCommand("ROLLBACK", cmd.Connection))
+                        {
+                            rollback.ExecuteNonQuery();
+                        }
+                    }
+                    catch { /* best-effort rollback — ignore secondary errors */ }
+                }
             }
 
             return response;
@@ -967,6 +1092,8 @@ namespace EntitySpaces.Npgsql2Provider
         // This is used only to execute the Dynamic Query API
         static private void LoadDataTableFromDynamicQuery(esDataRequest request, esDataResponse response, NpgsqlCommand cmd)
         {
+            bool hasError = false;
+
             try
             {
                 response.LastQuery = cmd.CommandText;
@@ -1013,12 +1140,23 @@ namespace EntitySpaces.Npgsql2Provider
             }
             catch (Exception ex)
             {
+                hasError = true;
                 CleanupCommand(cmd);
                 throw ex;
             }
             finally
             {
-
+                if (hasError && cmd != null && cmd.Connection != null && cmd.Connection.State == ConnectionState.Open)
+                {
+                    try
+                    {
+                        using (NpgsqlCommand rollback = new NpgsqlCommand("ROLLBACK", cmd.Connection))
+                        {
+                            rollback.ExecuteNonQuery();
+                        }
+                    }
+                    catch { /* best-effort rollback */ }
+                }
             }
         }
 
@@ -1108,6 +1246,7 @@ namespace EntitySpaces.Npgsql2Provider
                     {
                         cmd = null;
                         exception = false;
+                        bool hasError = false; // Tracks per-packet connection state
 
                         #region Setup Commands
                         switch (packet.RowState)
@@ -1183,6 +1322,7 @@ namespace EntitySpaces.Npgsql2Provider
                                     catch (Exception ex)
                                     {
                                         esTrace.Exception = ex.Message;
+                                        hasError = true;
                                         throw;
                                     }
                                 }
@@ -1200,6 +1340,7 @@ namespace EntitySpaces.Npgsql2Provider
                         }
                         catch (Exception ex)
                         {
+                            hasError = true;
                             exception = true;
                             request.FireOnError(packet, ex.Message);
                             if (!request.ContinueUpdateOnError)
@@ -1225,6 +1366,19 @@ namespace EntitySpaces.Npgsql2Provider
                             }
                         }
                         #endregion
+
+                        // Roll back the per-packet connection before it is released to the pool
+                        if (hasError && cmd != null && cmd.Connection != null && cmd.Connection.State == ConnectionState.Open)
+                        {
+                            try
+                            {
+                                using (NpgsqlCommand rollback = new NpgsqlCommand("ROLLBACK", cmd.Connection))
+                                {
+                                    rollback.ExecuteNonQuery();
+                                }
+                            }
+                            catch { /* best-effort rollback — ignore secondary errors */ }
+                        }
                     }
 
                     scope.Complete();
@@ -1262,6 +1416,8 @@ namespace EntitySpaces.Npgsql2Provider
                     return null;
             }
 
+            bool hasError = false;
+
             try
             {
                 esTransactionScope.Enlist(cmd, request.ConnectionString, CreateIDbConnectionDelegate);
@@ -1274,11 +1430,12 @@ namespace EntitySpaces.Npgsql2Provider
                     {
                         try
                         {
-                            count = cmd.ExecuteNonQuery(); ;
+                            count = cmd.ExecuteNonQuery();
                         }
                         catch (Exception ex)
                         {
                             esTrace.Exception = ex.Message;
+                            hasError = true;
                             throw;
                         }
                     }
@@ -1294,8 +1451,26 @@ namespace EntitySpaces.Npgsql2Provider
                     throw new esConcurrencyException("Update failed to update any records");
                 }
             }
+            catch
+            {
+                hasError = true;
+                throw;
+            }
             finally
             {
+                // Roll back any active transaction before releasing the connection to the pool
+                if (hasError && cmd != null && cmd.Connection != null && cmd.Connection.State == ConnectionState.Open)
+                {
+                    try
+                    {
+                        using (NpgsqlCommand rollback = new NpgsqlCommand("ROLLBACK", cmd.Connection))
+                        {
+                            rollback.ExecuteNonQuery();
+                        }
+                    }
+                    catch { /* best-effort rollback — ignore secondary errors */ }
+                }
+
                 esTransactionScope.DeEnlist(cmd);
                 cmd.Dispose();
             }
@@ -1331,6 +1506,7 @@ namespace EntitySpaces.Npgsql2Provider
                 {
                     exception = false;
                     cmd = null;
+                    bool hasError = false; // Tracks per-packet connection state
 
                     switch (packet.RowState)
                     {
@@ -1362,11 +1538,12 @@ namespace EntitySpaces.Npgsql2Provider
                             {
                                 try
                                 {
-                                    count = cmd.ExecuteNonQuery(); ;
+                                    count = cmd.ExecuteNonQuery();
                                 }
                                 catch (Exception ex)
                                 {
                                     esTrace.Exception = ex.Message;
+                                    hasError = true;
                                     throw;
                                 }
                             }
@@ -1384,7 +1561,7 @@ namespace EntitySpaces.Npgsql2Provider
                     }
                     catch (NpgsqlException ex)
                     {
-
+                        hasError = true;
                         esConcurrencyException ce = Shared.CheckForConcurrencyException(ex);
                         if (ce != null)
                         {
@@ -1403,10 +1580,9 @@ namespace EntitySpaces.Npgsql2Provider
                     }
                     catch (Exception ex)
                     {
+                        hasError = true;
                         exception = true;
-
                         request.FireOnError(packet, ex.Message);
-
                         if (!request.ContinueUpdateOnError)
                         {
                             throw;
@@ -1414,6 +1590,19 @@ namespace EntitySpaces.Npgsql2Provider
                     }
                     finally
                     {
+                        // Roll back the per-packet connection before it is released to the pool
+                        if (hasError && cmd != null && cmd.Connection != null && cmd.Connection.State == ConnectionState.Open)
+                        {
+                            try
+                            {
+                                using (NpgsqlCommand rollback = new NpgsqlCommand("ROLLBACK", cmd.Connection))
+                                {
+                                    rollback.ExecuteNonQuery();
+                                }
+                            }
+                            catch { /* best-effort rollback — ignore secondary errors */ }
+                        }
+
                         esTransactionScope.DeEnlist(cmd);
                         cmd.Dispose();
                     }
@@ -1459,6 +1648,8 @@ namespace EntitySpaces.Npgsql2Provider
                     break;
             }
 
+            bool hasError = false;
+
             try
             {
                 esTransactionScope.Enlist(cmd, request.ConnectionString, CreateIDbConnectionDelegate);
@@ -1477,6 +1668,7 @@ namespace EntitySpaces.Npgsql2Provider
                         catch (Exception ex)
                         {
                             esTrace.Exception = ex.Message;
+                            hasError = true;
                             throw;
                         }
                     }
@@ -1494,6 +1686,7 @@ namespace EntitySpaces.Npgsql2Provider
             }
             catch (NpgsqlException ex)
             {
+                hasError = true;
 
                 // Translate PostgreSQL-specific errors into EntitySpaces concurrency exceptions
                 esConcurrencyException ce = Shared.CheckForConcurrencyException(ex);
@@ -1502,8 +1695,25 @@ namespace EntitySpaces.Npgsql2Provider
                 else
                     throw;
             }
+            catch
+            {
+                hasError = true;
+                throw;
+            }
             finally
             {
+                // Roll back any active transaction before releasing the connection to the pool
+                if (hasError && cmd != null && cmd.Connection != null && cmd.Connection.State == ConnectionState.Open)
+                {
+                    try
+                    {
+                        using (NpgsqlCommand rollback = new NpgsqlCommand("ROLLBACK", cmd.Connection))
+                        {
+                            rollback.ExecuteNonQuery();
+                        }
+                    }
+                    catch { /* best-effort rollback — ignore secondary errors */ }
+                }
 
                 esTransactionScope.DeEnlist(cmd);
                 cmd.Dispose();
@@ -1526,5 +1736,6 @@ namespace EntitySpaces.Npgsql2Provider
 
             return null;
         }
+
     }
 }
