@@ -334,6 +334,8 @@ catch (esConcurrencyException ex)
 }
 ```
 
+
+
 ## Connection Pool Safety
 
 All save and load operations implement safe connection pool management. If an error occurs during `Save()` or `LoadCollection()`, the provider:
@@ -343,6 +345,20 @@ All save and load operations implement safe connection pool management. If an er
 - Prevents connections in a broken transaction state from being reused by subsequent operations
 
 This matches the same robustness pattern implemented in the PostgreSQL and MySQL providers.
+
+## Unified INSERT...OUTPUT Pattern
+
+All `INSERT` operations for SQL Server now use a single, unified `OUTPUT INSERTED...INTO @output_vals` pattern to retrieve all server-generated values — **Identity**, **Computed**, **Concurrency (`rowversion`/`timestamp`)**, **Defaults** (`GETDATE()`, `DEFAULT 0`, etc.), **`newsequentialid()`**, and **special columns** (`DateAdded`, `DateModified`, `AddedBy`, `ModifiedBy`) — in **one round-trip**.
+
+This eliminates the legacy `SCOPE_IDENTITY()` fallback and the post‑insert `SELECT` that was previously required for non‑GUID defaults, simplifying the code and improving performance.
+
+### CHECK & FK Constraint Protection
+
+The new pattern includes an explicit guard:
+
+```sql
+IF @@ROWCOUNT = 0 RAISERROR('Insert failed: CHECK constraint violation or row was rejected.', 16, 1);
+```
 
 ## SET XACT_ABORT ON
 

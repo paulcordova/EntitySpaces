@@ -49,26 +49,13 @@ namespace EntitySpaces.SqlClientProvider
         {
             string into = String.Empty;
             string values = String.Empty;
-            string computed = String.Empty;
-            string computedComma = String.Empty;
-            string autoInc = String.Empty;
             string comma = String.Empty;
-            string where = String.Empty;
 
-            // newsequentialid variables — kept for backward compatibility with OUTPUT...INTO pattern
-            int seqCount = 0;
-            string seqDeclare = " DECLARE @table_ids TABLE (";
-            string seqOutput = " OUTPUT ";
-            string seqSelect = " SELECT ";
-
-            // OUTPUT...INTO variables for defaults, computed columns and concurrency —
-            // replaces the old second SELECT...FROM after the INSERT.
-            // SQL Server OUTPUT INSERTED clause returns column values produced by the server
-            // (defaults, computed, IDENTITY) in a single round-trip, just like PostgreSQL RETURNING.
-            string outputDeclare = string.Empty;     // DECLARE @output_vals TABLE (col type, ...)
-            string outputCols = string.Empty;        // INSERTED.col1, INSERTED.col2 …
-            string outputInto = string.Empty;        // col1, col2 …
-            string outputSelect = string.Empty;      // @p_col1 = col1, @p_col2 = col2 …
+            // Unified OUTPUT...INTO variables — replaces old seq, autoInc, computed, and fallback SELECT
+            string outputDeclare = string.Empty;
+            string outputCols = string.Empty;
+            string outputInto = string.Empty;
+            string outputSelect = string.Empty;
             string outputComma = string.Empty;
             bool hasOutputCols = false;
 
@@ -80,7 +67,8 @@ namespace EntitySpaces.SqlClientProvider
             SqlParameter p = null;
             if (request.CommandTimeout != null) cmd.CommandTimeout = request.CommandTimeout.Value;
 
-            string sql = "SET NOCOUNT OFF; SET XACT_ABORT ON;"; // XACT_ABORT ensures CHECK/FK constraint errors raise SqlException in all SQL Server versions
+            // XACT_ABORT ensures CHECK/FK constraint errors raise SqlException in all SQL Server versions
+            string sql = "SET NOCOUNT OFF; SET XACT_ABORT ON;";
 
             foreach (esColumnMetadata col in request.Columns)
             {
@@ -92,6 +80,7 @@ namespace EntitySpaces.SqlClientProvider
 
                 if (isModified && !col.IsComputed && !col.IsConcurrency && !col.IsAutoIncrement)
                 {
+                    // Regular modified column — normal INSERT parameter
                     p = types[colName];
                     p = cmd.Parameters.Add(CloneParameter(p));
 
@@ -102,54 +91,49 @@ namespace EntitySpaces.SqlClientProvider
                 }
                 else
                 {
+                    // Server-generated or special column — needs OUTPUT...INTO retrieval
                     bool needOutputParam = false;
-                    bool needsFetchedAfterSave = false;
                     SqlParameter clone = null;
 
                     if (col.HasDefault)
                     {
                         p = types[colName];
 
-                        if (col.esType == esSystemType.Guid)
+                        if (col.esType == esSystemType.Guid && col.Default.ToLower().Contains("newid"))
                         {
-                            if (col.Default.ToLower().Contains("newid"))
-                            {
-                                // newid() default: assign value client-side and include in INSERT columns
-                                // so that OUTPUT INSERTED can echo it back as an output parameter
-                                sql += " SET " + p.ParameterName + " = NEWID(); ";
-                                CreateInsertSQLSnippet(colName, p, ref into, ref values, ref comma);
-                                needOutputParam = true;
-                            }
-                            else if (col.Default.ToLower().Contains("newsequentialid"))
-                            {
-                                // newsequentialid() is server-generated; use the OUTPUT...INTO @table_ids
-                                // path (seqCount) which has always handled this case correctly
-                                if (seqCount > 0)
-                                {
-                                    seqDeclare += ", ";
-                                    seqOutput += ", ";
-                                    seqSelect += ", ";
-                                }
-                                seqCount++;
-
-                                seqDeclare += col.Name + "  uniqueidentifier";
-                                seqOutput += "INSERTED." + col.Name;
-                                seqSelect += Delimiters.Param + col.PropertyName + "=" + col.Name;
-
-                                needOutputParam = true;
-                            }
+                            // newid() default: assign value client-side and include in INSERT,
+                            // then echo it back via OUTPUT...INTO so the parameter is populated
+                            sql += " SET " + p.ParameterName + " = NEWID(); ";
+                            CreateInsertSQLSnippet(colName, p, ref into, ref values, ref comma);
+                            needOutputParam = true;
+                        }
+                        else if (col.Default.ToLower().Contains("newsequentialid"))
+                        {
+                            // newsequentialid() is server-generated; retrieve via OUTPUT...INTO
+                            needOutputParam = true;
                         }
                         else
                         {
                             // Non-GUID defaults (e.g. getdate(), numeric defaults):
-                            // Use post-insert SELECT instead of OUTPUT...INTO.
-                            // SQL Server 2025 silently suppresses CHECK constraint exceptions
-                            // when OUTPUT...INTO @table_variable is present in the batch,
-                            // causing ExecuteNonQuery() to return 0 without throwing.
-                            // The post-insert SELECT via WHERE pk = SCOPE_IDENTITY() is safe
-                            // on all SQL Server versions and avoids this regression.
+                            // Retrieve via OUTPUT...INTO instead of a separate SELECT.
                             needOutputParam = true;
-                            needsFetchedAfterSave = true;
+                        }
+
+                        if (needOutputParam)
+                        {
+                            string sqlType = GetSqlTypeForOutput(col);
+                            outputDeclare += outputComma + colName + " " + sqlType;
+                            outputCols += outputComma + "INSERTED." + Delimiters.ColumnOpen + colName + Delimiters.ColumnClose;
+                            outputInto += outputComma + Delimiters.ColumnOpen + colName + Delimiters.ColumnClose;
+                            outputSelect += outputComma + p.ParameterName + " = " + Delimiters.ColumnOpen + colName + Delimiters.ColumnClose;
+                            outputComma = ", ";
+                            hasOutputCols = true;
+
+                            clone = CloneParameter(p);
+                            clone.Direction = ParameterDirection.Output;
+                            if (col.CharacterMaxLength > 0)
+                                clone.Size = (int)col.CharacterMaxLength;
+                            cmd.Parameters.Add(clone);
                         }
                     }
                     else if (col.IsEntitySpacesConcurrency)
@@ -163,66 +147,53 @@ namespace EntitySpaces.SqlClientProvider
                         values += "1";
                         comma = ", ";
 
-                        // Capture the inserted concurrency value via OUTPUT INSERTED
+                        // Capture the inserted concurrency value via OUTPUT...INTO
                         string sqlType = GetSqlTypeForOutput(col);
-                        outputDeclare += outputComma + col.Name + " " + sqlType;
-                        outputCols   += outputComma + "INSERTED." + Delimiters.ColumnOpen + col.Name + Delimiters.ColumnClose;
-                        outputInto   += outputComma + Delimiters.ColumnOpen + col.Name + Delimiters.ColumnClose;
-                        outputSelect += outputComma + p.ParameterName + " = " + Delimiters.ColumnOpen + col.Name + Delimiters.ColumnClose;
+                        outputDeclare += outputComma + colName + " " + sqlType;
+                        outputCols += outputComma + "INSERTED." + Delimiters.ColumnOpen + colName + Delimiters.ColumnClose;
+                        outputInto += outputComma + Delimiters.ColumnOpen + colName + Delimiters.ColumnClose;
+                        outputSelect += outputComma + p.ParameterName + " = " + Delimiters.ColumnOpen + colName + Delimiters.ColumnClose;
                         outputComma = ", ";
                         hasOutputCols = true;
 
-                        needOutputParam = true;
+                        clone = CloneParameter(p);
+                        clone.Direction = ParameterDirection.Output;
+                        cmd.Parameters.Add(clone);
                     }
                     else if (col.IsAutoIncrement)
                     {
                         p = types[colName];
-                        // Use SCOPE_IDENTITY() — reliable for IDENTITY columns including nested triggers.
-                        // The IF @@ROWCOUNT = 0 guard detects silent INSERT failures on SQL Server 2025
-                        // where CHECK constraint violations inside a multi-statement batch do not
-                        // propagate as exceptions even with SET XACT_ABORT ON. RAISERROR forces
-                        // the exception to surface so esSaveDataTable can catch and handle it.
-                        autoInc += " IF @@ROWCOUNT = 0 RAISERROR('Insert failed: CHECK constraint violation or row was rejected.', 16, 1); "
-                                +  " SELECT " + p.ParameterName + " = SCOPE_IDENTITY() ";
-                        needOutputParam = true;
+                        // Retrieve identity value via OUTPUT...INTO instead of SCOPE_IDENTITY()
+                        string sqlType = GetSqlTypeForOutput(col);
+                        outputDeclare += outputComma + colName + " " + sqlType;
+                        outputCols += outputComma + "INSERTED." + Delimiters.ColumnOpen + colName + Delimiters.ColumnClose;
+                        outputInto += outputComma + Delimiters.ColumnOpen + colName + Delimiters.ColumnClose;
+                        outputSelect += outputComma + p.ParameterName + " = " + Delimiters.ColumnOpen + colName + Delimiters.ColumnClose;
+                        outputComma = ", ";
+                        hasOutputCols = true;
+
+                        clone = CloneParameter(p);
+                        clone.Direction = ParameterDirection.Output;
+                        cmd.Parameters.Add(clone);
                     }
                     else if (col.IsComputed || col.IsConcurrency)
                     {
-                        // Computed/timestamp columns: echo back via OUTPUT INSERTED
+                        // Computed/timestamp columns: echo back via OUTPUT...INTO
                         p = types[colName];
-                        needOutputParam = true;
 
                         string sqlType = GetSqlTypeForOutput(col);
-                        outputDeclare += outputComma + col.Name + " " + sqlType;
-                        outputCols   += outputComma + "INSERTED." + Delimiters.ColumnOpen + col.Name + Delimiters.ColumnClose;
-                        outputInto   += outputComma + Delimiters.ColumnOpen + col.Name + Delimiters.ColumnClose;
-                        outputSelect += outputComma + p.ParameterName + " = " + Delimiters.ColumnOpen + col.Name + Delimiters.ColumnClose;
+                        outputDeclare += outputComma + colName + " " + sqlType;
+                        outputCols += outputComma + "INSERTED." + Delimiters.ColumnOpen + colName + Delimiters.ColumnClose;
+                        outputInto += outputComma + Delimiters.ColumnOpen + colName + Delimiters.ColumnClose;
+                        outputSelect += outputComma + p.ParameterName + " = " + Delimiters.ColumnOpen + colName + Delimiters.ColumnClose;
                         outputComma = ", ";
                         hasOutputCols = true;
-                    }
 
-                    if (needOutputParam)
-                    {
                         clone = CloneParameter(p);
                         clone.Direction = ParameterDirection.Output;
                         if (col.CharacterMaxLength > 0)
                             clone.Size = (int)col.CharacterMaxLength;
                         cmd.Parameters.Add(clone);
-                    }
-
-                    if (needsFetchedAfterSave)
-                    {
-                        // Accumulate columns to retrieve via post-insert SELECT WHERE pk = SCOPE_IDENTITY().
-                        // Safer than OUTPUT...INTO on SQL Server 2025 which silently swallows
-                        // CHECK constraint violations when a table variable is in the batch.
-                        computed += computedComma;
-                        computed += p.ParameterName + " = " + Delimiters.ColumnOpen + colName + Delimiters.ColumnClose;
-                        computedComma = ", ";
-
-                        if (col.CharacterMaxLength > 0)
-                        {
-                            clone.Size = (int)col.CharacterMaxLength;
-                        }
                     }
                 }
             }
@@ -236,6 +207,15 @@ namespace EntitySpaces.SqlClientProvider
                 sql += " SET " + p.ParameterName + " = " + request.ProviderMetadata["DateAdded.ServerSideText"] + ";";
                 CreateInsertSQLSnippet(cols.DateAdded.ColumnName, p, ref into, ref values, ref comma);
 
+                string colName = cols.DateAdded.ColumnName;
+                string sqlType = GetSqlTypeForOutput(cols.FindByColumnName(colName));
+                outputDeclare += outputComma + colName + " " + sqlType;
+                outputCols += outputComma + "INSERTED." + Delimiters.ColumnOpen + colName + Delimiters.ColumnClose;
+                outputInto += outputComma + Delimiters.ColumnOpen + colName + Delimiters.ColumnClose;
+                outputSelect += outputComma + p.ParameterName + " = " + Delimiters.ColumnOpen + colName + Delimiters.ColumnClose;
+                outputComma = ", ";
+                hasOutputCols = true;
+
                 p.Direction = ParameterDirection.Output;
                 cmd.Parameters.Add(p);
             }
@@ -246,6 +226,15 @@ namespace EntitySpaces.SqlClientProvider
                 sql += " SET " + p.ParameterName + " = " + request.ProviderMetadata["DateModified.ServerSideText"] + ";";
                 CreateInsertSQLSnippet(cols.DateModified.ColumnName, p, ref into, ref values, ref comma);
 
+                string colName = cols.DateModified.ColumnName;
+                string sqlType = GetSqlTypeForOutput(cols.FindByColumnName(colName));
+                outputDeclare += outputComma + colName + " " + sqlType;
+                outputCols += outputComma + "INSERTED." + Delimiters.ColumnOpen + colName + Delimiters.ColumnClose;
+                outputInto += outputComma + Delimiters.ColumnOpen + colName + Delimiters.ColumnClose;
+                outputSelect += outputComma + p.ParameterName + " = " + Delimiters.ColumnOpen + colName + Delimiters.ColumnClose;
+                outputComma = ", ";
+                hasOutputCols = true;
+
                 p.Direction = ParameterDirection.Output;
                 cmd.Parameters.Add(p);
             }
@@ -255,8 +244,16 @@ namespace EntitySpaces.SqlClientProvider
                 p = CloneParameter(types[cols.AddedBy.ColumnName]);
                 p.Size = (int)cols.FindByColumnName(cols.AddedBy.ColumnName).CharacterMaxLength;
                 sql += " SET " + p.ParameterName + " = " + request.ProviderMetadata["AddedBy.ServerSideText"] + ";";
-
                 CreateInsertSQLSnippet(cols.AddedBy.ColumnName, p, ref into, ref values, ref comma);
+
+                string colName = cols.AddedBy.ColumnName;
+                string sqlType = GetSqlTypeForOutput(cols.FindByColumnName(colName));
+                outputDeclare += outputComma + colName + " " + sqlType;
+                outputCols += outputComma + "INSERTED." + Delimiters.ColumnOpen + colName + Delimiters.ColumnClose;
+                outputInto += outputComma + Delimiters.ColumnOpen + colName + Delimiters.ColumnClose;
+                outputSelect += outputComma + p.ParameterName + " = " + Delimiters.ColumnOpen + colName + Delimiters.ColumnClose;
+                outputComma = ", ";
+                hasOutputCols = true;
 
                 p.Direction = ParameterDirection.Output;
                 cmd.Parameters.Add(p);
@@ -267,26 +264,25 @@ namespace EntitySpaces.SqlClientProvider
                 p = CloneParameter(types[cols.ModifiedBy.ColumnName]);
                 p.Size = (int)cols.FindByColumnName(cols.ModifiedBy.ColumnName).CharacterMaxLength;
                 sql += " SET " + p.ParameterName + " = " + request.ProviderMetadata["ModifiedBy.ServerSideText"] + ";";
-
                 CreateInsertSQLSnippet(cols.ModifiedBy.ColumnName, p, ref into, ref values, ref comma);
+
+                string colName = cols.ModifiedBy.ColumnName;
+                string sqlType = GetSqlTypeForOutput(cols.FindByColumnName(colName));
+                outputDeclare += outputComma + colName + " " + sqlType;
+                outputCols += outputComma + "INSERTED." + Delimiters.ColumnOpen + colName + Delimiters.ColumnClose;
+                outputInto += outputComma + Delimiters.ColumnOpen + colName + Delimiters.ColumnClose;
+                outputSelect += outputComma + p.ParameterName + " = " + Delimiters.ColumnOpen + colName + Delimiters.ColumnClose;
+                outputComma = ", ";
+                hasOutputCols = true;
 
                 p.Direction = ParameterDirection.Output;
                 cmd.Parameters.Add(p);
             }
             #endregion
 
-            seqDeclare += ")";
-            seqOutput += " INTO @table_ids";
-            seqSelect += " FROM @table_ids";
-
             string fullName = CreateFullName(request);
 
-            if (seqCount > 0)
-            {
-                sql += seqDeclare;
-            }
-
-            // Declare the OUTPUT table variable for defaults/computed/concurrency columns
+            // Declare the OUTPUT table variable for all server-generated columns
             if (hasOutputCols)
             {
                 sql += " DECLARE @output_vals TABLE (" + outputDeclare + ");";
@@ -294,63 +290,29 @@ namespace EntitySpaces.SqlClientProvider
 
             sql += " INSERT INTO " + fullName + GetTableHints(packet) + " ";
 
-            if (into.Length != 0 && seqCount > 0)
+            if (into.Length != 0 && hasOutputCols)
             {
-                sql += "(" + into + ") " + seqOutput + " VALUES (" + values + ")";
-            }
-            else if (into.Length != 0 && hasOutputCols)
-            {
-                // Emit OUTPUT INSERTED...INTO before VALUES to capture server-generated values
+                // Emit OUTPUT INSERTED...INTO before VALUES to capture all server-generated values
                 sql += "(" + into + ") OUTPUT " + outputCols + " INTO @output_vals (" + outputInto + ") VALUES (" + values + ")";
             }
             else if (into.Length != 0)
             {
+                // No output columns — plain INSERT
                 sql += "(" + into + ") VALUES (" + values + ")";
             }
             else
             {
+                // No explicit columns — DEFAULT VALUES
                 sql += "DEFAULT VALUES";
             }
 
-            // Retrieve IDENTITY value via SCOPE_IDENTITY()
-            sql += autoInc;
-
-            if (seqCount > 0)
-            {
-                sql += seqSelect;
-            }
+            // Guard against CHECK/FK constraint violations that silently fail on SQL Server 2025 Express
+            sql += " IF @@ROWCOUNT = 0 RAISERROR('Insert failed: CHECK constraint violation or row was rejected.', 16, 1);";
 
             // Single SELECT to read back all server-generated column values from @output_vals
             if (hasOutputCols)
             {
                 sql += " SELECT " + outputSelect + " FROM @output_vals;";
-            }
-
-            // Post-insert SELECT for HasDefault non-GUID columns.
-            // Retrieves server-generated default values using WHERE pk = SCOPE_IDENTITY().
-            // This avoids OUTPUT...INTO @table_variable which silently suppresses CHECK
-            // constraint exceptions on SQL Server 2025.
-            if (computed.Length > 0)
-            {
-                foreach (esColumnMetadata col in request.Columns)
-                {
-                    if (col.IsInPrimaryKey)
-                    {
-                        p = types[col.Name];
-
-                        if (where.Length > 0) where += " AND ";
-                        where += Delimiters.ColumnOpen + col.Name + Delimiters.ColumnClose + " = " + p.ParameterName;
-
-                        if (!cmd.Parameters.Contains(p.ParameterName))
-                        {
-                            p = CloneParameter(p);
-                            p.Direction = ParameterDirection.Output;
-                            cmd.Parameters.Add(p);
-                        }
-                    }
-                }
-
-                sql += " SELECT " + computed + " FROM " + fullName + " WHERE (" + where + ")";
             }
 
             cmd.CommandText = sql;
