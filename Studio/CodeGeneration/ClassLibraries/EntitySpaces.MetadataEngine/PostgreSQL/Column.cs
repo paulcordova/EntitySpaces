@@ -94,5 +94,64 @@ namespace EntitySpaces.MetadataEngine.PostgreSQL
                 return this.GetString(cols.f_TypeNameComplete).Replace("\'", string.Empty);
 			}
 		}
-	}
+
+        // ============================================================
+        // START: Metadata improvements (Precision, Scale, Length, Computed, Concurrency)
+        // ============================================================
+
+        public override Int32 CharacterMaxLength
+        {
+            get
+            {
+                object val = this._row["character_maximum_length"];
+                if (val == DBNull.Value) return 0;
+                return Convert.ToInt32(val);
+            }
+        }
+
+        public override Int32 NumericPrecision
+        {
+            get
+            {
+                object val = this._row["numeric_precision"];
+                if (val == DBNull.Value) return 0;
+                return Convert.ToInt32(val);
+            }
+        }
+
+        public override Int32 NumericScale
+        {
+            get
+            {
+                object val = this._row["numeric_scale"];
+                if (val == DBNull.Value) return 0;
+                return Convert.ToInt32(val);
+            }
+        }
+
+        public override Boolean IsComputed
+        {
+            get
+            {
+                object val = this._row["is_generated"];
+                if (val == DBNull.Value) return false;
+                string generated = val as string;
+                return generated == "ALWAYS";
+            }
+        }
+
+        public override Boolean IsConcurrency
+        {
+            get
+            {
+                string type = this.DataTypeName.ToLower();
+                return type == "timestamp" || type == "timestamptz";
+            }
+        }
+
+        // ============================================================
+        // END: Metadata improvements
+        // ============================================================
+
+    }
 }

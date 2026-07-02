@@ -17,118 +17,83 @@ namespace EntitySpaces.MetadataEngine.Oracle
 
         override internal void LoadForTable()
         {
-            IDbConnection cn = null;
-
             try
             {
-                // Query to retrieve column information for the specified table in Oracle
-                string query = @"SELECT " +
-                " COLUMN_NAME, " +
-                " DATA_TYPE AS TYPE_NAME, " +
-                " DATA_TYPE AS TYPE_NAMECOMPLETE, " +
-                " DATA_LENGTH AS CHARACTER_MAXIMUM_LENGTH, " +
-                " DATA_PRECISION AS NUMERIC_PRECISION, " +    // Added
-                " DATA_SCALE AS NUMERIC_SCALE, " +            // Added
-                " CASE " +
-                "    WHEN NULLABLE = 'Y' THEN '1' " +
-                "    ELSE '0' " +
-                " END AS IS_NULLABLE, " +
-                " DATA_DEFAULT AS COLUMN_DEFAULT, " +
-                " COLUMN_ID AS ORDINAL_POSITION " +
-                " FROM ALL_TAB_COLUMNS " +
-                " WHERE owner = '" + this.Table.Database.SchemaOwner + "'" +
-                " AND TABLE_NAME = '" + this.Table.FullName + "'" +
-                " ORDER BY COLUMN_ID";
+                string query =
+                    "SELECT " +
+                    "  atc.COLUMN_NAME, " +
+                    // REGEXP_SUBSTR strips precision from type name (e.g. 'TIMESTAMP(6)' → 'TIMESTAMP')
+                    // so it matches entries in esLanguages.xml which use base type names only.
+                    // TYPE_NAMECOMPLETE keeps the full type including precision for DDL generation.
+                    "  REGEXP_SUBSTR(atc.DATA_TYPE, '^[A-Za-z0-9 ]+') AS TYPE_NAME, " +
+                    "  atc.DATA_TYPE AS TYPE_NAMECOMPLETE, " +
+                    "  atc.DATA_LENGTH AS CHARACTER_MAXIMUM_LENGTH, " +
+                    "  atc.DATA_PRECISION AS NUMERIC_PRECISION, " +
+                    "  atc.DATA_SCALE AS NUMERIC_SCALE, " +
+                    // VIRTUAL_COLUMN from ALL_TAB_COLS — not always available in ALL_TAB_COLUMNS.
+                    // LEFT JOIN on OWNER + TABLE_NAME + COLUMN_NAME works in Cloud ATP and
+                    // on-premise multi-schema deployments (unlike USER_TAB_COLS which only
+                    // sees the connected user's objects).
+                    "  CASE utc.VIRTUAL_COLUMN WHEN 'YES' THEN 'YES' ELSE 'NO' END AS IS_COMPUTED, " +
+                    // Convert NULLABLE 'Y'/'N' to '1'/'0' — consistent with LoadForView
+                    // and with what the base Column engine expects for IsNullable
+                    "  CASE WHEN atc.NULLABLE = 'Y' THEN '1' ELSE '0' END AS IS_NULLABLE, " +
+                    "  atc.DATA_DEFAULT AS COLUMN_DEFAULT, " +
+                    "  atc.COLUMN_ID AS ORDINAL_POSITION " +
+                    "FROM ALL_TAB_COLUMNS atc " +
+                    "LEFT JOIN ALL_TAB_COLS utc " +
+                    "  ON utc.OWNER       = atc.OWNER " +
+                    " AND utc.TABLE_NAME  = atc.TABLE_NAME " +
+                    " AND utc.COLUMN_NAME = atc.COLUMN_NAME " +
+                    "WHERE atc.OWNER = '" + this.Table.Database.SchemaOwner + "' " +
+                    "  AND atc.TABLE_NAME = '" + this.Table.FullName + "' " +
+                    "ORDER BY atc.COLUMN_ID";
 
-
-                // Fill DataTable with metadata
-                DataTable metaData = new DataTable();
-
-                // Create the connection using Oracle.ManagedDataAccess
-                //using (OracleClient.OracleConnection cn = new OracleClient.OracleConnection(this.dbRoot.ConnectionString))
-                using (cn = ConnectionHelper.CreateConnection(this.dbRoot, this.Table.Database.Name))
+                // Single connection reused for both queries
+                using (IDbConnection cn = ConnectionHelper.CreateConnection(this.dbRoot, this.Table.Database.Name))
                 {
+                    // --- Query 1: column metadata ---
+                    DataTable metaData = new DataTable();
+                    new OracleDataAdapter(query, (OracleConnection)cn).Fill(metaData);
 
-                    DbDataAdapter adapter = new OracleDataAdapter(query, (OracleConnection)cn);
-                    adapter.Fill(metaData);
-
-                    // Rename columns to match the existing code expectations
                     if (metaData.Columns.Contains("TYPE_NAME"))
                         f_TypeName = metaData.Columns["TYPE_NAME"];
 
                     if (metaData.Columns.Contains("TYPE_NAMECOMPLETE"))
                         f_TypeNameComplete = metaData.Columns["TYPE_NAMECOMPLETE"];
 
-
-                    // Populate the array with the metadata
                     PopulateArray(metaData);
-                }
-               
 
-                // Logic to identify and process auto-increment columns (AutoKey)
-                query =
-                    "SELECT " +
-                    "    cols.COLUMN_NAME, " +
-                    "    seq.SEQUENCE_NAME " +
-                    "FROM " +
-                    "    ALL_TAB_COLUMNS cols " +
-                    "    JOIN ALL_SEQUENCES seq ON cols.OWNER = seq.SEQUENCE_OWNER " +
-                    "    AND cols.TABLE_NAME = seq.SEQUENCE_NAME " +
-                    "WHERE " +
-                    "    cols.owner = '" + this.Table.Database.SchemaOwner + "'" +
-                    "    AND cols.TABLE_NAME = '" + this.Table.Name + "' " +
-                    "    AND cols.IDENTITY_COLUMN = 'YES'";
+                    // --- Query 2: detect GENERATED BY DEFAULT AS IDENTITY columns ---
+                    // Oracle 12c+ identity columns use internal sequences (ISEQ$$_XXXXX)
+                    // detected via IDENTITY_COLUMN flag — not by joining ALL_SEQUENCES
+                    // which only works with manually named sequences
+                    string identityQuery =
+                        "SELECT COLUMN_NAME " +
+                        "FROM ALL_TAB_COLUMNS " +
+                        "WHERE OWNER = '" + this.Table.Database.SchemaOwner + "' " +
+                        "  AND TABLE_NAME = '" + this.Table.Name + "' " +
+                        "  AND IDENTITY_COLUMN = 'YES'";
 
-                using (cn = ConnectionHelper.CreateConnection(this.dbRoot, this.Table.Database.Name))
-                {
                     DataTable seqData = new DataTable();
-                    DbDataAdapter adapter = new OracleDataAdapter(query, (OracleConnection)cn);
+                    new OracleDataAdapter(identityQuery, (OracleConnection)cn).Fill(seqData);
 
-                    adapter = new OracleDataAdapter(query, (OracleConnection)cn);
-                    adapter.Fill(seqData);
-
-                    DataRowCollection rows = seqData.Rows;
-
-                    if (rows.Count > 0)
+                    foreach (DataRow row in seqData.Rows)
                     {
-                        for (int i = 0; i < rows.Count; i++)
+                        string colName = row["COLUMN_NAME"] as string;
+                        OracleColumn col = this[colName] as OracleColumn;
+                        if (col != null)
                         {
-                            string colName = rows[i]["COLUMN_NAME"] as string;
-
-                            // Assuming you have an Oracle-specific column class like PostgreSQLColumn
-                            OracleColumn col = this[colName] as OracleColumn;
                             col._isAutoKey = true;
-
-                            // Query to get the sequence details
-                            query =
-                                "SELECT MIN_VALUE, INCREMENT_BY" +
-                                " FROM ALL_SEQUENCES " +
-                                " WHERE SEQUENCE_NAME = '" + rows[i]["SEQUENCE_NAME"] + "'";
-
-                            DataTable autokeyData = new DataTable();
-                            adapter = new OracleDataAdapter(query, (OracleConnection)cn);
-                            adapter.Fill(autokeyData);
-
-                            Int64 a;
-
-                            a = Convert.ToInt64(autokeyData.Rows[0]["MIN_VALUE"]);
-                            col._autoInc = Convert.ToInt32(a);
-
-                            a = Convert.ToInt64(autokeyData.Rows[0]["INCREMENT_BY"]);
-                            col._autoSeed = Convert.ToInt32(a);
+                            col._autoInc = 1;  // IDENTITY default START WITH
+                            col._autoSeed = 1;  // IDENTITY default INCREMENT BY
                         }
                     }
                 }
             }
             catch
             {
-                if (cn != null)
-                {
-                    if (cn.State == ConnectionState.Open)
-                    {
-                        cn.Close();
-                    }
-                }
+                throw;
             }
         }
 
@@ -137,36 +102,54 @@ namespace EntitySpaces.MetadataEngine.Oracle
         {
             try
             {
-                // Determine the schema owner and table name dynamically
-                // If this.Table is null, we are dealing with a View
-                string schemaOwner = (this.Table != null) ? this.Table.Database.SchemaOwner : this.View.Database.SchemaOwner;
-                string objectName = (this.Table != null) ? this.Table.Name : this.View.Name;
+                // Determine schema owner and object name dynamically —
+                // this method is shared between Table and View contexts
+                string schemaOwner = (this.Table != null)
+                    ? this.Table.Database.SchemaOwner
+                    : this.View.Database.SchemaOwner;
 
-                // Query to retrieve column information
-                // We use the variables defined above to avoid NullReferenceException
-                string query = @"SELECT " +
-               "    column_name AS COLUMN_NAME, " +
-               "    data_type AS TYPE_NAME, " +
-               "    data_type AS TYPE_NAMECOMPLETE, " +
-               "    data_length AS CHARACTER_MAXIMUM_LENGTH, " +
-               "    data_precision AS NUMERIC_PRECISION, " +  // Added
-               "    data_scale AS NUMERIC_SCALE, " +          // Added
-               "    nullable AS IS_NULLABLE, " +
-               "    data_default AS COLUMN_DEFAULT, " +
-               "    column_id AS ORDINAL_POSITION " +
-               "FROM all_tab_columns " +
-               "WHERE owner = '" + schemaOwner + "' " +
-               "AND table_name = '" + objectName + "' " +
-               "ORDER BY column_id";
+                string objectName = (this.Table != null)
+                    ? this.Table.Name
+                    : this.View.Name;
 
-                // ConnectionHelper needs to know which database name to use
-                string dbName = (this.Table != null) ? this.Table.Database.Name : this.View.Database.Name;
+                string dbName = (this.Table != null)
+                    ? this.Table.Database.Name
+                    : this.View.Database.Name;
+
+                string query =
+                    "SELECT " +
+                    "  atc.COLUMN_NAME, " +
+                    // REGEXP_SUBSTR strips precision from type name (e.g. 'TIMESTAMP(6)' → 'TIMESTAMP')
+                    // so it matches entries in esLanguages.xml which use base type names only.
+                    // TYPE_NAMECOMPLETE keeps the full type including precision for DDL generation.
+                    "  REGEXP_SUBSTR(data_type, '^[A-Za-z0-9 ]+') AS TYPE_NAME, " +
+                    "  atc.DATA_TYPE AS TYPE_NAMECOMPLETE, " +
+                    "  atc.DATA_LENGTH AS CHARACTER_MAXIMUM_LENGTH, " +
+                    "  atc.DATA_PRECISION AS NUMERIC_PRECISION, " +
+                    "  atc.DATA_SCALE AS NUMERIC_SCALE, " +
+                    // VIRTUAL_COLUMN from ALL_TAB_COLS — not always available in ALL_TAB_COLUMNS.
+                    // LEFT JOIN on OWNER + TABLE_NAME + COLUMN_NAME works in Cloud ATP and
+                    // on-premise multi-schema deployments (unlike USER_TAB_COLS which only
+                    // sees the connected user's objects).
+                    "  CASE utc.VIRTUAL_COLUMN WHEN 'YES' THEN 'YES' ELSE 'NO' END AS IS_COMPUTED, " +
+                    // Convert NULLABLE 'Y'/'N' to '1'/'0' — consistent with LoadForTable
+                    // and with what the base Column engine expects for IsNullable
+                    "  CASE WHEN atc.NULLABLE = 'Y' THEN '1' ELSE '0' END AS IS_NULLABLE, " +
+                    "  atc.DATA_DEFAULT AS COLUMN_DEFAULT, " +
+                    "  atc.COLUMN_ID AS ORDINAL_POSITION " +
+                    "FROM all_tab_columns atc " +
+                    "LEFT JOIN ALL_TAB_COLS utc " +
+                    "  ON utc.OWNER       = atc.OWNER " +
+                    " AND utc.TABLE_NAME  = atc.TABLE_NAME " +
+                    " AND utc.COLUMN_NAME = atc.COLUMN_NAME " +
+                    "WHERE atc.OWNER = '" + schemaOwner + "' " +
+                    "  AND atc.TABLE_NAME = '" + objectName + "' " +
+                    "ORDER BY atc.COLUMN_ID";
 
                 using (IDbConnection cn = ConnectionHelper.CreateConnection(this.dbRoot, dbName))
                 {
                     DataTable metaData = new DataTable();
 
-                    // Using explicit cast to OracleConnection
                     using (OracleDataAdapter adapter = new OracleDataAdapter(query, (OracleConnection)cn))
                     {
                         adapter.Fill(metaData);
@@ -183,8 +166,9 @@ namespace EntitySpaces.MetadataEngine.Oracle
             }
             catch (Exception ex)
             {
-                // Log the exception to understand what's failing if it still does
-                Console.WriteLine("Error in LoadForView: " + ex.Message);
+                // LoadForView failed — let the exception propagate so the Studio
+                // can surface the error instead of silently returning empty columns
+                throw;
             }
         }
 

@@ -1,6 +1,7 @@
 using System;
 using System.Data;
 using System.Data.Common;
+using System.Windows.Forms;
 
 namespace EntitySpaces.MetadataEngine.SQLite
 {
@@ -41,6 +42,14 @@ namespace EntitySpaces.MetadataEngine.SQLite
 
                 f_TypeName = metaData.Columns["TYPE_NAME"];
                 f_TypeNameComplete = metaData.Columns["TYPE_NAMECOMPLETE"];
+
+
+                foreach (DataRow row in metaData.Rows)
+                {
+                    System.IO.File.AppendAllText(@"C:\sqlite_metadata_log.txt",
+                        $"col: {row["name"]}, type: {row["type"]}, pk: {row["pk"]}, dflt: {row["dflt_value"]}\n");
+                }
+
 
                 PopulateArray(metaData);
 
@@ -92,8 +101,43 @@ namespace EntitySpaces.MetadataEngine.SQLite
                         if (col != null)
                         {
                             col._isAutoKey  = true;
+
+                            // PENDING - Detection of generated columns (GENERATED ALWAYS)
+                            if (tableDdl.IndexOf("GENERATED ALWAYS", StringComparison.OrdinalIgnoreCase) >= 0)
+                            {
+                                // You could mark the column as IsComputed = true
+                                // But you would need a property in SQLiteColumn for that.
+                                // For simplicity, we've left it out of the main plan.
+                            }
+
                             col._autoInc    = 1; // SQLite auto-increment seed is always 1
                             col._autoSeed   = 1; // SQLite auto-increment step is always 1
+                        }
+                    }
+                }
+
+                // Detect computed columns (GENERATED ALWAYS)
+                // Search the DDL for patterns like "GENERATED ALWAYS AS ... STORED" or "VIRTUAL"
+                // The DDL is in the tableDdl variable (you already have it from the query to sqlite_master)
+
+                // You can parse the DDL for each column, but a simple way is to search for
+                // "GENERATED ALWAYS" in the context of each column.
+
+                // Since we don't have a full parser, we'll do a basic search:
+                foreach (DataRow pkRow in metaData.Rows)
+                {
+                    string colName = pkRow["name"] as string;
+                     // Check the DDL for "colName GENERATED ALWAYS"
+                     // (There may be spaces, uppercase letters, etc.)
+                    string pattern = colName + " GENERATED ALWAYS";
+                    if (tableDdl.IndexOf(pattern, StringComparison.OrdinalIgnoreCase) >= 0)
+                    {
+                        SQLiteColumn col = this[colName] as SQLiteColumn;
+                        if (col != null)
+                        {
+                            // You need to add an _isComputed property to SQLiteColumn
+                            // and an IsComputed property that returns it.
+                            col._isComputed = true;
                         }
                     }
                 }

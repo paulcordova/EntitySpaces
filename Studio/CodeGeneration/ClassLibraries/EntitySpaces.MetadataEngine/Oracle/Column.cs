@@ -152,5 +152,63 @@ namespace EntitySpaces.MetadataEngine.Oracle
             return dtnf;
         }
 
+        // ============================================================
+        // START: Metadata improvements (Length, Precision, Scale, Computed, Concurrency)
+        // ============================================================
+
+        public override Int32 CharacterMaxLength
+        {
+            get
+            {
+                object val = this._row["CHARACTER_MAXIMUM_LENGTH"];
+                if (val == DBNull.Value) return 0;
+                return Convert.ToInt32(val);
+            }
+        }
+
+        public override Int32 NumericPrecision
+        {
+            get
+            {
+                object val = this._row["NUMERIC_PRECISION"];
+                if (val == DBNull.Value) return 0;
+                return Convert.ToInt32(val);
+            }
+        }
+
+        public override Int32 NumericScale
+        {
+            get
+            {
+                object val = this._row["NUMERIC_SCALE"];
+                if (val == DBNull.Value) return 0;
+                return Convert.ToInt32(val);
+            }
+        }
+
+        public override Boolean IsComputed
+        {
+            get
+            {
+                object val = this._row["IS_COMPUTED"];
+                if (val == DBNull.Value) return false;
+                string virtualCol = val as string;
+                return virtualCol == "YES";
+            }
+        }
+
+        public override Boolean IsConcurrency
+        {
+            get
+            {
+                string type = this.DataTypeName.ToUpper();
+                return type == "TIMESTAMP";
+            }
+        }
+
+        // ============================================================
+        // END: Metadata improvements
+        // ============================================================
+
     } //end class
 } //end namespace

@@ -20,27 +20,41 @@ namespace EntitySpaces.MetadataEngine.PostgreSQL
 
 			try
 			{
-				string query = 	"select * from information_schema.columns where table_catalog = '" + 
-					this.Table.Database.Name + "' and table_schema = '" + this.Table.Schema + 
-					"' and table_name = '" + this.Table.Name + "' order by ordinal_position";
+                string query = @"
+						SELECT 
+							column_name,
+							udt_name        AS TYPE_NAME,          -- native PostgreSQL type (int4, varchar, float8)
+							data_type       AS TYPE_NAMECOMPLETE,   -- SQL standard type (integer, character varying)
+							character_maximum_length,
+							numeric_precision,
+							numeric_scale,
+							is_nullable,
+							column_default,
+							ordinal_position,
+							is_generated                            -- 'ALWAYS' or 'NEVER'
+						FROM information_schema.columns 
+						WHERE table_catalog = '" + this.Table.Database.Name + @"'
+						  AND table_schema  = '" + this.Table.Schema + @"'
+						  AND table_name    = '" + this.Table.Name + @"'
+						ORDER BY ordinal_position";
 
-				cn = ConnectionHelper.CreateConnection(this.dbRoot, this.Table.Database.Name);
+                cn = ConnectionHelper.CreateConnection(this.dbRoot, this.Table.Database.Name);
 
-				DataTable metaData = new DataTable();
+                DataTable metaData = new DataTable();
                 DbDataAdapter adapter = PostgreSQLDatabases.CreateAdapter(query, cn);
+                adapter.Fill(metaData);
 
-				adapter.Fill(metaData);
+                // The new query already renames data_type to TYPE_NAME and TYPE_NAMECOMPLETE
+                // so we don't need to rename "udt_name" anymore.
+                // Just get the columns directly.
 
-				metaData.Columns["udt_name"].ColumnName  = "TYPE_NAME";
-				metaData.Columns["data_type"].ColumnName = "TYPE_NAMECOMPLETE";
+                if (metaData.Columns.Contains("TYPE_NAME"))
+                    f_TypeName = metaData.Columns["TYPE_NAME"];
 
-				if(metaData.Columns.Contains("TYPE_NAME"))
-					f_TypeName = metaData.Columns["TYPE_NAME"];
+                if (metaData.Columns.Contains("TYPE_NAMECOMPLETE"))
+                    f_TypeNameComplete = metaData.Columns["TYPE_NAMECOMPLETE"];
 
-				if(metaData.Columns.Contains("TYPE_NAMECOMPLETE"))
-					f_TypeNameComplete = metaData.Columns["TYPE_NAMECOMPLETE"];
-		
-				PopulateArray(metaData);
+                PopulateArray(metaData);
 
                 //New 
                 query = @"

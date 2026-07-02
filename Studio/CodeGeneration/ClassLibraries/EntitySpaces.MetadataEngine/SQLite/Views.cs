@@ -15,9 +15,13 @@ namespace EntitySpaces.MetadataEngine.SQLite
 		{
 			try
 			{
-				string query = "select * from information_schema.views where table_schema = '" +  this.Database.SchemaName + "'";
+                // ============================================================
+                // CHANGE: Use sqlite_master instead of information_schema.views
+                // ============================================================
+                string query = "SELECT name AS TABLE_NAME, '' AS TABLE_SCHEMA FROM sqlite_master WHERE type='view' ORDER BY name;";
+                // ============================================================
 
-				IDbConnection cn = ConnectionHelper.CreateConnection(this.dbRoot, this.Database.Name);
+                IDbConnection cn = ConnectionHelper.CreateConnection(this.dbRoot, this.Database.Name);
 
 				DataTable metaData = new DataTable();
                 DbDataAdapter adapter = SQLiteDatabases.CreateAdapter(query, cn);

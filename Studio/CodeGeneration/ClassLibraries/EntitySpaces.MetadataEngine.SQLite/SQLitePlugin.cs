@@ -186,6 +186,7 @@ using System.Data.SQLite;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace EntitySpaces.MetadataEngine.SQLite
 {
@@ -429,6 +430,7 @@ namespace EntitySpaces.MetadataEngine.SQLite
                         }
                         row["TYPE_NAME"] = typeName;
 
+
                         if (dtRow["IS_NULLABLE"] != DBNull.Value)
                         {
                             string isNullable = dtRow["IS_NULLABLE"].ToString().ToUpper();
@@ -445,6 +447,7 @@ namespace EntitySpaces.MetadataEngine.SQLite
                             row["COLUMN_HASDEFAULT"] = false;
                         }
 
+                        // AUTOINCREMENT detection from GetSchema (only works for explicit AUTOINCREMENT)
                         if (dtRow["AUTOINCREMENT"] != DBNull.Value)
                         {
                             bool autoKey = (bool)dtRow["AUTOINCREMENT"];
@@ -457,22 +460,7 @@ namespace EntitySpaces.MetadataEngine.SQLite
                             }
                         }
 
-                        if (row["COLUMN_DEFAULT"] != DBNull.Value)
-                        {
-                            switch (row["COLUMN_DEFAULT"].ToString().ToLower())
-                            {
-                                case "current timestamp":
-
-                                    row["IS_COMPUTED"] = true;
-                                    break;
-
-                                case "timestamp":
-
-                                    row["IS_COMPUTED"] = true;
-                                    row["IS_CONCURRENCY"] = true;
-                                    break;
-                            }
-                        }
+                        // ----- NEW: Extract length, precision, scale -----
 
                         long charMax = 0;
                         int precision = 0;
@@ -493,6 +481,15 @@ namespace EntitySpaces.MetadataEngine.SQLite
                             scale = Convert.ToInt16(dtRow["NUMERIC_SCALE"]);
                         }
 
+                        // Assign length, precision, scale to the metadata row
+                        row["CHARACTER_MAXIMUM_LENGTH"] = charMax;
+                        row["NUMERIC_PRECISION"] = precision;
+                        row["NUMERIC_SCALE"] = scale;
+
+                        // Build TYPE_NAME_COMPLETE with length/precision/scale
+                        string typeNameComplete = GetDataTypeNameComplete(typeName, (int)charMax, (short)precision, (short)scale);
+                        row["TYPE_NAME_COMPLETE"] = typeNameComplete;
+
                     } // end for
 
                     // Reliable auto-increment detection for SQLite.
@@ -505,6 +502,7 @@ namespace EntitySpaces.MetadataEngine.SQLite
                     //
                     // NOTE: cn was closed above after GetSchema("Columns"). Reopen it here
                     // because sqlite_master and PRAGMA queries require an active connection.
+
                     cn.Open();
 
                     DataTable masterData = new DataTable();
@@ -526,7 +524,91 @@ namespace EntitySpaces.MetadataEngine.SQLite
                         pragmaAdapter.Fill(pragmaData);
                     }
 
+                    // Detect computed columns (GENERATED ALWAYS AS ...) using sqlite_master DDL + PRAGMA table_info.
+                    // This is done after the main loop, because we need the full metaData table and the DDL.
+
+                    // Detect computed columns using PRAGMA table_xinfo (available since SQLite 3.31.0).
+                    // The "hidden" column indicates the column type:
+                    //   0 = normal column
+                    //   2 = GENERATED ALWAYS AS ... STORED
+                    //   3 = GENERATED ALWAYS AS ... VIRTUAL
+                    // This is more reliable than DDL parsing via sqlite_master, which requires
+                    // handling escaped quotes, line breaks, and comments.
+                    DataTable xInfoData = new DataTable();
+                    try
+                    {
+                        using (DbDataAdapter xInfoAdapter = new SQLiteDataAdapter(
+                            $"PRAGMA table_xinfo(\"{table}\")", cn))
+                        {
+                            xInfoAdapter.Fill(xInfoData);
+                        }
+                    }
+                    catch
+                    {
+                        // table_xinfo not available (SQLite < 3.31.0) — fall back to DDL parsing below
+                    }
+
+                    string colNames = string.Join(", ", xInfoData.Columns.Cast<DataColumn>().Select(c => c.ColumnName));
+
+                    foreach (DataRow metaRow in metaData.Rows)
+                    {
+                        string colName = metaRow["COLUMN_NAME"] as string;
+                        if (string.IsNullOrEmpty(colName)) continue;
+
+                        bool isComputed = false;
+
+
+                        if (xInfoData.Columns.Contains("hidden") && xInfoData.Rows.Count > 0)
+                        {
+                            // Use PRAGMA table_xinfo result — hidden = 2 (STORED) or 3 (VIRTUAL)
+                            foreach (DataRow xRow in xInfoData.Rows)
+                            {
+                                if (string.Equals(xRow["name"] as string, colName,
+                                    StringComparison.OrdinalIgnoreCase))
+                                {
+                                    int hidden = xRow["hidden"] != DBNull.Value
+                                        ? Convert.ToInt32(xRow["hidden"]) : 0;
+                                    isComputed = hidden == 2 || hidden == 3;
+
+                                    System.IO.File.AppendAllText(@"C:\temp\xinfo_debug.txt",
+                                                                 $"  xRow name={xRow["name"]}, " +
+                                                                 $"hidden={hidden}, " +
+                                                                 $"isComputed={isComputed}\r\n");
+
+                                    break;
+                                }
+                            }
+                        }
+                        else if (!string.IsNullOrEmpty(tableDdl))
+                        {
+                            // Fallback: parse DDL from sqlite_master.
+                            // Normalize the DDL — replace escaped quotes and collapse whitespace
+                            // so patterns like "\"FullName\" GENERATED" become searchable.
+                            string normalizedDdl = tableDdl
+                                .Replace("\\\"", "\"")
+                                .Replace("\r\n", " ")
+                                .Replace("\n", " ")
+                                .Replace("\t", " ");
+
+                            // Remove SQL comments (-- to end of line) from normalized DDL
+                            normalizedDdl = Regex.Replace(normalizedDdl, @"--[^\n]*", " ");
+
+                            string escapedColName = Regex.Escape(colName);
+                            string pattern = $@"[""\[']?{escapedColName}[""\]']?\s+GENERATED\s+ALWAYS";
+
+                            isComputed = Regex.IsMatch(
+                                normalizedDdl, pattern, RegexOptions.IgnoreCase);
+                        }
+
+                        metaRow["IS_COMPUTED"] = isComputed;
+                    }
+
                     cn.Close();
+
+                    // Look for the existing block that starts with:
+                    //   DataTable masterData = new DataTable();
+                    //   using (DbDataAdapter masterAdapter = new SQLiteDataAdapter(...))
+                    // and ends with the loop that updates IS_AUTO_KEY.
 
                     // Count PK columns — rowid alias requires exactly one INTEGER PK column
                     int pkColCount = 0;
@@ -536,6 +618,8 @@ namespace EntitySpaces.MetadataEngine.SQLite
                     bool hasExplicitAutoIncrement = tableDdl.IndexOf("AUTOINCREMENT",
                         StringComparison.OrdinalIgnoreCase) >= 0;
 
+                    // The existing code already queries sqlite_master and PRAGMA table_info to
+                    // detect rowid alias auto-increment. We'll extend that block to also detect computed columns.
                     foreach (DataRow pkRow in pragmaData.Rows)
                     {
                         int pkIndex = pkRow["pk"] != DBNull.Value ? Convert.ToInt32(pkRow["pk"]) : 0;
@@ -564,10 +648,13 @@ namespace EntitySpaces.MetadataEngine.SQLite
                                 break;
                             }
                         }
+
+
                     }
                 }
             }
             catch { }
+
 
             return metaData;
         }

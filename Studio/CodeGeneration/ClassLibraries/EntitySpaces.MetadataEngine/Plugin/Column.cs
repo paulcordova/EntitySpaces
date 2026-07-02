@@ -31,6 +31,16 @@ namespace EntitySpaces.MetadataEngine.Plugin
 			}
         }
 
+        public override Boolean IsComputed
+        {
+            get
+            {
+                object val = this._row["IS_COMPUTED"];
+                if (val == DBNull.Value) return false;
+                return Convert.ToBoolean(val);
+            }
+        }
+
         public override object DatabaseSpecificMetaData(string key)
         {
             return this.plugin.GetDatabaseSpecificMetaData(this, key);

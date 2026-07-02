@@ -13,17 +13,17 @@ namespace EntitySpaces.MetadataEngine.Sql
 
 		internal DataColumn f_TypeName	= null;
 
-		override internal void LoadForTable()
-		{
-			DataTable metaData = this.LoadData(OleDbSchemaGuid.Columns, new Object[] {this.Table.Database.Name, this.Table.Schema, this.Table.Name});
-			PopulateArray(metaData);
+        override internal void LoadForTable()
+        {
+            DataTable metaData = this.LoadData(OleDbSchemaGuid.Columns, new Object[] { this.Table.Database.Name, this.Table.Schema, this.Table.Name });
+            PopulateArray(metaData);
+            LoadExtraData(this.Table.Name, "T");
+            LoadAutoKeyInfo();
+            LoadDescriptions();
+            LoadComputedInfo();   // <-- New
+        }
 
-			LoadExtraData(this.Table.Name, "T");
-			LoadAutoKeyInfo();
-			LoadDescriptions();
-	   }
-
-		override internal void LoadForView()
+        override internal void LoadForView()
 		{
 			DataTable metaData = this.LoadData(OleDbSchemaGuid.Columns, new Object[] {this.View.Database.Name, this.View.Schema, this.View.Name});
 			PopulateArray(metaData);
@@ -197,5 +197,62 @@ FROM ::fn_listextendedproperty ('MS_Description', 'schema', '" + this.Table.Sche
 				string s = ex.Message;
 			}
 		}
-	}
+
+        /// <summary>
+        /// Loads computed column information from sys.columns and stores IS_COMPUTED as '1'/'0' in the DataRow.
+        /// </summary>
+        private void LoadComputedInfo()
+        {
+            try
+            {
+                // Query sys.columns to get is_computed for each column in the current table.
+                // Uses SCHEMA_NAME(t.schema_id) to handle multi-schema environments.
+                string query = @"
+                                SELECT 
+                                    c.name AS COLUMN_NAME, 
+                                    CAST(c.is_computed AS VARCHAR(1)) AS IS_COMPUTED
+                                FROM sys.columns c
+                                INNER JOIN sys.tables t ON c.object_id = t.object_id
+                                WHERE t.name = '" + this.Table.Name + @"'
+                                  AND SCHEMA_NAME(t.schema_id) = '" + this.Table.Schema + @"'";
+
+                DataTable computedData = new DataTable();
+                using (OleDbConnection cn = new OleDbConnection(dbRoot.ConnectionString))
+                {
+                    cn.Open();
+                    cn.ChangeDatabase("[" + this.Table.Database.Name + "]");
+                    OleDbDataAdapter adapter = new OleDbDataAdapter(query, cn);
+                    adapter.Fill(computedData);
+                }
+
+                // Add IS_COMPUTED column to the main DataTable if it doesn't already exist.
+                // We use the first column in the collection as a reference to get the table.
+                if (this._array.Count > 0)
+                {
+                    Column firstCol = this._array[0] as Column;
+                    if (!firstCol._row.Table.Columns.Contains("IS_COMPUTED"))
+                    {
+                        firstCol._row.Table.Columns.Add("IS_COMPUTED", typeof(bool));
+                    }
+                }
+
+                // Populate IS_COMPUTED for each column from the query results.
+                foreach (DataRow row in computedData.Rows)
+                {
+                    string colName = row["COLUMN_NAME"] as string;
+                    string isComputed = row["IS_COMPUTED"] as string; // '1' or '0'
+                    Column col = this[colName] as Column;
+                    if (col != null)
+                    {
+                        col._row["IS_COMPUTED"] = (isComputed == "1");
+                    }
+                }
+            }
+            catch
+            {
+                // If the query fails (e.g., insufficient permissions), we simply skip.
+                // The fallback in SqlColumn.IsComputed will handle missing values.
+            }
+        }
+    }
 }

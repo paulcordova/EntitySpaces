@@ -17,17 +17,7 @@ namespace EntitySpaces.MetadataEngine.Sql
 
 			return c;
 		}
-
-		override public System.Boolean IsComputed
-		{
-			get
-			{
-				if(this.DataTypeName == "timestamp") return true;
-
-				return base.IsComputed;
-			}
-		}
-
+		
         public override bool IsConcurrency
         {
             get
@@ -128,5 +118,74 @@ namespace EntitySpaces.MetadataEngine.Sql
 
             return dtnf;
         }
-	}
+
+
+        // ============================================================
+        // START: Metadata improvements (Length, Precision, Scale, Computed)
+        // ============================================================
+
+        /// <summary>
+        /// Gets the maximum length for character columns (varchar, nvarchar, char, nchar).
+        /// Reads from the OleDb schema column "CHARACTER_MAXIMUM_LENGTH".
+        /// </summary>
+        public override Int32 CharacterMaxLength
+        {
+            get
+            {
+                object val = this._row["CHARACTER_MAXIMUM_LENGTH"];
+                if (val == DBNull.Value) return 0;
+                return Convert.ToInt32(val);
+            }
+        }
+
+        /// <summary>
+        /// Gets the numeric precision for decimal/numeric columns.
+        /// Reads from the OleDb schema column "NUMERIC_PRECISION".
+        /// </summary>
+        public override Int32 NumericPrecision
+        {
+            get
+            {
+                object val = this._row["NUMERIC_PRECISION"];
+                if (val == DBNull.Value) return 0;
+                return Convert.ToInt32(val);
+            }
+        }
+
+        /// <summary>
+        /// Gets the numeric scale for decimal/numeric columns.
+        /// Reads from the OleDb schema column "NUMERIC_SCALE".
+        /// </summary>
+        public override Int32 NumericScale
+        {
+            get
+            {
+                object val = this._row["NUMERIC_SCALE"];
+                if (val == DBNull.Value) return 0;
+                return Convert.ToInt32(val);
+            }
+        }
+
+        /// <summary>
+        /// Indicates whether the column is a computed column (is_computed = 1 in sys.columns).
+        /// Falls back to false if the value is not available.
+        /// </summary>
+        public override Boolean IsComputed
+        {
+            get
+            {
+                object val = this._row["IS_COMPUTED"];
+                if (val != DBNull.Value)
+                {
+                    return Convert.ToBoolean(val);
+                }
+                return false;
+            }
+        }
+
+        // ============================================================
+        // END: Metadata improvements
+        // ============================================================
+
+    }
 }

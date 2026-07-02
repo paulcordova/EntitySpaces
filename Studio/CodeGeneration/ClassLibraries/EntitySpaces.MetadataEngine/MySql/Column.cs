@@ -153,5 +153,39 @@ namespace EntitySpaces.MetadataEngine.MySql
 				return this.characterLength;
 			}
 		}
-	}
+
+        // ============================================================
+        // START: Metadata improvements (Computed, Concurrency)
+        // ============================================================
+
+        /// <summary>
+        /// Indicates whether the column is a generated column (GENERATED ALWAYS AS ...)
+        /// Detected via the 'Extra' column from SHOW COLUMNS containing 'VIRTUAL GENERATED' or 'STORED GENERATED'.
+        /// </summary>
+        public override Boolean IsComputed
+        {
+            get
+            {
+                object val = this._row["IS_COMPUTED"];
+                if (val == DBNull.Value) return false;
+                return Convert.ToBoolean(val);
+            }
+        }
+
+        /// <summary>
+        /// Indicates whether the column is used for optimistic concurrency (e.g., TIMESTAMP)
+        /// </summary>
+        public override Boolean IsConcurrency
+        {
+            get
+            {
+                string type = this.DataTypeName.ToUpper();
+                return type == "TIMESTAMP";
+            }
+        }
+
+        // ============================================================
+        // END: Metadata improvements
+        // ============================================================
+    }
 }

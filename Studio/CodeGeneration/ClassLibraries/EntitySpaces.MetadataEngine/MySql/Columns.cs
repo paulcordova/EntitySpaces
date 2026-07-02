@@ -33,6 +33,13 @@ namespace EntitySpaces.MetadataEngine.MySql
                     f_IsAutoKey = metaData.Columns.Add("IS_AUTO_KEY", typeof(bool));
                 }
 
+
+                // Add IS_COMPUTED column for generated columns
+                if (!metaData.Columns.Contains("IS_COMPUTED"))
+                {
+                    metaData.Columns.Add("IS_COMPUTED", typeof(bool));
+                }
+
                 foreach (DataRow row in metaData.Rows)
                 {
                     string extra = (string)row["extra"];
@@ -45,7 +52,18 @@ namespace EntitySpaces.MetadataEngine.MySql
                     {
                         row["IS_AUTO_KEY"] = false;
                     }
+
+                    // Detect generated columns (VIRTUAL GENERATED or STORED GENERATED)
+                    if (extra != null && extra.IndexOf("GENERATED", StringComparison.OrdinalIgnoreCase) >= 0)
+                    {
+                        row["IS_COMPUTED"] = true;
+                    }
+                    else
+                    {
+                        row["IS_COMPUTED"] = false;
+                    }
                 }
+
             }
 			
 			PopulateArray(metaData);
@@ -118,5 +136,6 @@ namespace EntitySpaces.MetadataEngine.MySql
 			}
 			catch {}
 		}
+
 	}
 }
