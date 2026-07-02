@@ -73,19 +73,32 @@ namespace EntitySpaces.AddIn
 
                     this.mru = new MostRecentlyUsedList();
 
+                    // -----------------------------------------------------------------------------
+                    // Active drivers: MySql, Oracle, PostgreSQL, SQL (Server), SQLite
+                    // These have been fully validated with the metadata engine improvements.
+                    //
+                    // Disabled drivers (commented out):
+                    //   - Access    (may be revisited later)
+                    //   - SQLAzure  (not currently maintained)
+                    //   - SQLCE     (deprecated)
+                    //   - Sybase    (no current demand)
+                    //   - VistaDB   / VistaDB4 (legacy, no validation)
+                    //   - Firebird  (next on the validation roadmap)
+                    // -----------------------------------------------------------------------------
+
                     comboBoxDriver.Items.Add(new DictionaryEntry("<None>", null));
-                    comboBoxDriver.Items.Add(new DictionaryEntry(Settings.DriverName("Access"), "Access"));
+                    //comboBoxDriver.Items.Add(new DictionaryEntry(Settings.DriverName("Access"), "Access"));
                     comboBoxDriver.Items.Add(new DictionaryEntry(Settings.DriverName("MySql"), "MySql"));
                     comboBoxDriver.Items.Add(new DictionaryEntry(Settings.DriverName("Oracle"), "Oracle"));
                     comboBoxDriver.Items.Add(new DictionaryEntry(Settings.DriverName("PostgreSQL"), "PostgreSQL"));
                     comboBoxDriver.Items.Add(new DictionaryEntry(Settings.DriverName("SQL"), "SQL"));
-                    comboBoxDriver.Items.Add(new DictionaryEntry(Settings.DriverName("SQLAzure"), "SQLAzure"));
-                    comboBoxDriver.Items.Add(new DictionaryEntry(Settings.DriverName("SQLCE"), "SQLCE"));
+                    //comboBoxDriver.Items.Add(new DictionaryEntry(Settings.DriverName("SQLAzure"), "SQLAzure"));
+                    //comboBoxDriver.Items.Add(new DictionaryEntry(Settings.DriverName("SQLCE"), "SQLCE"));
                     comboBoxDriver.Items.Add(new DictionaryEntry(Settings.DriverName("SQLite"), "SQLite"));
-                    comboBoxDriver.Items.Add(new DictionaryEntry(Settings.DriverName("Sybase"), "Sybase"));
-                    comboBoxDriver.Items.Add(new DictionaryEntry(Settings.DriverName("VistaDB"), "VistaDB"));
-                    comboBoxDriver.Items.Add(new DictionaryEntry(Settings.DriverName("VistaDB4"), "VistaDB4"));
-                    comboBoxDriver.Items.Add(new DictionaryEntry(Settings.DriverName("Firebird"), "Firebird"));
+                    //comboBoxDriver.Items.Add(new DictionaryEntry(Settings.DriverName("Sybase"), "Sybase"));
+                    //comboBoxDriver.Items.Add(new DictionaryEntry(Settings.DriverName("VistaDB"), "VistaDB"));
+                    //comboBoxDriver.Items.Add(new DictionaryEntry(Settings.DriverName("VistaDB4"), "VistaDB4"));
+                    //comboBoxDriver.Items.Add(new DictionaryEntry(Settings.DriverName("Firebird"), "Firebird"));
 
                     comboBoxDriver.DisplayMember = "Key";
                     comboBoxDriver.ValueMember = "Value";
