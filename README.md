@@ -95,6 +95,46 @@ The metadata engine has been enhanced across **PostgreSQL, Oracle, SQL Server, M
 5. **Self‑Documenting Code** – The generated `Metadata` class now contains detailed schema information — lengths, precisions, computed column flags, defaults — serving as living documentation embedded directly in the codebase.
 
 ---
+## Studio Build & Dependency Modernization
+
+Beyond metadata extraction, **EntitySpaces Studio** (the standalone code generator) has undergone a build and dependency overhaul for long-term maintainability and compatibility with modern .NET tooling.
+
+- **Package Management** — All Studio projects migrated from legacy `packages.config` to `PackageReference`, removing fragile `HintPath` references and enabling proper transitive dependency resolution. This eliminates the need to manually synchronize `packages.config` versions with `.csproj` `HintPath` entries — a common source of build inconsistencies.
+
+- **Central Package Management** — A single `Directory.Packages.props` now declares every package version once for the whole solution (`ManagePackageVersionsCentrally`), preventing the same package from resolving to different versions across projects. Updating a package version is now a one-line change, automatically propagated to every project that references it.
+
+- **Binding Redirect Automation** — `StandAlone.csproj` uses `AutoGenerateBindingRedirects`, so MSBuild computes and injects the correct binding redirects into the output `.exe.config` on every build. This replaces manual (and often stale) `app.config` redirects, reducing runtime `FileLoadException` surprises.
+
+- **Platform Consistency** — `StandAlone.exe`, the process that ultimately loads native interop assemblies (`SQLite.Interop.dll`, Oracle ODP.NET native libraries), now targets **x86** in every build configuration. This eliminates the architecture-mismatch failures previously seen when building under `AnyCPU` — ensuring that `SQLite.Interop.dll` (which is platform‑specific) is loaded correctly at runtime. Referenced class libraries inherit the host process architecture and do not need individual platform overrides.
+
+- **Clean Restore** — Removed local `packages\` folders and stale binaries that could get picked up outside of NuGet's version resolution. A clean `nuget restore` + build now produces a fully reproducible output, with no risk of leftover DLLs silently overriding the intended versions.
+
+### Benefits for Developers Using Studio
+
+| Benefit | Impact |
+|---------|--------|
+| **Stable builds** | No more stale package versions silently overriding what's declared in each project. Builds are consistent across all developer machines and CI environments. |
+| **Easy upgrades** | Updating a package version (e.g., `Npgsql`, `MySql.Data`, `Oracle.ManagedDataAccess`) is a single line change in `Directory.Packages.props`, applied automatically to every project in the solution. |
+| **Fewer runtime surprises** | Auto-generated binding redirects and a pinned x86 process architecture mean the Studio behaves the same way on every developer machine — no more "works on my machine" issues. |
+| **Simpler maintenance** | New contributors can clone, restore, and build without manual `HintPath` or `packages.config` tweaks. The entire dependency graph is declared centrally and restored automatically. |
+| **Reproducible outputs** | With `CopyLocalLockFileAssemblies` enabled, all required dependencies are copied to the output directory, making the Studio self‑contained and deployable without relying on GAC or system‑wide assemblies. |
+
+### Benefits for Code Generation Workflows
+
+These build and dependency improvements directly enhance the day‑to‑day experience of developers using **EntitySpaces Studio** for code generation:
+
+- **No more "assembly not found" errors** — By migrating to `PackageReference` and centralizing versions, the Studio now consistently loads the correct database drivers (`Npgsql`, `MySql.Data`, `Oracle.ManagedDataAccess`, etc.) at runtime. The days of cryptic `FileNotFoundException` or `FileLoadException` when connecting to a database are gone.
+
+- **One‑click updates** — When a new version of a database driver is released, updating it is a single‑line change in `Directory.Packages.props`. Every project in the solution immediately uses the new version, ensuring the Studio always benefits from the latest driver fixes and performance improvements.
+
+- **Faster code generation** — With `CopyLocalLockFileAssemblies` enabled, all dependencies are copied to the output directory once, eliminating repeated probing and shadow‑copy overhead. On large solutions, this translates to noticeably faster startup and generation times.
+
+- **Consistent behavior across teams** — Since every package version is pinned centrally and restored from NuGet, every developer and CI environment gets exactly the same dependency set. No more "generates differently on my machine" issues — the code produced by Studio is reproducible and predictable.
+
+- **Simpler troubleshooting** — With binding redirects automatically generated, there is no longer a need to manually maintain `app.config` redirects for every dependency. If a driver updates its dependencies, the redirects are adjusted automatically on the next build, reducing the maintenance burden and avoiding subtle runtime mismatches.
+
+---
+
 ## Why Now? The Bridge from Legacy to Modern Web
 
 Transitioning legacy WinForms and WebForms applications to the web is one of the greatest challenges—and opportunities—in enterprise software today. These systems often rely on outdated threading models and explicit locking mechanisms that fail under the concurrent load of modern web servers.

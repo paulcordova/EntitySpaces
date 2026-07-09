@@ -1,0 +1,1 @@
+for /d /r . %%d in (packages,.nuget) do @if exist "%%d" rd /s/q "%%d"
