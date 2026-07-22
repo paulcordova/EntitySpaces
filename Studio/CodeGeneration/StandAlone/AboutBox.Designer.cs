@@ -44,9 +44,9 @@
             this.richTextBox1.ForeColor = System.Drawing.Color.Black;
             this.richTextBox1.Location = new System.Drawing.Point(12, 268);
             this.richTextBox1.Name = "richTextBox1";
-            this.richTextBox1.Size = new System.Drawing.Size(298, 43);
+            this.richTextBox1.Size = new System.Drawing.Size(585, 271);
             this.richTextBox1.TabIndex = 6;
-            this.richTextBox1.Text = "Copyright © 2005 - 2025 by EntitySpaces, LLC. \nAll Rights Reserved. ";
+            this.richTextBox1.Text = resources.GetString("richTextBox1.Text");
             // 
             // label2
             // 
@@ -57,7 +57,7 @@
             this.label2.Name = "label2";
             this.label2.Size = new System.Drawing.Size(138, 20);
             this.label2.TabIndex = 8;
-            this.label2.Text = "Version 2025.8.30";
+            this.label2.Text = "Version 2026.7.00";
             // 
             // label3
             // 
@@ -86,7 +86,7 @@
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.BackColor = System.Drawing.Color.White;
             this.BackgroundImageLayout = System.Windows.Forms.ImageLayout.None;
-            this.ClientSize = new System.Drawing.Size(609, 323);
+            this.ClientSize = new System.Drawing.Size(609, 551);
             this.Controls.Add(this.pictureBox1);
             this.Controls.Add(this.label3);
             this.Controls.Add(this.label2);

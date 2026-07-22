@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="15.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
-	<ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <ProductVersion>9.0.30729</ProductVersion>
@@ -103,33 +103,33 @@
     <Reference Include="System.Xml.Linq" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="BouncyCastle.Cryptography"  />
-    <PackageReference Include="FirebirdSql.Data.FirebirdClient"  />
-    <PackageReference Include="Google.Protobuf"  />
-    <PackageReference Include="K4os.Compression.LZ4"  />
-    <PackageReference Include="K4os.Compression.LZ4.Streams"  />
-    <PackageReference Include="K4os.Hash.xxHash"  />
-    <PackageReference Include="Microsoft.Bcl.AsyncInterfaces"  />
-    <PackageReference Include="Microsoft.Bcl.HashCode"  />
-    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions"  />
-    <PackageReference Include="MySql.Data"  />
-    <PackageReference Include="Npgsql"  />
-    <PackageReference Include="Oracle.ManagedDataAccess"  />
-    <PackageReference Include="System.Buffers"  />
-    <PackageReference Include="System.Collections.Immutable"  />
-    <PackageReference Include="System.Configuration.ConfigurationManager"  />
-    <PackageReference Include="System.Diagnostics.DiagnosticSource"  />
-    <PackageReference Include="System.Formats.Asn1"  />
-    <PackageReference Include="System.Memory"  />
-    <PackageReference Include="System.Numerics.Vectors"  />
-    <PackageReference Include="System.Runtime.CompilerServices.Unsafe"  />
-    <PackageReference Include="System.IO.Pipelines"  />
-    <PackageReference Include="System.Text.Encodings.Web"  />
+    <PackageReference Include="BouncyCastle.Cryptography" />
+    <PackageReference Include="FirebirdSql.Data.FirebirdClient" />
+    <PackageReference Include="Google.Protobuf" />
+    <PackageReference Include="K4os.Compression.LZ4" />
+    <PackageReference Include="K4os.Compression.LZ4.Streams" />
+    <PackageReference Include="K4os.Hash.xxHash" />
+    <PackageReference Include="Microsoft.Bcl.AsyncInterfaces" />
+    <PackageReference Include="Microsoft.Bcl.HashCode" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+    <PackageReference Include="MySql.Data" />
+    <PackageReference Include="Npgsql" />
+    <PackageReference Include="Oracle.ManagedDataAccess" />
+    <PackageReference Include="System.Buffers" />
+    <PackageReference Include="System.Collections.Immutable" />
+    <PackageReference Include="System.Configuration.ConfigurationManager" />
+    <PackageReference Include="System.Diagnostics.DiagnosticSource" />
+    <PackageReference Include="System.Formats.Asn1" />
+    <PackageReference Include="System.Memory" />
+    <PackageReference Include="System.Numerics.Vectors" />
+    <PackageReference Include="System.Runtime.CompilerServices.Unsafe" />
+    <PackageReference Include="System.IO.Pipelines" />
+    <PackageReference Include="System.Text.Encodings.Web" />
     <PackageReference Include="System.Text.Json" />
-    <PackageReference Include="System.Threading.Channels"  />
-    <PackageReference Include="System.Threading.Tasks.Extensions"  />
-    <PackageReference Include="System.ValueTuple"  />
-    <PackageReference Include="ZstdSharp.Port"  />
+    <PackageReference Include="System.Threading.Channels" />
+    <PackageReference Include="System.Threading.Tasks.Extensions" />
+    <PackageReference Include="System.ValueTuple" />
+    <PackageReference Include="ZstdSharp.Port" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="AboutBox.cs">

@@ -2,31 +2,31 @@
 
 	<PropertyGroup>
 		<TargetFrameworks>net48;net8.0;net9.0;net10.0</TargetFrameworks>
-		<AssemblyVersion>2026.6.0.0</AssemblyVersion>
-		<FileVersion>2026.6.0.0</FileVersion>
-		<Version>2026.6.0</Version>
+		<AssemblyVersion>2026.7.0.0</AssemblyVersion>
+		<FileVersion>2026.7.0.0</FileVersion>
+		<Version>2026.7.0</Version>
 		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
 
-		<Description>SQLite provider for EntitySpaces ORM. .NET 4.8–10. Strongly-typed entities, dynamic SQL and stored procedures (single assembly install).</Description>
+		<Description>SQLite provider for EntitySpaces ORM. Fully modernized for .NET Framework 4.8, .NET 8, 9, and 10. Features strongly-typed entities, dynamic SQL, stored procedures, safe connection pooling, thread‑safe caching, and automatic concurrency detection.</Description>
 		<PackageProjectUrl>https://github.com/paulcordova/EntitySpaces</PackageProjectUrl>
-		<PackageTags>EntitySpaces;ORM;SQLite;embedded;ADO.NET;data-access;entity;legacy;dotnet;netframework;net8;net9;net10</PackageTags>
-		<PackageReleaseNotes>v2026.06.0 — Actively maintained fork. Added support for .NET 8, 9 and 10 while preserving .NET Framework 4.8 compatibility. No breaking changes from original EntitySpaces API.</PackageReleaseNotes>
+		<PackageTags>orm;entityspaces;fluent-api;code-generation;micro-orm;database;sql;netcore;netframework;sqlite;system-data-sqlite;embedded-database;winforms;webforms;wisej</PackageTags>
+		<PackageReleaseNotes>This is an actively maintained fork of the EntitySpaces ORM, built on the original architecture. This release modernizes the runtime for .NET Framework 4.8, .NET 8, .NET 9, and .NET 10.&amp;#10;&amp;#10;• Thread‑safe parameter cache using ConcurrentDictionary (eliminates lock contention).&amp;#10;• Safe connection pool management with automatic rollback on errors (prevents connection leaks).&amp;#10;• Automatic concurrency exception detection and translation.&amp;#10;&amp;#10;SQLite specific improvements:&amp;#10;• Enhanced auto‑increment detection (INTEGER PRIMARY KEY alias and explicit AUTOINCREMENT).&amp;#10;• Automatic Foreign Key enforcement (appends Foreign Keys=True to connection string).&amp;#10;• Navigation property generation from DDL foreign key constraints.&amp;#10;• Metadata engine rewritten to use native PRAGMA commands (replacing unsupported information_schema).&amp;#10;• Concurrency exception translation for SQLITE_CONSTRAINT (19).&amp;#10;• Compatible with SQLite 3.x and System.Data.SQLite 1.0.119+.</PackageReleaseNotes>
 		<Product>EntitySpaces</Product>
 		<PackageIcon>esIcon.png</PackageIcon>
 		<RepositoryType>git</RepositoryType>
 		<RepositoryUrl>https://github.com/paulcordova/EntitySpaces</RepositoryUrl>
-		<Title>EntitySpaces.ORM.SQLite.NET — .NET 4.8 to .NET 10</Title>
-		<PackageId>$(AssemblyName)</PackageId>
+		<Title>EntitySpaces.ORM.SQLite.NET — .NET Framework 4.8 to .NET 10</Title>
+		<PackageId>EntitySpaces.ORM.SQLite.NET</PackageId>
 		<Authors>paulcordova</Authors>
 		<Nullable>disable</Nullable>
 		<ImplicitUsings>false</ImplicitUsings>
 		<PackageReadmeFile>README.md</PackageReadmeFile>
-
 		<PackageLicenseExpression>BSD-3-Clause</PackageLicenseExpression>
 		<PublishRepositoryUrl>true</PublishRepositoryUrl>
 		<IncludeSymbols>true</IncludeSymbols>
 		<SymbolPackageFormat>snupkg</SymbolPackageFormat>
 		<PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+		<Copyright>Copyright (c) 2006-2012, EntitySpaces, LLC. All rights reserved.&#10;Copyright © 2026 Paul Córdova.</Copyright>
 	</PropertyGroup>
 
 
@@ -125,7 +125,7 @@
 	</ItemGroup>
 
 	<ItemGroup Condition="'$(TargetFramework)' != 'net48'">
-		<PackageReference Include="System.Configuration.ConfigurationManager" Version="10.0.8" />
+		<PackageReference Include="System.Configuration.ConfigurationManager" Version="10.0.10" />
 	</ItemGroup>
 
 	<ItemGroup>
