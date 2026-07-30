@@ -18,9 +18,9 @@
     UniqueID="DCDD67EC-7604-45c3-9C95-6E0D4B73FC43" 
     Title="Generated - Metadata (VB)"   
     Description="The Metadata Class" 
-    Namespace="EntitySpaces.2025.VB.Generated" 
+    Namespace="EntitySpaces.2026.VB.Generated" 
     Author="EntitySpaces, LLC"
-    Version="2025.08.0.0"
+    Version="2026.07.0.0"
     IsSubTemplate="True" %><%
 //-------------------------------------------------------
 // Extract the UI choices that we need

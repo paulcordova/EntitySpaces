@@ -19,9 +19,9 @@
     UniqueID="9D9C3562-88A0-4e9b-B706-6AA92BCC8C53" 
     Title="Generated - esCollection (C#)"   
     Description="The Abstract Collection Class" 
-    Namespace="EntitySpaces.2025.C#.Generated" 
+    Namespace="EntitySpaces.2026.C#.Generated" 
     Author="EntitySpaces, LLC"
-    Version="2025.08.0.0"
+    Version="2026.07.0.0"
     IsSubTemplate="True" %><%
 //-------------------------------------------------------
 // Extract the UI choices that we need

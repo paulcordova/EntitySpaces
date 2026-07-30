@@ -20,9 +20,9 @@
 	UserInterfaceID="977DCCF4-5529-406e-A392-CEB0267AD416"
     Title="MySQL"   
     Description="MySQL Stored Procedures" 
-    Namespace="EntitySpaces.2025.StoredProcedures" 
+    Namespace="EntitySpaces.2026.StoredProcedures" 
     Author="EntitySpaces, LLC"
-    Version="2025.0.0.0"
+    Version="2026.7.0.0"
     RequiresUI="True" %><%
 //-------------------------------------------------------
 // Extract the UI choices that we need

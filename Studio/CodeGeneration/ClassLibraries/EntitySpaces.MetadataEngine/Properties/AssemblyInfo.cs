@@ -2,6 +2,7 @@ using System;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using EntitySpaces;
 
 //
 // General Information about an assembly is controlled through the following 
@@ -12,8 +13,8 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyDescription("The EntitySpaces Metadata Engine")]
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("EntitySpaces, LLC")]
-[assembly: AssemblyProduct("EntitySpacesArchitecture")]
-[assembly: AssemblyCopyright("Copyright © EntitySpaces, LLC. 2005 - 2025")]
+[assembly: AssemblyProduct(VersionConstants.AssemblyProduct)]
+[assembly: AssemblyCopyright(VersionConstants.Copyright)]
 [assembly: AssemblyTrademark("EntitySpaces(TM) is a legal trademark of EntitySpaces, LLC.")]
 [assembly: AssemblyCulture("")]
 
@@ -27,9 +28,8 @@ using System.Runtime.InteropServices;
 //
 // You can specify all the values or you can default the Revision and Build Numbers 
 // by using the '*' as shown below:
-
-[assembly: AssemblyVersion("2025.8.0000.0")]
-[assembly: AssemblyFileVersion("2025.8.0000.0")]
+[assembly: AssemblyVersion(VersionConstants.Version)]
+[assembly: AssemblyFileVersion(VersionConstants.Version)]
 
 //
 // In order to sign your assembly you must specify a key to use. Refer to the 

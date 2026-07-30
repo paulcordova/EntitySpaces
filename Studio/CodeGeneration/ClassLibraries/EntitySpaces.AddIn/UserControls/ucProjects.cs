@@ -12,6 +12,7 @@ using EntitySpaces.Common;
 using EntitySpaces.AddIn.TemplateUI;
 using EntitySpaces.CodeGenerator;
 using EntitySpaces.MetadataEngine;
+using EntitySpaces;
 
 namespace EntitySpaces.AddIn
 {
@@ -56,24 +57,32 @@ namespace EntitySpaces.AddIn
             }
         }
 
-        private void LoadMruList()
-        {
-            using (RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\EntitySpaces 2025", false))
-            {
-                if (key == null) return;
-
-                mru.Load(key, "Project_");
-                PopulateMruMenu();
-            }
-        }
-
+        /// <summary>
+        /// Saves the Most Recently Used (MRU) project list to the registry.
+        /// </summary>
         private void SaveMruList()
         {
-            using (RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\EntitySpaces 2025", true))
+            // CreateSubKey ensures the key exists; if it already exists, it opens it.
+            using (RegistryKey key = Registry.CurrentUser.CreateSubKey(VersionInfo.RegistryPath))
             {
                 if (key == null) return;
 
                 mru.Save(key, "Project_");
+                PopulateMruMenu();
+            }
+        }
+
+        /// <summary>
+        /// Loads the Most Recently Used (MRU) project list from the registry.
+        /// </summary>
+        private void LoadMruList()
+        {
+            // OpenSubKey with read-only access; returns null if key doesn't exist.
+            using (RegistryKey key = Registry.CurrentUser.OpenSubKey(VersionInfo.RegistryPath, false))
+            {
+                if (key == null) return;
+
+                mru.Load(key, "Project_");
                 PopulateMruMenu();
             }
         }

@@ -19,9 +19,9 @@
 	UserInterfaceID="DF64D8BE-865C-449c-B43A-FB8B6A1DC3B9"		
     Title="MetadataMap(VB)"   
     Description="The Metadata Map used in MultiProvider Scenarios" 
-    Namespace="EntitySpaces.2025.VB.MultiProvider" 
+    Namespace="EntitySpaces.2026.VB.MultiProvider" 
     Author="EntitySpaces, LLC"
-    Version="2025.0.0.0"
+    Version="2026.7.0.0"
     RequiresUI="True" %><%
 //-------------------------------------------------------
 // Extract the UI choices that we need

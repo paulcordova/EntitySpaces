@@ -1,13 +1,13 @@
 <?xml version="1.0"?>
-<esSettings Version="2025.8.0000.0">
+<esSettings Version="2026.7.0000.0">
   <Driver>SQL</Driver>
   <esSetting Name="ConnectionString" Value="Provider=SQLOLEDB.1;Password=;User ID=sa;Initial Catalog=Northwind;Data Source=localhost" />
-  <TemplatePath>C:\Program Files (x86)\EntitySpaces\EntitySpaces 2025\CodeGeneration\Templates\EntitySpaces</TemplatePath>
-  <OutputPath>D:\develop\_PROYECTOS\GCC2nd\code\GCC</OutputPath>
-  <UIAssemblyPath>C:\Program Files (x86)\EntitySpaces\EntitySpaces 2025\CodeGeneration\Bin\UIAddIns</UIAssemblyPath>
-  <CompilerAssemblyPath>C:\Program Files (x86)\EntitySpaces\EntitySpaces 2025\CodeGeneration\Bin</CompilerAssemblyPath>
-  <LanguageMappingFile>C:\Program Files (x86)\EntitySpaces\EntitySpaces 2025\CodeGeneration\esLanguages.xml</LanguageMappingFile>
-  <UserMetadataFile>C:\ProgramData\EntitySpaces\ES2025\esUserData.xml</UserMetadataFile>
+  <TemplatePath>C:\Program Files (x86)\EntitySpaces\EntitySpaces 2026\CodeGeneration\Templates\EntitySpaces\</TemplatePath>
+  <OutputPath>D:\develop\</OutputPath>
+  <UIAssemblyPath>C:\Program Files (x86)\EntitySpaces\EntitySpaces 2026\CodeGeneration\Bin\UIAddIns</UIAssemblyPath>
+  <CompilerAssemblyPath>C:\Program Files (x86)\EntitySpaces\EntitySpaces 2026\CodeGeneration\Bin</CompilerAssemblyPath>
+  <LanguageMappingFile>C:\Program Files (x86)\EntitySpaces\EntitySpaces 2026\CodeGeneration\esLanguages.xml</LanguageMappingFile>
+  <UserMetadataFile>C:\ProgramData\EntitySpaces\ES2026\esUserData.xml</UserMetadataFile>
   <AbstractPrefix>es</AbstractPrefix>
   <EntitySuffix />
   <CollectionSuffix>Collection</CollectionSuffix>

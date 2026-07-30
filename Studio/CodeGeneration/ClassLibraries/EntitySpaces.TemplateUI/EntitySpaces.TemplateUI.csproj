@@ -69,6 +69,9 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="..\..\SharedFiles\SharedVersion.cs">
+      <Link>SharedVersion.cs</Link>
+    </Compile>
     <Compile Include="AdminTemplateSuite.cs">
       <SubType>UserControl</SubType>
     </Compile>

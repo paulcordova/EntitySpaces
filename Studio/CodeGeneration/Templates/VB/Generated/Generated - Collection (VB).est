@@ -18,9 +18,9 @@
     UniqueID="ADC19102-C21B-47a9-8F63-DACD9C924554" 
     Title="Generated - Collection (VB)"   
     Description="The Collection Class" 
-    Namespace="EntitySpaces.2025.VB.Generated" 
+    Namespace="EntitySpaces.2026.VB.Generated" 
     Author="EntitySpaces, LLC" 
-    Version="2025.08.0.0"
+    Version="2026.07.0.0"
     IsSubTemplate="True" %><%
 //-------------------------------------------------------
 // Extract the UI choices that we need

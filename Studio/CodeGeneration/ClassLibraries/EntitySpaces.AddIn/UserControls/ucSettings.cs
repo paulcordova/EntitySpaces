@@ -13,6 +13,7 @@ using Microsoft.Win32;
 
 using EntitySpaces.MetadataEngine;
 using System.Xml.Serialization;
+using EntitySpaces;
 
 namespace EntitySpaces.AddIn
 {
@@ -63,6 +64,8 @@ namespace EntitySpaces.AddIn
 
         private void ucSettings_Load(object sender, EventArgs e)
         {
+            label4.Text = VersionInfo.Version;
+
             if (!this.DesignMode)
             {
                 Cursor oldCursor = Cursor.Current;
@@ -87,14 +90,15 @@ namespace EntitySpaces.AddIn
                     // -----------------------------------------------------------------------------
 
                     comboBoxDriver.Items.Add(new DictionaryEntry("<None>", null));
-                    //comboBoxDriver.Items.Add(new DictionaryEntry(Settings.DriverName("Access"), "Access"));
+                    comboBoxDriver.Items.Add(new DictionaryEntry(Settings.DriverName("SQL"), "SQL"));
+                    comboBoxDriver.Items.Add(new DictionaryEntry(Settings.DriverName("PostgreSQL"), "PostgreSQL"));
                     comboBoxDriver.Items.Add(new DictionaryEntry(Settings.DriverName("MySql"), "MySql"));
                     comboBoxDriver.Items.Add(new DictionaryEntry(Settings.DriverName("Oracle"), "Oracle"));
-                    comboBoxDriver.Items.Add(new DictionaryEntry(Settings.DriverName("PostgreSQL"), "PostgreSQL"));
-                    comboBoxDriver.Items.Add(new DictionaryEntry(Settings.DriverName("SQL"), "SQL"));
+                    comboBoxDriver.Items.Add(new DictionaryEntry(Settings.DriverName("SQLite"), "SQLite"));
+
+                    //comboBoxDriver.Items.Add(new DictionaryEntry(Settings.DriverName("Access"), "Access"));
                     //comboBoxDriver.Items.Add(new DictionaryEntry(Settings.DriverName("SQLAzure"), "SQLAzure"));
                     //comboBoxDriver.Items.Add(new DictionaryEntry(Settings.DriverName("SQLCE"), "SQLCE"));
-                    comboBoxDriver.Items.Add(new DictionaryEntry(Settings.DriverName("SQLite"), "SQLite"));
                     //comboBoxDriver.Items.Add(new DictionaryEntry(Settings.DriverName("Sybase"), "Sybase"));
                     //comboBoxDriver.Items.Add(new DictionaryEntry(Settings.DriverName("VistaDB"), "VistaDB"));
                     //comboBoxDriver.Items.Add(new DictionaryEntry(Settings.DriverName("VistaDB4"), "VistaDB4"));
@@ -130,83 +134,113 @@ namespace EntitySpaces.AddIn
             {
                 // Connection
                 comboBoxDriver.SelectedIndex = comboBoxDriver.FindStringExact(Settings.DriverName(Settings.Driver));
-                textBoxConnectionString.Text = Settings.ConnectionString;
+                SetTextBoxText(textBoxConnectionString, Settings.ConnectionString);
 
                 // File Locations
-                textBoxTemplatePath.Text = Settings.TemplatePath;
-                textBoxOutputPath.Text = Settings.OutputPath;
-                textBoxUIAssemblyPath.Text = Settings.UIAssemblyPath;
-                textBoxCompilerAssemblyPath.Text = Settings.CompilerAssemblyPath;
-                textBoxLanguageMap.Text = Settings.LanguageMappingFile;
-                textBoxUserMetadata.Text = Settings.UserMetadataFile;
+                SetTextBoxText(textBoxTemplatePath, Settings.TemplatePath);
+                SetTextBoxText(textBoxOutputPath, Settings.OutputPath);
+                SetTextBoxText(textBoxUIAssemblyPath, Settings.UIAssemblyPath);
+                SetTextBoxText(textBoxCompilerAssemblyPath, Settings.CompilerAssemblyPath);
+                SetTextBoxText(textBoxLanguageMap, Settings.LanguageMappingFile);
+                SetTextBoxText(textBoxUserMetadata, Settings.UserMetadataFile);
 
                 // Class Names
-                textBoxAbstractPrefix.Text = Settings.AbstractPrefix;
-                textBoxEntitySuffix.Text = Settings.EntitySuffix;
-                textBoxCollectionSuffix.Text = Settings.CollectionSuffix;
-                textBoxQuerySuffix.Text = Settings.QuerySuffix;
-                textBoxMetadataSuffix.Text = Settings.MetadataSuffix;
-                textBoxProxyStubSuffix.Text = Settings.ProxyStubSuffix;
-                checkboxPrefixWithSchema.Checked = Settings.PrefixWithSchema;
+                SetTextBoxText(textBoxAbstractPrefix, Settings.AbstractPrefix);
+                SetTextBoxText(textBoxEntitySuffix, Settings.EntitySuffix);
+                SetTextBoxText(textBoxCollectionSuffix, Settings.CollectionSuffix);
+                SetTextBoxText(textBoxQuerySuffix, Settings.QuerySuffix);
+                SetTextBoxText(textBoxMetadataSuffix, Settings.MetadataSuffix);
+                SetTextBoxText(textBoxProxyStubSuffix, Settings.ProxyStubSuffix);
+                SetCheckBoxChecked(checkboxPrefixWithSchema, Settings.PrefixWithSchema);
 
                 // Stored Procedure Names
-                textBoxProcPrefix.Text = Settings.ProcPrefix;
-                textBoxProcInsert.Text = Settings.ProcInsert;
-                textBoxProcUpdate.Text = Settings.ProcUpdate;
-                textBoxProcDelete.Text = Settings.ProcDelete;
-                textBoxProcLoadAll.Text = Settings.ProcLoadAll;
-                textBoxProcLoadByPK.Text = Settings.ProcLoadByPK;
-                textBoxProcSuffix.Text = Settings.ProcSuffix;
-                checkBoxProcVerbFirst.Checked = Settings.ProcVerbFirst;
+                SetTextBoxText(textBoxProcPrefix, Settings.ProcPrefix);
+                SetTextBoxText(textBoxProcInsert, Settings.ProcInsert);
+                SetTextBoxText(textBoxProcUpdate, Settings.ProcUpdate);
+                SetTextBoxText(textBoxProcDelete, Settings.ProcDelete);
+                SetTextBoxText(textBoxProcLoadAll, Settings.ProcLoadAll);
+                SetTextBoxText(textBoxProcLoadByPK, Settings.ProcLoadByPK);
+                SetTextBoxText(textBoxProcSuffix, Settings.ProcSuffix);
+                SetCheckBoxChecked(checkBoxProcVerbFirst, Settings.ProcVerbFirst);
 
                 BuildSampleProcs();
 
                 // Hierarchical Names
-                textBoxOnePrefix.Text = Settings.OnePrefix;
-                textBoxOneSeparator.Text = Settings.OneSeparator;
-                textBoxOneSuffix.Text = Settings.OneSuffix;
-                textBoxManyPrefix.Text = Settings.ManyPrefix;
-                textBoxManySeparator.Text = Settings.ManySeparator;
-                textBoxManySuffix.Text = Settings.ManySuffix;
-                checkBoxSelfOnly.Checked = Settings.SelfOnly;
-                checkBoxSwapNames.Checked = Settings.SwapNames;
-                checkBoxUseAssociativeName.Checked = Settings.UseAssociativeName;
-                checkBoxUseUpToPrefix.Checked = Settings.UseUpToPrefix;
+                SetTextBoxText(textBoxOnePrefix, Settings.OnePrefix);
+                SetTextBoxText(textBoxOneSeparator, Settings.OneSeparator);
+                SetTextBoxText(textBoxOneSuffix, Settings.OneSuffix);
+                SetTextBoxText(textBoxManyPrefix, Settings.ManyPrefix);
+                SetTextBoxText(textBoxManySeparator, Settings.ManySeparator);
+                SetTextBoxText(textBoxManySuffix, Settings.ManySuffix);
+                SetCheckBoxChecked(checkBoxSelfOnly, Settings.SelfOnly);
+                SetCheckBoxChecked(checkBoxSwapNames, Settings.SwapNames);
+                SetCheckBoxChecked(checkBoxUseAssociativeName, Settings.UseAssociativeName);
+                SetCheckBoxChecked(checkBoxUseUpToPrefix, Settings.UseUpToPrefix);
 
                 // Miscellaneous
-                checkBoxPreserveUnderscores.Checked = Settings.PreserveUnderscores;
-                checkBoxUseRawNames.Checked = Settings.UseRawNames;
+                SetCheckBoxChecked(checkBoxPreserveUnderscores, Settings.PreserveUnderscores);
+                SetCheckBoxChecked(checkBoxUseRawNames, Settings.UseRawNames);
 
                 // License
-                RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\EntitySpaces 2025", true);
-                if (key != null)
-                {
-                    textBoxSerialNumber.Text = (string)key.GetValue("Serial_Number");
-                }
+                LoadLicenseInfo();
 
                 // Other
-                checkBoxUseNullableTypes.Checked = Settings.UseNullableTypesAlways;
-                checkBoxNoDatesInHeader.Checked = Settings.TurnOffDateTimeInClassHeaders;
+                SetCheckBoxChecked(checkBoxUseNullableTypes, Settings.UseNullableTypesAlways);
+                SetCheckBoxChecked(checkBoxNoDatesInHeader, Settings.TurnOffDateTimeInClassHeaders);
+                SetTemplateDoubleClickAction(Settings.DefaultTemplateDoubleClickAction);
 
-                if (Settings.DefaultTemplateDoubleClickAction == "Edit")
-                    radioButtonEditTemplate.Checked = true;
-                if (Settings.DefaultTemplateDoubleClickAction == "Execute")
-                    radioButtonExecute.Checked = true;
-                if (Settings.DefaultTemplateDoubleClickAction == "ExecuteWithLastSettings")
-                    radioButtonExecuteWithLastSettings.Checked = true;
-
-                // Licensing
-                chkUseProxyServer.Checked = Settings.LicenseProxyEnable;
-                txtProxyServerURL.Text = Settings.LicenseProxyUrl;
-                txtProxyServerUserName.Text = Settings.LicenseProxyUserName;
-                txtProxyServerPassword.Text = Settings.LicenseProxyPassword;
-                txtProxyServerDomainName.Text = Settings.LicenseProxyDomainName;
+                // Licensing (proxy)
+                SetCheckBoxChecked(chkUseProxyServer, Settings.LicenseProxyEnable);
+                SetTextBoxText(txtProxyServerURL, Settings.LicenseProxyUrl);
+                SetTextBoxText(txtProxyServerUserName, Settings.LicenseProxyUserName);
+                SetTextBoxText(txtProxyServerPassword, Settings.LicenseProxyPassword);
+                SetTextBoxText(txtProxyServerDomainName, Settings.LicenseProxyDomainName);
             }
             catch (Exception ex)
             {
                 this.ShowError(ex);
             }
         }
+
+        private void SetTextBoxText(TextBox textBox, string value)
+        {
+            if (textBox != null)
+                textBox.Text = value ?? string.Empty;
+        }
+
+        private void SetCheckBoxChecked(CheckBox checkBox, bool value)
+        {
+            if (checkBox != null)
+                checkBox.Checked = value;
+        }
+
+
+        private void SetRadioButtonChecked(RadioButton radioButton, bool value)
+        {
+            if (radioButton != null)
+                radioButton.Checked = value;
+        }
+
+        private void LoadLicenseInfo()
+        {
+            string registryPath = $@"Software\EntitySpaces {VersionInfo.ReleaseName}";
+            using (RegistryKey key = Registry.CurrentUser.OpenSubKey(registryPath, true))
+            {
+                if (key != null)
+                {
+                    textBoxSerialNumber.Text = (string)key.GetValue("Serial_Number") ?? string.Empty;
+                }
+            }
+        }
+
+        private void SetTemplateDoubleClickAction(string action)
+        {
+            radioButtonEditTemplate.Checked = (action == "Edit");
+            radioButtonExecute.Checked = (action == "Execute");
+            radioButtonExecuteWithLastSettings.Checked = (action == "ExecuteWithLastSettings");
+        }
+
+
 
         public void PopulateSettings()
         {
@@ -781,12 +815,15 @@ namespace EntitySpaces.AddIn
                 return;
             }
 
-            RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\EntitySpaces 2025", true);
+            string registryPath = $@"Software\EntitySpaces {VersionInfo.Year}";
+            RegistryKey key = Registry.CurrentUser.OpenSubKey(registryPath, true);
+
             if (key != null)
             {
                 originalKey = (string)key.GetValue("Serial_Number");
                 key.SetValue("Serial_Number", textBoxSerialNumber.Text.Trim());
             }
+
 
             try
             {
@@ -1137,10 +1174,10 @@ namespace EntitySpaces.AddIn
 
             return sample;
         }
-
+        
         private void LoadMruList()
         {
-            using (RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\EntitySpaces 2025", false))
+            using (RegistryKey key = Registry.CurrentUser.OpenSubKey(VersionInfo.RegistryPath, false))
             {
                 if (key == null) return;
 
@@ -1151,7 +1188,7 @@ namespace EntitySpaces.AddIn
 
         private void SaveMruList()
         {
-            using (RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\EntitySpaces 2025", true))
+            using (RegistryKey key = Registry.CurrentUser.OpenSubKey(VersionInfo.RegistryPath, true))
             {
                 if (key == null) return;
 
@@ -1193,40 +1230,55 @@ namespace EntitySpaces.AddIn
             }
         }
 
+
         private void buttonReset_Click(object sender, EventArgs e)
         {
+            // Part 1: Delete registry value and file in the installation folder
             try
             {
-                RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\EntitySpaces 2025", true);
-                if (key != null)
+                using (RegistryKey key = Registry.CurrentUser.OpenSubKey(VersionInfo.RegistryPath, true))
                 {
-                    key.DeleteValue("Serial_Number2");
-
-                    string installDir = (string)key.GetValue("Install_Dir");
-                    if (installDir.EndsWith("\\"))
+                    if (key != null)
                     {
-                        installDir = installDir.TrimEnd('\\');
-                    }
-                    installDir += @"\CodeGeneration\Bin\Interop.ADODBX.dll";
+                        key.DeleteValue("Serial_Number2");
 
-                    try
-                    {
-                        File.Delete(installDir);
+                        string installDir = (string)key.GetValue("Install_Dir");
+                        if (!string.IsNullOrEmpty(installDir))
+                        {
+                            installDir = installDir.TrimEnd('\\');
+                            string filePath = Path.Combine(installDir, @"CodeGeneration\Bin\Interop.ADODBX.dll");
+                            if (File.Exists(filePath))
+                            {
+                                File.Delete(filePath);
+                            }
+                        }
                     }
-                    catch { }
                 }
             }
-            catch { }
+            catch
+            {
+                // Silent, in case there is no password or the file is locked
+            }
 
+            // Part 2: Delete file in the common data folder
             try
             {
-                string offlinePath = Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData);
-                offlinePath += @"\EntitySpaces\ES2025\Interop.ADODBX.dll";
+                string commonDataPath = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
+                    "EntitySpaces",
+                    VersionInfo.ReleaseName,
+                    "Interop.ADODBX.dll"
+                );
 
-                File.Delete(offlinePath);
+                if (File.Exists(commonDataPath))
+                {
+                    File.Delete(commonDataPath);
+                }
             }
-            catch { }
-
+            catch
+            {
+                // Silent
+            }
         }
 
         private void chkUseProxyServer_CheckedChanged(object sender, EventArgs e)

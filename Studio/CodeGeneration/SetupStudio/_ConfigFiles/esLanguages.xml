@@ -227,6 +227,17 @@
     <Type From="name" To="string" />
     <Type From="oidvector" To="string" />
     <Type From="point" To="NpgsqlTypes.NpgsqlPoint" />
+	<!-- Additional standard SQL type names returned by information_schema.columns -->
+	<Type From="integer" To="int" />
+	<Type From="character varying" To="string" />
+	<Type From="timestamp without time zone" To="DateTime" />
+	<Type From="timestamp with time zone" To="DateTime" />
+	<Type From="character" To="string" />
+	<Type From="bigint" To="long" />
+	<Type From="smallint" To="short" />
+	<Type From="real" To="float" />                <!-- For float4 / real -->
+	<Type From="double precision" To="double" />   <!-- For float8 / double -->
+	<Type From="boolean" To="bool" />              <!-- For bool -->
   </Language>
   <Language From="VISTADB" To="C#">
     <Type From="BigInt" To="long" />

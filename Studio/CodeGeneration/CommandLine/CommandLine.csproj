@@ -111,6 +111,7 @@
     <Compile Include="Program.cs" />
     <Compile Include="ProjectExecuter.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="SharedVersion.cs" />
   </ItemGroup>
   <ItemGroup>
     <BootstrapperPackage Include="Microsoft.Net.Client.3.5">

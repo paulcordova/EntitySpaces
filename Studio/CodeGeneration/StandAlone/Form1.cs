@@ -11,6 +11,7 @@ using System;
 using System.Reflection;
 
 using EntitySpaces.AddIn;
+using EntitySpaces;
 
 namespace EntitySpaces
 {
@@ -19,6 +20,8 @@ namespace EntitySpaces
         public Form1()
         {
             InitializeComponent();
+
+            this.Text = $"{VersionInfo.ProductName} - Persistence Layer and Business Objects for Microsoft .NET";
         }
 
         private void ToolStripMenuItemAbout_Click(object sender, EventArgs e)

@@ -132,6 +132,9 @@
     <PackageReference Include="ZstdSharp.Port" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="..\SharedFiles\SharedVersion.cs">
+      <Link>SharedVersion.cs</Link>
+    </Compile>
     <Compile Include="AboutBox.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -148,6 +151,7 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
     <EmbeddedResource Include="AboutBox.resx">
       <DependentUpon>AboutBox.cs</DependentUpon>
+      <SubType>Designer</SubType>
     </EmbeddedResource>
     <EmbeddedResource Include="Form1.resx">
       <DependentUpon>Form1.cs</DependentUpon>
@@ -197,6 +201,7 @@
     <ProjectReference Include="..\ClassLibraries\EntitySpaces.CodeGenerator\EntitySpaces.CodeGenerator.csproj">
       <Project>{4DEB54D3-804F-452A-8B60-BE78DCF06B16}</Project>
       <Name>EntitySpaces.CodeGenerator</Name>
+	  <Private>True</Private>
     </ProjectReference>
     <ProjectReference Include="..\ClassLibraries\EntitySpaces.MetadataEngine.SQLAzure\EntitySpaces.MetadataEngine.SQLAzure.csproj">
       <Project>{0EFAB27B-1897-41B4-922F-6524A8E9D106}</Project>
@@ -209,6 +214,7 @@
     <ProjectReference Include="..\ClassLibraries\EntitySpaces.MetadataEngine\EntitySpaces.MetadataEngine.csproj">
       <Project>{72BEAB1C-B55F-4F0E-89AF-17F71E74A452}</Project>
       <Name>EntitySpaces.MetadataEngine</Name>
+	  <Private>True</Private>
     </ProjectReference>
     <ProjectReference Include="..\ClassLibraries\EntitySpaces.TemplateUI\EntitySpaces.TemplateUI.csproj">
       <Project>{988af577-2940-47e7-a568-9a9c58c6418b}</Project>

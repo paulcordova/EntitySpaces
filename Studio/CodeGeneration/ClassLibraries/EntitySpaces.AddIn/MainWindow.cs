@@ -28,7 +28,7 @@ namespace EntitySpaces.AddIn.ES2025
         private object applicationObject;
         private List<esUserControl> userControlCollection = new List<esUserControl>();
         private esSettings settings = new esSettings();
-        internal string esVersion = "2025.8.0000.0";
+        internal string esVersion = VersionInfo.Version;
 
         internal OnTemplateExecute OnTemplateExecuteCallback;
         internal OnTemplateCancel OnTemplateCancelCallback;

@@ -1,6 +1,6 @@
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="15.0">
   <PropertyGroup>
-	<ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <ProductVersion>9.0.30729</ProductVersion>
@@ -10,7 +10,7 @@
     <StartupObject>
     </StartupObject>
     <NoStandardLibraries>false</NoStandardLibraries>
-    <AssemblyName>EntitySpaces2025.AddIn</AssemblyName>
+    <AssemblyName>EntitySpaces2026.AddIn</AssemblyName>
     <RootNamespace>EntitySpaces.AddIn</RootNamespace>
     <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
     <SignAssembly>true</SignAssembly>
@@ -103,6 +103,9 @@
     </Compile>
     <Compile Include="..\..\SharedFiles\SecurityTest.cs">
       <Link>SecurityTest.cs</Link>
+    </Compile>
+    <Compile Include="..\..\SharedFiles\SharedVersion.cs">
+      <Link>SharedVersion.cs</Link>
     </Compile>
     <Compile Include="AssemblyInfo.cs">
       <SubType>Code</SubType>
@@ -327,7 +330,7 @@
     </PropertyGroup>
   </Target>
   <ItemGroup>
-	<PackageReference Include="Microsoft.VisualStudio.SDK.EmbedInteropTypes" />
-	<PackageReference Include="stdole"  />
+    <PackageReference Include="Microsoft.VisualStudio.SDK.EmbedInteropTypes" />
+    <PackageReference Include="stdole" />
   </ItemGroup>
 </Project>

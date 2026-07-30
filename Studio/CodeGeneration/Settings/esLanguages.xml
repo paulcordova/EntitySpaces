@@ -237,10 +237,7 @@
 	<Type From="smallint" To="short" />
 	<Type From="real" To="float" />                <!-- For float4 / real -->
 	<Type From="double precision" To="double" />   <!-- For float8 / double -->
-	<!-- <Type From="numeric" To="decimal" />  --> <!-- Ya existe, pero asegúrate --> 
-	<!-- <Type From="text" To="string" />  -->     <!-- Ya existe --> 
-	<Type From="boolean" To="bool" />              <!-- Para bool -->
-	<!-- <Type From="bytea" To="byte[]" />  -->    <!-- Ya existe --> 
+	<Type From="boolean" To="bool" />              <!-- For bool -->
   </Language>
   <Language From="VISTADB" To="C#">
     <Type From="BigInt" To="long" />

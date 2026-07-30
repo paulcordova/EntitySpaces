@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using System.Xml;
+using EntitySpaces;
 
 namespace EntitySpaces.MetadataEngine
 {
@@ -59,7 +60,10 @@ namespace EntitySpaces.MetadataEngine
                 {
                     if(attribute.Name == "Version")
                     {
-                        if( attribute.Value == this.version || 
+                        // Keep hardcoded legacy versions for backward compatibility.
+                        // The current version is passed via 'this.version' (set from VersionInfo.Version).
+                        //TODO: ATENTION WHEN RELEASE NEW VERSION
+                        if (attribute.Value == this.version ||
                             attribute.Value == "2009.2.0831.0" ||
                             attribute.Value == "2009.2.0928.0" ||
                             attribute.Value == "2010.1.0628.0" ||

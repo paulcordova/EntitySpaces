@@ -69,6 +69,9 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="..\..\SharedFiles\SharedVersion.cs">
+      <Link>SharedVersion.cs</Link>
+    </Compile>
     <Compile Include="ITemplateUI.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="esTemplateInfo.cs" />

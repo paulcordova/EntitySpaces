@@ -22,6 +22,8 @@ using Oracle.ManagedDataAccess.Client;
 using Microsoft.Win32;
 using Oracle.ManagedDataAccess.Types;
 
+using EntitySpaces;
+
 namespace EntitySpaces.MetadataEngine
 {
 	public class Root 
@@ -778,7 +780,12 @@ namespace EntitySpaces.MetadataEngine
                     // One Time Initializations
                     if (_userData == null)
                     {
-                        esXmlUserDataMigration converter = new esXmlUserDataMigration(settings.UserMetadataFile, this.DriverString, "2025.8.0000.0");
+                        // Create the migration converter with the current version
+                        esXmlUserDataMigration converter = new esXmlUserDataMigration(
+                            settings.UserMetadataFile,
+                            this.DriverString,
+                            VersionInfo.Version
+                        );
                         converter.PerformMigration();
 
                         _userData = new XmlDocument();

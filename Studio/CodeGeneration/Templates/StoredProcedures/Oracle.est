@@ -20,9 +20,9 @@
 	UserInterfaceID="BCB3B598-9264-40dc-B497-1D872D9E324E"
     Title="Oracle"   
     Description="Oracle Stored Procedures" 
-    Namespace="EntitySpaces.2025.StoredProcedures" 
+    Namespace="EntitySpaces.2026.StoredProcedures" 
     Author="EntitySpaces, LLC"
-    Version="2025.0.0.0"
+    Version="2026.7.0.0"
     RequiresUI="True" %><%
 //-------------------------------------------------------
 // Extract the UI choices that we need

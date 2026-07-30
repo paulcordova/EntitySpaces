@@ -20,9 +20,9 @@
 	UserInterfaceID="D4CCF86A-2911-4598-AB11-B4B39A0ABF9A"
     Title="Web Admin Suite (VB)"   
     Description="The ASPX Admin Grids Template" 
-    Namespace="EntitySpaces.2025.VB.Web" 
+    Namespace="EntitySpaces.2026.VB.Web" 
     Author="EntitySpaces, LLC"
-    Version="2025.0.0.0"
+    Version="2026.7.0.0"
     RequiresUI="True" %>
 <%@ Property Name="outputBuffer" Type="System.String" %>
 <%@ Property Name="databaseName" Type="System.String" %>

@@ -1,6 +1,6 @@
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="15.0">
   <PropertyGroup>
-	<ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
     <ProjectType>Local</ProjectType>
     <ProductVersion>9.0.30729</ProductVersion>
     <SchemaVersion>2.0</SchemaVersion>
@@ -196,6 +196,9 @@
     <None Include="Access\Views.cs">
       <SubType>Code</SubType>
     </None>
+    <Compile Include="..\..\SharedFiles\SharedVersion.cs">
+      <Link>SharedVersion.cs</Link>
+    </Compile>
     <Compile Include="esPlugIn\esSettings.cs" />
     <Compile Include="esPlugIn\esSettings2010.cs" />
     <Compile Include="esPlugIn\ISettings.cs" />

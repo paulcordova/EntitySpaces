@@ -6,6 +6,7 @@ using System.Drawing;
 using System.Linq;
 using System.Text;
 using System.Windows.Forms;
+using EntitySpaces;
 
 namespace EntitySpaces
 {
@@ -14,6 +15,8 @@ namespace EntitySpaces
         public AboutBox()
         {
             InitializeComponent();
+
+            this.label2.Text = $"Version {VersionInfo.Version}";
         }
 
         private void buttonClose_Click(object sender, EventArgs e)

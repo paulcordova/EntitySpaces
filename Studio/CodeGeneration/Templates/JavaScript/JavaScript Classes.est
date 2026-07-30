@@ -20,9 +20,9 @@
 	UserInterfaceID="491990CE-9355-46c8-93FC-E2EC8956BC41"
 	Title="JavaScript Classes"   
 	Description="Generates the JavaScript classes" 
-	Namespace="EntitySpaces.2025.JavaScript" 
+	Namespace="EntitySpaces.2026.JavaScript" 
 	Author="EntitySpaces, LLC"
-	Version="2025.0.0.0"
+	Version="2026.7.0.0"
 	RequiresUI="True" %><%
 string outputDirectory = (string)esMeta.Input["OutputPath"];
 

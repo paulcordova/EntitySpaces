@@ -20,9 +20,9 @@
 	UserInterfaceID="D00047A0-8318-4e16-9264-0DC6EBBA1818" 
     Title="RIA Shared Classes" 
     Description="RIA Shared Classes" 
-    Namespace="EntitySpaces.2025.C#.RIA Services"
+    Namespace="EntitySpaces.2026.C#.RIA Services"
     Author="EntitySpaces, LLC" 
-    Version="2025.0.0.0" 
+    Version="2026.7.0.0" 
     RequiresUI="True" %><%
 //-------------------------------------------------------
 // Extract the UI choices that we need

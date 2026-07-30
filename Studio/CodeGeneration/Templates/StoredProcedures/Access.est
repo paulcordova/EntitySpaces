@@ -20,9 +20,9 @@
 	UserInterfaceID="A372A980-BB8E-479a-A77E-79FDD6F09E10"
     Title="Microsoft Access"   
     Description="Microsoft Access Stored Procedures" 
-    Namespace="EntitySpaces.2025.StoredProcedures" 
+    Namespace="EntitySpaces.2026.StoredProcedures" 
     Author="EntitySpaces, LLC"
-    Version="2025.0.0.0"
+    Version="2026.7.0.0"
     RequiresUI="True" %>
 <%@Assembly Name="C:\Program Files\EntitySpaces 2010\CodeGeneration\Bin\ADODB" %>
 <%@Assembly Name="C:\Program Files\EntitySpaces 2010\CodeGeneration\Bin\Interop.ADODB" %>

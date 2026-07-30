@@ -19,9 +19,9 @@
     UniqueID="EC679532-AF8F-410d-99AD-DDC25C3F907F" 
     Title="Generated - Hierarchical (C#)"   
     Description="The Template Generates the Hierarchical Model" 
-    Namespace="EntitySpaces.2025.C#.Generated" 
+    Namespace="EntitySpaces.2026.C#.Generated" 
     Author="EntitySpaces, LLC"
-    Version="2025.08.0.0"
+    Version="2026.07.0.0"
     IsSubTemplate="True" %><%
 //-------------------------------------------------------
 // Extract the UI choices that we need

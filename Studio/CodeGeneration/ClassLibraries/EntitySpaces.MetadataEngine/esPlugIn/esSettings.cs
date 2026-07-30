@@ -5,10 +5,13 @@ using System.Reflection;
 using System.Runtime.Serialization;
 using System.Runtime.Serialization.Formatters.Binary;
 using System.Text;
+using System.Windows.Forms;
 using System.Xml;
 using System.Xml.Serialization;
 
 using Microsoft.Win32;
+
+using EntitySpaces;
 
 namespace EntitySpaces.MetadataEngine
 {
@@ -85,9 +88,7 @@ namespace EntitySpaces.MetadataEngine
         {
             get
             {
-                string path = Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData);
-                path += @"\EntitySpaces\ES2025";
-                return path;
+                return VersionInfo.AppDataPath;
             }
         }
 
@@ -95,6 +96,7 @@ namespace EntitySpaces.MetadataEngine
         {
             get
             {
+                // Legacy path — keep fixed for compatibility with older versions
                 string path = Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData);
                 path += @"\EntitySpaces\ES2010";
                 return path;
@@ -116,33 +118,32 @@ namespace EntitySpaces.MetadataEngine
         {
             get
             {
-                string defaultPath = @"C:\Program Files\EntitySpaces 2025\";
+                string defaultPath = VersionInfo.InstallPathDefault;
+                if (!defaultPath.EndsWith(@"\"))
+                {
+                    defaultPath += @"\";
+                }
+
                 string path = defaultPath;
 
-                RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\EntitySpaces 2025", false);
-                if (key != null)
+                using (RegistryKey key = Registry.CurrentUser.OpenSubKey(VersionInfo.RegistryPath, false))
                 {
-                    object val = key.GetValue("Install_Dir");
-                    string regPath = val as string;
-
-                    if (!string.IsNullOrEmpty(regPath))
+                    if (key != null)
                     {
-                        path = regPath;
-
-                        if (!path.EndsWith(@"\"))
+                        string regPath = key.GetValue("Install_Dir") as string;
+                        if (!string.IsNullOrEmpty(regPath))
                         {
-                            path += @"\";
+                            path = regPath;
+                            if (!path.EndsWith(@"\"))
+                            {
+                                path += @"\";
+                            }
                         }
                     }
                 }
 
                 // Ensure we never return null or empty
-                if (string.IsNullOrEmpty(path))
-                {
-                    path = defaultPath;
-                }
-
-                return path;
+                return string.IsNullOrEmpty(path) ? defaultPath : path;
             }
         }
 
@@ -584,7 +585,7 @@ namespace EntitySpaces.MetadataEngine
             //      (Directory.Exists returns false → replaced with current correct path)
             //   2. Running from source with no registry Install_Dir
             //      (paths are resolved from exe directory automatically)
-            AdjustPathsBasedOnPriorVersions(settings, @"Software\EntitySpaces 2025", "ES2025", true);
+            AdjustPathsBasedOnPriorVersions(settings, VersionInfo.RegistryPath, VersionInfo.ReleaseName, true);
 
             return settings;
         }
@@ -677,7 +678,10 @@ namespace EntitySpaces.MetadataEngine
                 AdjustPathsBasedOnPriorVersions(settings, @"Software\EntitySpaces 2012", "ES2019", false);
                 //AdjustPathsBasedOnPriorVersions(settings, @"Software\EntitySpaces 2019", "ES2024", false);
                 //AdjustPathsBasedOnPriorVersions(settings, @"Software\EntitySpaces 2024", "ES2024", false);
-                AdjustPathsBasedOnPriorVersions(settings, @"Software\EntitySpaces 2025", "ES2025", true);
+                //AdjustPathsBasedOnPriorVersions(settings, @"Software\EntitySpaces 2025", "ES2025", false);
+
+                // Current version — use centralized VersionInfo
+                AdjustPathsBasedOnPriorVersions(settings, VersionInfo.RegistryPath, VersionInfo.ReleaseName, true);
             }
             catch { }
 
@@ -826,7 +830,7 @@ namespace EntitySpaces.MetadataEngine
             doc.LoadXml(xml);
 
             XmlAttribute attr = doc.CreateAttribute("Version");
-            attr.Value = "2025.8.0000.0";
+            attr.Value = VersionInfo.Version;
 
             doc.DocumentElement.Attributes.Append(attr);
             doc.Save(pathAndFileName);
@@ -856,9 +860,9 @@ namespace EntitySpaces.MetadataEngine
             doc.LoadXml(xml);
 
             XmlAttribute attr = doc.CreateAttribute("Version");
-            //TODO change to 2024 version
-			//attr.Value = "2019.1.1218.0";
-            attr.Value = "2025.8.0000.0";
+            // Legacy versions are kept as comments for reference (do not use VersionInfo here)
+            //attr.Value = "2019.1.1218.0"; // Old version for reference
+            attr.Value = VersionInfo.Version;
 
             doc.DocumentElement.Attributes.Append(attr);
             doc.Save(pathAndFileName);
@@ -945,7 +949,7 @@ namespace EntitySpaces.MetadataEngine
             settings.LanguageMappingFile  = string.Empty;
 
             // Resolve paths now — handles registry install and dev/source fallback
-            AdjustPathsBasedOnPriorVersions(settings, @"Software\EntitySpaces 2025", "ES2025", true);
+            AdjustPathsBasedOnPriorVersions(settings, VersionInfo.RegistryPath, VersionInfo.ReleaseName, true);
 
             settings.OutputPath = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
             settings.UserMetadataFile = AppDataPath + @"\esUserData.xml";
@@ -1025,14 +1029,8 @@ namespace EntitySpaces.MetadataEngine
                 case "SQL":
                     return @"Provider=SQLOLEDB.1;Password=;User ID=sa;Persist Security Info=True;Initial Catalog=Northwind;Data Source=localhost";
 
-                case "SQLAZURE":
-                    return @"Server=tcp:server.database.windows.net;Database=SomeDatabase;User ID=Groovey@cool;Password=pass;Trusted_Connection=False;Encrypt=True;";
-
                 case "ORACLE":
                     return @"Provider=OraOLEDB.Oracle.1;Password=Password;Persist Security Info=True;User ID=UserID;Data Source=DataSource";
-
-                case "ACCESS":
-                    return @"Provider=Microsoft.Jet.OLEDB.4.0;Data Source=northwind.mdb;Persist Security Info=True;User Id=;Password=";
 
                 case "MYSQL":
                     return @"Database=test;Data Source=localhost;User Id=anonymous;Password=;";
@@ -1040,12 +1038,25 @@ namespace EntitySpaces.MetadataEngine
                 case "POSTGRESQL":
                     return @"Server=127.0.0.1;Port=5432;User Id=postgres;Password=;Database=MyDatabase;";
 
-                case "FIREBIRD":
-                    return @"User=SYSDBA;Password=masterkey;Database=SampleDatabase.fdb;DataSource=localhost;Port=3050;Dialect=3;Charset=NONE;Role=;Connection lifetime=15;Pooling=true;MinPoolSize=0;MaxPoolSize=50;Packet Size=8192;ServerType=0;";
+                case "SQLITE":
+                    return @"Data Source=C:\SQLiteAdmin\Northwind.db3;Version=3;";
 
+                //TODO: Pending implementation
+                case "FIREBIRD":
+                        return @"User=SYSDBA;Password=masterkey;Database=SampleDatabase.fdb;DataSource=localhost;Port=3050;Dialect=3;Charset=NONE;Role=;Connection lifetime=15;Pooling=true;MinPoolSize=0;MaxPoolSize=50;Packet Size=8192;ServerType=0;";
+
+
+                //TODO: Evaluating reimplement
+                case "SQLAZURE":
+                    return @"Server=tcp:server.database.windows.net;Database=SomeDatabase;User ID=Groovey@cool;Password=pass;Trusted_Connection=False;Encrypt=True;";
+
+                case "ACCESS":
+                    return @"Provider=Microsoft.Jet.OLEDB.4.0;Data Source=northwind.mdb;Persist Security Info=True;User Id=;Password=";
+
+                // Deprecated
 
                 case "VISTADB":
-                    return @"Data Source=C:\Program Files\VistaDB 3\Data\Northwind.vdb3;Cypher= None;Password=;Exclusive=False;Readonly=False;";
+                        return @"Data Source=C:\Program Files\VistaDB 3\Data\Northwind.vdb3;Cypher= None;Password=;Exclusive=False;Readonly=False;";
 
                 case "VISTADB4":
                     return @"Data Source=C:\Program Files\VistaDB 4.0\Data\Northwind.vdb4;Open Mode=NonexclusiveReadWrite;";
@@ -1053,19 +1064,16 @@ namespace EntitySpaces.MetadataEngine
                 case "SQLCE":
                     return "Data Source=C:\\SomeDatabase.sdf;Version=\"3.5.1.0, Culture=neutral, PublicKeyToken=89845dcd8080cc91\";";
 
-                case "SQLITE":
-                    return @"Data Source=C:\SQLiteAdmin\Northwind.db3;Version=3;"; 
-
                 case "SYBASE":
                     return @"ENG=demo11;UID=dba;PWD=sql;DBN=demo";
 
                 case "EFFIPROZDB":
                     return "Connection Type=File; Initial Catalog=C:\\effiproz\\AdventureWorks;User=sa;Password=;Version=\"1.4.3926.39651, Culture=neutral, PublicKeyToken=9c147f7358eea142\";";
-                    //return @"Connection Type=File; Initial Catalog=C:\effiproz\AdventureWorks;User=sa;Password=;";
+                //return @"Connection Type=File; Initial Catalog=C:\effiproz\AdventureWorks;User=sa;Password=;";
 
                 default:
                     return "";
-            }
+                }
         }
     }
 

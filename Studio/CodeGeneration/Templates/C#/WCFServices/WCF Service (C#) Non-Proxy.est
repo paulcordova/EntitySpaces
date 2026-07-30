@@ -20,9 +20,9 @@
 	UserInterfaceID="50D483A8-0081-41c5-95C4-65841D25D162" 
     Title="WCF Service (Non Proxy Version)" 
     Description="The WCF Service (Non Proxy Version)" 
-    Namespace="EntitySpaces.2025.C#.WCFService" 
+    Namespace="EntitySpaces.2026.C#.WCFService" 
     Author="EntitySpaces, LLC" 
-    Version="2025.0.0.0" 
+    Version="2026.7.0.0" 
     RequiresUI="True" %><%
 //-------------------------------------------------------
 // Extract the UI choices that we need

@@ -9,6 +9,8 @@ using Microsoft.Win32;
 using System.Xml.Serialization;
 using System.Xml;
 
+using EntitySpaces;
+
 namespace EntitySpaces
 {
     internal class Licensing
@@ -352,7 +354,7 @@ namespace EntitySpaces
                 bool isAllSecurityOkay = true;
 
 
-                RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\EntitySpaces 2025", true);
+                RegistryKey key = Registry.CurrentUser.OpenSubKey(VersionInfo.RegistryPath, true);
                 if (key != null)
                 {
                     try
@@ -362,8 +364,12 @@ namespace EntitySpaces
                     catch { }
                 }
 
-                string offlinePath = Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData);
-                offlinePath += @"\EntitySpaces\ES2025\" + offlineFile; //Interop.ADODBX.dll";
+                //Interop.ADODBX.dll";
+                string offlinePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
+                                                  "EntitySpaces",
+                                                  VersionInfo.ReleaseName,
+                                                  offlineFile);
+
 
                 // See if we have registered our license
                 int result = this.ValidateLicense(product, serialNumber, System.Environment.MachineName, id, esVersion, settings);
@@ -515,10 +521,20 @@ namespace EntitySpaces
         public string Password;
         public string DomainName;
 
+
+        private string GetProfileSettingsPath()
+        {
+            return Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
+                "EntitySpaces",
+                VersionInfo.ReleaseName,
+                "esProfileSettings.xml"
+            );
+        }
+
         public void Save()
         {
-            string path = Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData);
-            path += @"\EntitySpaces\ES2025\esProfileSettings.xml";
+            string path = GetProfileSettingsPath();
 
             string xml = String.Empty;
 
@@ -537,7 +553,7 @@ namespace EntitySpaces
             doc.LoadXml(xml);
 
             XmlAttribute attr = doc.CreateAttribute("Version");
-            attr.Value = "2025.8.0000.0";
+            attr.Value = VersionInfo.Version;
 
             doc.DocumentElement.Attributes.Append(attr);
             doc.Save(path);
@@ -547,8 +563,7 @@ namespace EntitySpaces
         {
             ProxySettings settings = null;
 
-            string path = Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData);
-            path += @"\EntitySpaces\ES2025\esProfileSettings.xml";
+            string path = GetProfileSettingsPath();
 
             try
             {

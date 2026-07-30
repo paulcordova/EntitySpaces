@@ -9,6 +9,7 @@ using System.Xml.Serialization;
 
 using EntitySpaces.CodeGenerator;
 using EntitySpaces.MetadataEngine;
+using EntitySpaces;
 
 namespace EntitySpaces.Common
 {
@@ -249,14 +250,26 @@ namespace EntitySpaces.Common
 
                     try
                     {
+                        // Legacy versions — keep hardcoded for backward compatibility
                         esSettings.AdjustPathsBasedOnPriorVersions(childNode.Settings as esSettings, @"Software\EntitySpaces 2009", "ES2009", false);
                         esSettings.AdjustPathsBasedOnPriorVersions(childNode.Settings as esSettings, @"Software\EntitySpaces 2010", "ES2010", false);
                         esSettings.AdjustPathsBasedOnPriorVersions(childNode.Settings as esSettings, @"Software\EntitySpaces 2011", "ES2011", false);
                         esSettings.AdjustPathsBasedOnPriorVersions(childNode.Settings as esSettings, @"Software\EntitySpaces 2012", "ES2012", false);
                         esSettings.AdjustPathsBasedOnPriorVersions(childNode.Settings as esSettings, @"Software\EntitySpaces 2019", "ES2019", false);
-                        esSettings.AdjustPathsBasedOnPriorVersions(childNode.Settings as esSettings, @"Software\EntitySpaces 2025", "ES2025", true);
+                        esSettings.AdjustPathsBasedOnPriorVersions(childNode.Settings as esSettings, @"Software\EntitySpaces 2025", "ES2025", false);
+
+                        // Current version — use centralized VersionInfo
+                        esSettings.AdjustPathsBasedOnPriorVersions(
+                            childNode.Settings as esSettings,
+                            VersionInfo.RegistryPath,
+                            VersionInfo.ReleaseName,
+                            true
+                        );
                     }
-                    catch { }
+                    catch
+                    {
+                        // Silent — migration may fail if registry keys are missing or corrupted
+                    }
                 }
 
                 ConvertProjectNodeSettings(childNode);
@@ -268,16 +281,18 @@ namespace EntitySpaces.Common
             projectFilePath = fileNameAndFilePath;
             userSettings = mainSettings;
 
-            XmlTextWriter writer = new XmlTextWriter(fileNameAndFilePath, System.Text.Encoding.UTF8);
-            writer.Formatting = Formatting.Indented;
+            // Use centralized version from VersionInfo
+            using (XmlTextWriter writer = new XmlTextWriter(fileNameAndFilePath, System.Text.Encoding.UTF8))
+            {
+                writer.Formatting = Formatting.Indented;
 
-            writer.WriteStartDocument();
-            writer.WriteStartElement("EntitySpacesProject");
-            writer.WriteAttributeString("Version", "2025.8.0000.0");
-            Save(this.RootNode, writer);
-            writer.WriteEndElement();
-            writer.WriteEndDocument();
-            writer.Close();
+                writer.WriteStartDocument();
+                writer.WriteStartElement("EntitySpacesProject");
+                writer.WriteAttributeString("Version", VersionInfo.Version);
+                Save(this.RootNode, writer);
+                writer.WriteEndElement();
+                writer.WriteEndDocument();
+            }
         }
 
         private void Save(esProjectNode node, XmlTextWriter writer)
