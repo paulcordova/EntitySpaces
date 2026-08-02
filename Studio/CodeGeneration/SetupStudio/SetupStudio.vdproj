@@ -2087,7 +2087,7 @@
         "DisplayName" = "8:Release"
         "IsDebugOnly" = "11:FALSE"
         "IsReleaseOnly" = "11:TRUE"
-        "OutputFilename" = "8:Release\\EntitySpacesStudio_2026.7.00.0.msi"
+        "OutputFilename" = "8:Release\\EntitySpacesStudio_2026.7.30.0.msi"
         "PackageFilesAs" = "3:2"
         "PackageFileSize" = "3:-2147483648"
         "CabType" = "3:1"
@@ -2530,7 +2530,7 @@
             {
             "AssemblyRegister" = "3:1"
             "AssemblyIsInGAC" = "11:FALSE"
-            "AssemblyAsmDisplayName" = "8:EntitySpaces.Common, Version=2026.7.0.0, Culture=neutral, PublicKeyToken=127bcb8ceedbe220, processorArchitecture=x86"
+            "AssemblyAsmDisplayName" = "8:EntitySpaces.Common, Version=2026.7.30.0, Culture=neutral, PublicKeyToken=127bcb8ceedbe220, processorArchitecture=x86"
                 "ScatterAssemblies"
                 {
                     "_1F74964D1505F9A5476DB0D16891B70B"
@@ -2683,7 +2683,7 @@
             {
             "AssemblyRegister" = "3:1"
             "AssemblyIsInGAC" = "11:FALSE"
-            "AssemblyAsmDisplayName" = "8:EntitySpaces.MetadataEngine.SQLite, Version=2026.7.0.0, Culture=neutral, PublicKeyToken=127bcb8ceedbe220, processorArchitecture=x86"
+            "AssemblyAsmDisplayName" = "8:EntitySpaces.MetadataEngine.SQLite, Version=2026.7.30.0, Culture=neutral, PublicKeyToken=127bcb8ceedbe220, processorArchitecture=x86"
                 "ScatterAssemblies"
                 {
                     "_2DF3294A75222AA3DE69A0B6D8789DDA"
@@ -2991,7 +2991,7 @@
             {
             "AssemblyRegister" = "3:1"
             "AssemblyIsInGAC" = "11:FALSE"
-            "AssemblyAsmDisplayName" = "8:EntitySpaces.MetadataEngine.SQLAzure, Version=2026.7.0.0, Culture=neutral, processorArchitecture=x86"
+            "AssemblyAsmDisplayName" = "8:EntitySpaces.MetadataEngine.SQLAzure, Version=2026.7.30.0, Culture=neutral, processorArchitecture=x86"
                 "ScatterAssemblies"
                 {
                     "_4B757605E9E7628B6EED275D84B12F91"
@@ -3397,7 +3397,7 @@
             {
             "AssemblyRegister" = "3:1"
             "AssemblyIsInGAC" = "11:FALSE"
-            "AssemblyAsmDisplayName" = "8:EntitySpaces.TemplateUI, Version=2026.7.0.0, Culture=neutral, PublicKeyToken=127bcb8ceedbe220, processorArchitecture=x86"
+            "AssemblyAsmDisplayName" = "8:EntitySpaces.TemplateUI, Version=2026.7.30.0, Culture=neutral, PublicKeyToken=127bcb8ceedbe220, processorArchitecture=x86"
                 "ScatterAssemblies"
                 {
                     "_6E1C6C21BDFC497B3AF7993D8EB98815"
@@ -4147,7 +4147,7 @@
             {
             "AssemblyRegister" = "3:1"
             "AssemblyIsInGAC" = "11:FALSE"
-            "AssemblyAsmDisplayName" = "8:EntitySpaces.AddIn.TemplateUI, Version=2026.7.0.0, Culture=neutral, PublicKeyToken=127bcb8ceedbe220, processorArchitecture=x86"
+            "AssemblyAsmDisplayName" = "8:EntitySpaces.AddIn.TemplateUI, Version=2026.7.30.0, Culture=neutral, PublicKeyToken=127bcb8ceedbe220, processorArchitecture=x86"
                 "ScatterAssemblies"
                 {
                     "_B16D684CAA64BB9F3EC536C1434B9D0A"
@@ -4710,7 +4710,7 @@
             {
             "AssemblyRegister" = "3:1"
             "AssemblyIsInGAC" = "11:FALSE"
-            "AssemblyAsmDisplayName" = "8:EntitySpaces.CodeGenerator, Version=2026.7.0.0, Culture=neutral, PublicKeyToken=127bcb8ceedbe220, processorArchitecture=x86"
+            "AssemblyAsmDisplayName" = "8:EntitySpaces.CodeGenerator, Version=2026.7.30.0, Culture=neutral, PublicKeyToken=127bcb8ceedbe220, processorArchitecture=x86"
                 "ScatterAssemblies"
                 {
                     "_CB61626C085BB8D4FC9C544EC6A4A175"
@@ -5311,7 +5311,7 @@
             {
             "AssemblyRegister" = "3:1"
             "AssemblyIsInGAC" = "11:FALSE"
-            "AssemblyAsmDisplayName" = "8:EntitySpaces2026.AddIn, Version=2026.7.0.0, Culture=neutral, PublicKeyToken=127bcb8ceedbe220, processorArchitecture=x86"
+            "AssemblyAsmDisplayName" = "8:EntitySpaces2026.AddIn, Version=2026.7.30.0, Culture=neutral, PublicKeyToken=127bcb8ceedbe220, processorArchitecture=x86"
                 "ScatterAssemblies"
                 {
                     "_FD9E655F1128C77C2F6F0F54828A9CC3"
@@ -5404,7 +5404,7 @@
             {
             "AssemblyRegister" = "3:1"
             "AssemblyIsInGAC" = "11:FALSE"
-            "AssemblyAsmDisplayName" = "8:EntitySpaces.MetadataEngine, Version=2026.7.0.0, Culture=neutral, PublicKeyToken=127bcb8ceedbe220, processorArchitecture=x86"
+            "AssemblyAsmDisplayName" = "8:EntitySpaces.MetadataEngine, Version=2026.7.30.0, Culture=neutral, PublicKeyToken=127bcb8ceedbe220, processorArchitecture=x86"
                 "ScatterAssemblies"
                 {
                     "_FF5711996F21C86E3B59818962D70DDB"
@@ -5860,19 +5860,19 @@
         {
         "Name" = "8:Microsoft Visual Studio"
         "ProductName" = "8:EntitySpaces 2026"
-        "ProductCode" = "8:{F508AA0C-6836-4BE1-A2F8-28375EC3BF1D}"
-        "PackageCode" = "8:{674D35AE-056D-4CA6-BFCB-2F55BA24332C}"
+        "ProductCode" = "8:{23FAE90D-5749-4B7B-B843-3B8C850E807F}"
+        "PackageCode" = "8:{17A3D35F-F929-4E64-9426-6EFB862EA72A}"
         "UpgradeCode" = "8:{D521D279-3D08-4C91-B500-2A8B5A045C60}"
         "AspNetVersion" = "8:4.0.30319.0"
         "RestartWWWService" = "11:FALSE"
         "RemovePreviousVersions" = "11:TRUE"
         "DetectNewerInstalledVersion" = "11:TRUE"
         "InstallAllUsers" = "11:FALSE"
-        "ProductVersion" = "8:26.07.00"
+        "ProductVersion" = "8:26.07.30"
         "Manufacturer" = "8:EntitySpaces"
         "ARPHELPTELEPHONE" = "8:"
         "ARPHELPLINK" = "8:"
-        "Title" = "8:EntitySpaces Studio v2026.7.0"
+        "Title" = "8:EntitySpaces Studio v2026.7.30"
         "Subject" = "8:EntitySpaces Studio – Code Generator for .NET Framework 4.8 and .NET 8, 9, 10"
         "ARPCONTACT" = "8:Mike Griffin (creator) & Paul Córdova (maintainer, 2024–present)"
         "Keywords" = "8:"
