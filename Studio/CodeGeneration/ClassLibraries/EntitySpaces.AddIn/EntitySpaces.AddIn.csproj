@@ -60,11 +60,10 @@
     <PlatformTarget>x86</PlatformTarget>
     <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
+
   <ItemGroup>
+    <!-- COM References for Visual Studio interoperability -->
     <Reference Include="envdte, Version=8.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
-      <EmbedInteropTypes>True</EmbedInteropTypes>
-    </Reference>
-    <Reference Include="envdte100, Version=10.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
       <EmbedInteropTypes>True</EmbedInteropTypes>
     </Reference>
     <Reference Include="envdte80, Version=8.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
@@ -73,16 +72,21 @@
     <Reference Include="envdte90, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
       <EmbedInteropTypes>True</EmbedInteropTypes>
     </Reference>
+    <Reference Include="envdte100, Version=10.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
+      <EmbedInteropTypes>True</EmbedInteropTypes>
+    </Reference>
     <Reference Include="extensibility, Version=7.0.3300.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
       <EmbedInteropTypes>True</EmbedInteropTypes>
     </Reference>
-    <Reference Include="Microsoft.CSharp" />
     <Reference Include="Microsoft.VisualStudio.CommandBars, Version=8.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
       <EmbedInteropTypes>True</EmbedInteropTypes>
     </Reference>
     <Reference Include="stdole, Version=7.0.3300.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
       <EmbedInteropTypes>True</EmbedInteropTypes>
     </Reference>
+
+    <!-- System references -->
+	<Reference Include="Microsoft.CSharp" /> 
     <Reference Include="System" />
     <Reference Include="System.Data" />
     <Reference Include="System.Drawing" />
@@ -91,6 +95,7 @@
     <Reference Include="System.Windows.Forms" />
     <Reference Include="System.Xml" />
   </ItemGroup>
+
   <ItemGroup>
     <Compile Include="..\..\SharedFiles\Crypto.cs">
       <Link>Crypto.cs</Link>
@@ -188,6 +193,7 @@
       <DependentUpon>ucWhatsNew.cs</DependentUpon>
     </Compile>
   </ItemGroup>
+
   <ItemGroup>
     <EmbeddedResource Include="CommandBar.resx">
       <Generator>ResXFileCodeGenerator</Generator>
@@ -228,6 +234,7 @@
       <DependentUpon>ucWhatsNew.cs</DependentUpon>
     </EmbeddedResource>
   </ItemGroup>
+
   <ItemGroup>
     <Content Include="AddIn\EntitySpaces2012.AddIn" />
     <Content Include="default.ico" />
@@ -286,12 +293,14 @@
     <None Include="Resources\nav_down.png" />
     <None Include="Resources\nav_up.png" />
   </ItemGroup>
+
   <ItemGroup>
     <None Include="..\..\StrongNameKey\EntitySpaces.snk">
       <Link>EntitySpaces.snk</Link>
     </None>
     <None Include="Icons\Thumbs.db" />
   </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\EntitySpaces.AddIn.TemplateUI\EntitySpaces.AddIn.TemplateUI.csproj">
       <Project>{60B3C557-01AB-4099-82C8-616E8BBF20E7}</Project>
@@ -310,9 +319,11 @@
       <Name>EntitySpaces.MetadataEngine</Name>
     </ProjectReference>
   </ItemGroup>
+
   <ItemGroup>
     <Folder Include="Properties\" />
   </ItemGroup>
+
   <Import Project="$(MSBuildBinPath)\Microsoft.CSHARP.Targets" />
   <PropertyGroup>
     <PreBuildEvent>
@@ -324,13 +335,4 @@
     <VisualStudio>
     </VisualStudio>
   </ProjectExtensions>
-  <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
-    <PropertyGroup>
-      <ErrorText>This project references NuGet package(s) that are missing on this computer. Use NuGet Package Restore to download them.  For more information, see http://go.microsoft.com/fwlink/?LinkID=322105. The missing file is {0}.</ErrorText>
-    </PropertyGroup>
-  </Target>
-  <ItemGroup>
-    <PackageReference Include="Microsoft.VisualStudio.SDK.EmbedInteropTypes" />
-    <PackageReference Include="stdole" />
-  </ItemGroup>
 </Project>
