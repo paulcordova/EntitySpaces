@@ -22,13 +22,24 @@ namespace EntitySpaces
             InitializeComponent();
 
             this.Text = $"{VersionInfo.ProductName} - Persistence Layer and Business Objects for Microsoft .NET";
+
+            // Fires once per app launch. Silent, async, never blocks startup.
+            TelemetryHelper.PingLaunch();
         }
 
-        private void ToolStripMenuItemAbout_Click(object sender, EventArgs e)
+        private void aboutToolStripMenuItem_Click(object sender, EventArgs e)
         {
             using (AboutBox aboutBox = new AboutBox())
             {
                 aboutBox.ShowDialog();
+            }
+        }
+
+        private void feedBackToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            using (FeedbackBox feedbackBox = new FeedbackBox())
+            {
+                feedbackBox.ShowDialog();
             }
         }
     }

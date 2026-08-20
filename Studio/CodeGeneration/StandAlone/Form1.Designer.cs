@@ -31,7 +31,9 @@
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(Form1));
             this.mainWindow1 = new EntitySpaces.AddIn.ES2025.MainWindow();
             this.menuStrip1 = new System.Windows.Forms.MenuStrip();
-            this.ToolStripMenuItemAbout = new System.Windows.Forms.ToolStripMenuItem();
+            this.helpToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.aboutToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.feedBackToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.menuStrip1.SuspendLayout();
             this.SuspendLayout();
             // 
@@ -41,27 +43,42 @@
             this.mainWindow1.Dock = System.Windows.Forms.DockStyle.Fill;
             this.mainWindow1.Location = new System.Drawing.Point(0, 24);
             this.mainWindow1.Name = "mainWindow1";
-            //FIX PCB 2025.08 commented menawhile understand it
-            //this.mainWindow1.Settings = ((EntitySpaces.MetadataEngine.esSettings)(resources.GetObject("mainWindow1.Settings")));
+            this.mainWindow1.Settings = ((EntitySpaces.MetadataEngine.esSettings)(resources.GetObject("mainWindow1.Settings")));
             this.mainWindow1.Size = new System.Drawing.Size(620, 475);
             this.mainWindow1.TabIndex = 0;
             // 
             // menuStrip1
             // 
             this.menuStrip1.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.ToolStripMenuItemAbout});
+            this.helpToolStripMenuItem});
             this.menuStrip1.Location = new System.Drawing.Point(0, 0);
             this.menuStrip1.Name = "menuStrip1";
             this.menuStrip1.Size = new System.Drawing.Size(620, 24);
             this.menuStrip1.TabIndex = 1;
             this.menuStrip1.Text = "menuStrip1";
             // 
-            // ToolStripMenuItemAbout
+            // helpToolStripMenuItem
             // 
-            this.ToolStripMenuItemAbout.Name = "ToolStripMenuItemAbout";
-            this.ToolStripMenuItemAbout.Size = new System.Drawing.Size(52, 20);
-            this.ToolStripMenuItemAbout.Text = "About";
-            this.ToolStripMenuItemAbout.Click += new System.EventHandler(this.ToolStripMenuItemAbout_Click);
+            this.helpToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.aboutToolStripMenuItem,
+            this.feedBackToolStripMenuItem});
+            this.helpToolStripMenuItem.Name = "helpToolStripMenuItem";
+            this.helpToolStripMenuItem.Size = new System.Drawing.Size(44, 20);
+            this.helpToolStripMenuItem.Text = "Help";
+            // 
+            // aboutToolStripMenuItem
+            // 
+            this.aboutToolStripMenuItem.Name = "aboutToolStripMenuItem";
+            this.aboutToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.aboutToolStripMenuItem.Text = "About";
+            this.aboutToolStripMenuItem.Click += new System.EventHandler(this.aboutToolStripMenuItem_Click);
+            // 
+            // feedBackToolStripMenuItem
+            // 
+            this.feedBackToolStripMenuItem.Name = "feedBackToolStripMenuItem";
+            this.feedBackToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.feedBackToolStripMenuItem.Text = "FeedBack";
+            this.feedBackToolStripMenuItem.Click += new System.EventHandler(this.feedBackToolStripMenuItem_Click);
             // 
             // Form1
             // 
@@ -86,7 +103,9 @@
 
         private EntitySpaces.AddIn.ES2025.MainWindow mainWindow1;
         private System.Windows.Forms.MenuStrip menuStrip1;
-        private System.Windows.Forms.ToolStripMenuItem ToolStripMenuItemAbout;
+        private System.Windows.Forms.ToolStripMenuItem helpToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem aboutToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem feedBackToolStripMenuItem;
     }
 }
 
