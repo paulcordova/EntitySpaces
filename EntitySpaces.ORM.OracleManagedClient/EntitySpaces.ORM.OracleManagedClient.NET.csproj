@@ -2,9 +2,9 @@
 
 	<PropertyGroup>
 		<TargetFrameworks>net48;net8.0;net9.0;net10.0</TargetFrameworks>
-		<AssemblyVersion>2026.7.0.0</AssemblyVersion>
-		<FileVersion>2026.7.0.0</FileVersion>
-		<Version>2026.7.0</Version>
+		<AssemblyVersion>2026.8.0.0</AssemblyVersion>
+		<FileVersion>2026.8.0.0</FileVersion>
+		<Version>2026.8.0</Version>
 		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
 
 		<Description>Oracle provider for EntitySpaces ORM. Fully modernized for .NET Framework 4.8, .NET 8, 9, and 10. Features strongly-typed entities, dynamic SQL, stored procedures, safe connection pooling, thread‑safe caching, and automatic concurrency detection.</Description>
@@ -20,13 +20,14 @@
 		<Authors>paulcordova</Authors>
 		<Nullable>disable</Nullable>
 		<ImplicitUsings>false</ImplicitUsings>
-		<PackageReadmeFile>README.md</PackageReadmeFile>
+		<PackageReadmeFile>README-ORACLE.md</PackageReadmeFile>
 		<PackageLicenseExpression>BSD-3-Clause</PackageLicenseExpression>
 		<PublishRepositoryUrl>true</PublishRepositoryUrl>
 		<IncludeSymbols>true</IncludeSymbols>
 		<SymbolPackageFormat>snupkg</SymbolPackageFormat>
 		<PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-		<Copyright>Copyright (c) 2006-2012, EntitySpaces, LLC. All rights reserved.&#10;Copyright © 2026 Paul Córdova.</Copyright>
+		<Copyright>Copyright (c) 2006-2012, EntitySpaces, LLC. All rights reserved.
+Copyright © 2026 Paul Córdova.</Copyright>
 	</PropertyGroup>
 
 
@@ -126,7 +127,7 @@
 
 	<ItemGroup Condition="'$(TargetFramework)' != 'net48'">
 		<PackageReference Include="Oracle.ManagedDataAccess.Core" Version="23.26.200" />
-		<PackageReference Include="System.Configuration.ConfigurationManager" Version="10.0.10" />
+		<PackageReference Include="System.Configuration.ConfigurationManager" Version="10.0.11" />
 	</ItemGroup>
 	  
 	<ItemGroup>
@@ -139,7 +140,7 @@
 			<PackagePath></PackagePath>
 		</None>
 
-		<None Include="..\README.md">
+		<None Include="..\README-ORACLE.md">
 			<Pack>True</Pack>
 			<PackagePath>\</PackagePath>
 		</None>
