@@ -16,7 +16,7 @@ namespace EntitySpaces
         // Studio-specific version (can be incremented independently)
         // Format: Year.Month.Day.Build  (e.g., 2026.7.30.0)
         // ================================================================
-        public const string StudioVersion = "2026.7.0030.0";
+        public const string StudioVersion = "2026.8.0020.0";
 
         // For backward compatibility, the general 'Version' constant
         // now points to StudioVersion. If you need a separate version
