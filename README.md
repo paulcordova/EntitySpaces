@@ -2,13 +2,34 @@
 
 # EntitySpaces ORM — .NET 4.8 to .NET 10
 
+Actively modernized .NET ORM — concurrency-safe, connection-pool-safe, and cloud-database-ready across SQL Server, PostgreSQL, MySQL, SQLite, and Oracle.
+
+Generated database code and your business logic live in separate, isolated classes — regenerate your schema anytime without ever touching a line of your own code. A lightweight architecture built for one or two developers who'd rather focus on what actually delivers value.
+
+The same architecture Mike Griffin created, extended and hardened for .NET Framework 4.8 through .NET 10.
+
 ## ❤️ [Support this project](https://netstep.cl/entityspaces/support) — every contribution helps keep it free and maintained.
 
 ## 📋 Help Shape the Roadmap
 
 > [Take the 3‑minute survey](https://docs.google.com/forms/d/e/1FAIpQLSd-FVQiC3deoaIarYnsOCH4pdj-4zjGKznN68uUtyx9CpuKgA/viewform) – your feedback keeps EntitySpaces alive and evolving.
 
-Actively maintained ORM for .NET, focused on long-term stability and modern .NET alignment. Originally created by Mike Griffin, this fork extends support to current .NET versions while preserving the proven EntitySpaces architecture.
+## 🛠️ Requires EntitySpaces Studio
+
+EntitySpaces generates code directly from your database schema, using a local,
+template-based tool called **EntitySpaces Studio**. You only need to run it the
+first time, and again whenever a table changes.
+
+Studio generates two kinds of classes: the **Generated** classes, recreated on
+every run, and the **Custom** classes, where your business logic lives. Custom
+classes are created empty the first time and are never touched again on later
+regenerations — so re-running generation is always safe, your own code stays intact.
+
+Always use the most recent version of **EntitySpaces Studio**.
+
+- Get it from the repo: [EntitySpaces.Studio](https://github.com/paulcordova/EntitySpaces/tree/master/EntitySpaces.Studio)
+- Download the **most recent** `.zip` — avoid any file tagged `-deprecated`, that build is kept for reference only.
+- Connect to your database under Settings → Connection, then run the Generated and Custom class templates.
 
 ## Supported Targets
 
@@ -1133,7 +1154,7 @@ foreach (var customer in customers)
 
 # Setup
 
-1. Install [EntitySpaces Studio 2026](https://github.com/paulcordova/EntitySpaces/blob/master/EntitySpaces.Studio/EntitySpacesStudio_2026.7.30.0.zip)
+1. Install **EntitySpaces Studio** — see [Requires EntitySpaces Studio](#-requires-entityspaces-studio) above.    
 
 ## Connection String Examples
 
@@ -1177,7 +1198,7 @@ esConfigSettings.ConnectionInfo.Connections.Add(conn);
 
 Connect to your database under the Settings → Connection tab, then execute two templates: the Generated classes (regenerated when your schema changes) and the Custom classes (generated once, where you add custom logic).
 
-<img src="https://raw.githubusercontent.com/MikeGriffinReborn/EntitySpaces/master/docs/Studio.PNG" alt="EntitySpaces Studio" width="632" height="406">
+<img src="https://raw.githubusercontent.com/paulcordova/EntitySpaces/master/docs/Studio.PNG" alt="EntitySpaces Studio" width="632" height="406">
 
 ---
 
@@ -2090,11 +2111,11 @@ Install-Package EntitySpaces.ORM.OracleManagedClient.NET
 
 ## Generating Your Classes
 
-1. Install [EntitySpaces Studio 2026](https://github.com/paulcordova/EntitySpaces/blob/master/EntitySpaces.Studio/EntitySpacesStudio_2026.7.30.0.zip)
+1. Install **EntitySpaces Studio** — see [Requires EntitySpaces Studio](#-requires-entityspaces-studio) above.
 2. Connect to your database under **Settings → Connection**
 3. Execute two templates:
    - **Generated classes** — regenerate whenever your schema changes, never edit manually
    - **Custom classes** — generated once, add your business logic here
 
-<img src="https://raw.githubusercontent.com/MikeGriffinReborn/EntitySpaces/master/docs/Studio.PNG" alt="EntitySpaces Studio" width="632" height="406">
+<img src="https://raw.githubusercontent.com/paulcordova/EntitySpaces/master/docs/Studio.PNG" alt="EntitySpaces Studio" width="632" height="406">
 ```
