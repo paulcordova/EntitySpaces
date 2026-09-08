@@ -70,9 +70,13 @@ namespace EntitySpaces.AddIn
 
         private void ProviderComboBox_SelectedIndexChanged(object sender, EventArgs e)
         {
-            if (ProviderComboBox.SelectedItem.ToString() != "Select One")
+            if (ProviderComboBox.SelectedItem == null)
+                return;
+
+            string provider = ProviderComboBox.SelectedItem.ToString();
+            if (provider != "Select One")
             {
-                PopulateMappings(ProviderComboBox.SelectedItem.ToString());
+                PopulateMappings(provider);
             }
         }
 
@@ -82,21 +86,33 @@ namespace EntitySpaces.AddIn
             table.Columns.Add("Database");
             table.Columns.Add(".NET");
 
-            XmlNode provider = settings.SelectSingleNode(string.Format("Languages/Language[@From='{0}']", providerName));
-            if (provider != null)
+            if (string.IsNullOrEmpty(providerName) || settings == null)
             {
-                foreach(XmlNode node in provider.ChildNodes)
-                {
-                    DataRow row = table.NewRow();
-
-                    row["Database"] = node.Attributes["From"].Value;
-                    row[".NET"] = node.Attributes["To"].Value;
-
-                    table.Rows.Add(row);
-                }
+                MappingsDataGridView.DataSource = table;
+                return;
             }
 
-            MappingsDataGridView.DataSource = table;   
+            XmlNode provider = settings.SelectSingleNode(
+                string.Format("Languages/Language[@From='{0}']", providerName.Replace("'", "&apos;")));
+
+            if (provider == null)
+            {
+                MappingsDataGridView.DataSource = table;
+                return;
+            }
+
+            foreach (XmlNode node in provider.SelectNodes("./Type"))
+            {
+                XmlAttribute from = node.Attributes?["From"];
+                XmlAttribute to = node.Attributes?["To"];
+
+                if (from == null || to == null)
+                    continue;
+
+                table.Rows.Add(from.Value, to.Value);
+            }
+
+            MappingsDataGridView.DataSource = table;
         }
 
         private void ToolBar_ButtonClick(object sender, System.Windows.Forms.ToolBarButtonClickEventArgs e)

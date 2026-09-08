@@ -27,7 +27,7 @@ namespace EntitySpaces.AddIn.ES2025
         private Licensing licensing = new Licensing();
         private object applicationObject;
         private List<esUserControl> userControlCollection = new List<esUserControl>();
-        private esSettings settings = new esSettings();
+        private esSettings settings; 
         internal string esVersion = VersionInfo.Version;
 
         internal OnTemplateExecute OnTemplateExecuteCallback;
@@ -50,7 +50,19 @@ namespace EntitySpaces.AddIn.ES2025
                 {
                     TemplateDisplaySurface.Initialize(this);
 
-                    this.Settings = esSettings.Load();
+                    // Always propagate current setting to other controls
+
+                    if (this.DesignMode)
+                        return;
+
+                    if (this.Settings == null)
+                        this.Settings = esSettings.Load();
+
+                    this.Settings = settings;
+                    this.ucSettings.Settings = this.Settings;
+
+
+
                     esPlugIn plugin = new esPlugIn(settings);
 
 //#if TRIAL

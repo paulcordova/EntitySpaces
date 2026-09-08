@@ -112,6 +112,7 @@ namespace EntitySpaces.TemplateUI
                 this.cboDatabase.DisplayMember = "Name";
 
                 string database = "";
+                string databaseDriver = esMeta != null ? esMeta.DriverString : string.Empty;
 
                 if (UseCachedSettings && esMeta.Input.ContainsKey("Database"))
                 {
@@ -121,6 +122,17 @@ namespace EntitySpaces.TemplateUI
                 {
                     database = esMeta.DefaultDatabase.Name;
                 }
+
+                //NEW: show user the database provider selected in Main
+                if (!string.IsNullOrWhiteSpace(databaseDriver))
+                {
+                    this.label4.Text = "Database" + " On: " + databaseDriver.ToUpperInvariant();
+                }
+                else
+                {
+                    this.label4.Text = "Database";
+                }
+
 
                 int index = this.cboDatabase.FindString(database);
                 if (index != -1)

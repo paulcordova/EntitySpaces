@@ -43,7 +43,8 @@
             this.mainWindow1.Dock = System.Windows.Forms.DockStyle.Fill;
             this.mainWindow1.Location = new System.Drawing.Point(0, 24);
             this.mainWindow1.Name = "mainWindow1";
-            this.mainWindow1.Settings = ((EntitySpaces.MetadataEngine.esSettings)(resources.GetObject("mainWindow1.Settings")));
+// Cant load resources from mainWindow1            
+//            this.mainWindow1.Settings = ((EntitySpaces.MetadataEngine.esSettings)(resources.GetObject("mainWindow1.Settings")));
             this.mainWindow1.Size = new System.Drawing.Size(620, 475);
             this.mainWindow1.TabIndex = 0;
             // 
