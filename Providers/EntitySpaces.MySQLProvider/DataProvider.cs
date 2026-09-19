@@ -34,7 +34,7 @@ using System.Collections.Generic;
 using EntitySpaces.DynamicQuery;
 using EntitySpaces.Interfaces;
 
-using MySql.Data.MySqlClient;
+using MySqlConnector;
 using System.Threading;
 using System.Diagnostics;
 

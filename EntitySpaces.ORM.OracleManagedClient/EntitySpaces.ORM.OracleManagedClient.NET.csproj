@@ -120,14 +120,14 @@ Copyright © 2026 Paul Córdova.</Copyright>
 	</ItemGroup>
 	
 	<ItemGroup Condition="'$(TargetFramework)' == 'net48'">
-		<PackageReference Include="Oracle.ManagedDataAccess" Version="23.26.200" />
+		<PackageReference Include="Oracle.ManagedDataAccess" Version="23.26.301" />
 		<Reference Include="Microsoft.CSharp" />
 		<Reference Include="System.Configuration" />
 	</ItemGroup>
 
 	<ItemGroup Condition="'$(TargetFramework)' != 'net48'">
-		<PackageReference Include="Oracle.ManagedDataAccess.Core" Version="23.26.200" />
-		<PackageReference Include="System.Configuration.ConfigurationManager" Version="10.0.11" />
+		<PackageReference Include="Oracle.ManagedDataAccess.Core" Version="23.26.301" />
+		<PackageReference Include="System.Configuration.ConfigurationManager" Version="10.0.12" />
 	</ItemGroup>
 	  
 	<ItemGroup>

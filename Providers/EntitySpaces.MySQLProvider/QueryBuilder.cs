@@ -35,7 +35,7 @@ using System.Collections.Concurrent;
 using EntitySpaces.DynamicQuery;
 using EntitySpaces.Interfaces;
 
-using MySql.Data.MySqlClient;
+using MySqlConnector;
 
 namespace EntitySpaces.MySQLProvider
 {

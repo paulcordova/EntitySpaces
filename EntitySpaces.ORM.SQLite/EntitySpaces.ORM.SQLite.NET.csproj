@@ -126,7 +126,7 @@ Copyright © 2026 Paul Córdova.</Copyright>
 	</ItemGroup>
 
 	<ItemGroup Condition="'$(TargetFramework)' != 'net48'">
-		<PackageReference Include="System.Configuration.ConfigurationManager" Version="10.0.11" />
+		<PackageReference Include="System.Configuration.ConfigurationManager" Version="10.0.12" />
 	</ItemGroup>
 
 	<ItemGroup>

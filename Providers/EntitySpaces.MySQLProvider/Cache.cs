@@ -33,7 +33,7 @@ using System.Collections.Concurrent;
 
 using EntitySpaces.Interfaces;
 
-using MySql.Data.MySqlClient;
+using MySqlConnector;
 
 namespace EntitySpaces.MySQLProvider
 {
