@@ -37,8 +37,8 @@
             this.splitContainer2 = new System.Windows.Forms.SplitContainer();
             this.Grid = new System.Windows.Forms.DataGridView();
             this.panel1 = new System.Windows.Forms.Panel();
-            this.ToolBar = new System.Windows.Forms.ToolBar();
-            this.toolBarButton_Save = new System.Windows.Forms.ToolBarButton();
+            this.ToolStrip = new System.Windows.Forms.ToolStrip();
+            this.toolBarButton_Save = new System.Windows.Forms.ToolStripButton();
             this.ucMetadataProperties = new EntitySpaces.AddIn.ucMetadataProperties();
             ((System.ComponentModel.ISupportInitialize)(this.splitContainer1)).BeginInit();
             this.splitContainer1.Panel1.SuspendLayout();
@@ -173,28 +173,31 @@
             // panel1
             // 
             this.panel1.BackColor = System.Drawing.SystemColors.Window;
-            this.panel1.Controls.Add(this.ToolBar);
+            this.panel1.Controls.Add(this.ToolStrip);
             this.panel1.Dock = System.Windows.Forms.DockStyle.Top;
             this.panel1.Location = new System.Drawing.Point(0, 0);
             this.panel1.Name = "panel1";
             this.panel1.Size = new System.Drawing.Size(250, 30);
             this.panel1.TabIndex = 23;
             // 
-            // ToolBar
+            // ToolStrip
             // 
-            this.ToolBar.Appearance = System.Windows.Forms.ToolBarAppearance.Flat;
-            this.ToolBar.AutoSize = false;
-            this.ToolBar.Buttons.AddRange(new System.Windows.Forms.ToolBarButton[] {
-            this.toolBarButton_Save});
-            this.ToolBar.Divider = false;
-            this.ToolBar.DropDownArrows = true;
-            this.ToolBar.ImageList = this.imageList1;
-            this.ToolBar.Location = new System.Drawing.Point(0, 0);
-            this.ToolBar.Name = "ToolBar";
-            this.ToolBar.ShowToolTips = true;
-            this.ToolBar.Size = new System.Drawing.Size(250, 26);
-            this.ToolBar.TabIndex = 8;
-            this.ToolBar.ButtonClick += new System.Windows.Forms.ToolBarButtonClickEventHandler(this.ToolBar_ButtonClick);
+            this.ToolStrip.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {this.toolBarButton_Save});
+            this.ToolStrip.Location = new System.Drawing.Point(0, 0);
+            this.ToolStrip.Name = "ToolStrip";
+            this.ToolStrip.Size = new System.Drawing.Size(250, 26);
+            this.ToolStrip.TabIndex = 8;
+            this.ToolStrip.ImageList = this.imageList1;
+            this.ToolStrip.ItemClicked += new System.Windows.Forms.ToolStripItemClickedEventHandler(this.ToolStrip_ItemClicked);
+            // 
+            // toolBarButton_Save
+            // 
+            this.toolBarButton_Save.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
+            this.toolBarButton_Save.ImageIndex = 0;
+            this.toolBarButton_Save.Name = "toolBarButton_Save";
+            this.toolBarButton_Save.Size = new System.Drawing.Size(23, 23);
+            this.toolBarButton_Save.Tag = "save";
+            this.toolBarButton_Save.ToolTipText = "Save User Metadata";
             // 
             // toolBarButton_Save
             // 
@@ -246,7 +249,7 @@
         public ucMetadataProperties ucMetadataProperties;
         private System.Windows.Forms.DataGridView Grid;
         private System.Windows.Forms.Panel panel1;
-        private System.Windows.Forms.ToolBar ToolBar;
-        private System.Windows.Forms.ToolBarButton toolBarButton_Save;
+        private System.Windows.Forms.ToolStrip ToolStrip;
+        private System.Windows.Forms.ToolStripButton toolBarButton_Save;
     }
 }

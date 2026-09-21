@@ -952,7 +952,7 @@ namespace EntitySpaces.AddIn
 
                         case NodeType.INDEX:
                             {
-                                Index o = obj as Index;
+                                EntitySpaces.MetadataEngine.Index o = obj as EntitySpaces.MetadataEngine.Index;
                                 metadataProperties.DisplayIndexProperties(o, node);
                                 this.EditSingle(o, o.Alias);
                             }
@@ -1003,7 +1003,7 @@ namespace EntitySpaces.AddIn
             catch { }
         }
 
-        private void ToolBar_ButtonClick(object sender, ToolBarButtonClickEventArgs e)
+        private void ToolStrip_ItemClicked(object sender, System.Windows.Forms.ToolStripItemClickedEventArgs e)
         {
             Cursor origCursor = this.Cursor;
 

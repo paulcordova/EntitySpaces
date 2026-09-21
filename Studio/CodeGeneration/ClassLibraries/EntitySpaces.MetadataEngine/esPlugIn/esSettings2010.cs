@@ -1,14 +1,14 @@
-﻿using System;
+﻿using Microsoft.Win32;
+using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Text;
 using System.IO;
-using System.Xml;
 using System.Reflection;
 using System.Runtime.Serialization;
 using System.Runtime.Serialization.Formatters.Binary;
-
-using Microsoft.Win32;
+using System.Text;
+using System.Xml;
+using System.Xml.Serialization;
 
 namespace EntitySpaces.MetadataEngine
 {
@@ -586,14 +586,15 @@ namespace EntitySpaces.MetadataEngine
                         (this.LicenseProxyPassword != null && this.LicenseProxyPassword.Length > 0) ||
                         (this.LicenseProxyDomainName != null && this.LicenseProxyDomainName.Length > 0))
                     {
-                        Licensing licensing = new Licensing();
-                        string id = licensing.getUniqueID("C");
+                        //TODO: Licensing
+                        //Licensing licensing = new Licensing();
+                        //string id = licensing.getUniqueID("C");
 
-                        Crypto crypto = new Crypto();
-                        this.LicenseProxyUrl = crypto.DecryptStringAES(this.LicenseProxyUrl, id);
-                        this.LicenseProxyUserName = crypto.DecryptStringAES(this.LicenseProxyUserName, id);
-                        this.LicenseProxyPassword = crypto.DecryptStringAES(this.LicenseProxyPassword, id);
-                        this.LicenseProxyDomainName = crypto.DecryptStringAES(this.LicenseProxyDomainName, id);
+                        //Crypto crypto = new Crypto();
+                        //this.LicenseProxyUrl = crypto.DecryptStringAES(this.LicenseProxyUrl, id);
+                        //this.LicenseProxyUserName = crypto.DecryptStringAES(this.LicenseProxyUserName, id);
+                        //this.LicenseProxyPassword = crypto.DecryptStringAES(this.LicenseProxyPassword, id);
+                        //this.LicenseProxyDomainName = crypto.DecryptStringAES(this.LicenseProxyDomainName, id);
                     }
                 }
                 finally
@@ -695,14 +696,15 @@ namespace EntitySpaces.MetadataEngine
                 (this.LicenseProxyPassword != null && this.LicenseProxyPassword.Length > 0) ||
                 (this.LicenseProxyDomainName != null && this.LicenseProxyDomainName.Length > 0))
             {
-                Licensing licensing = new Licensing();
-                string id = licensing.getUniqueID("C");
+                //TODO Licensing
+                //Licensing licensing = new Licensing();
+                //string id = licensing.getUniqueID("C");
 
-                Crypto crypto = new Crypto();
-                this.LicenseProxyUrl = crypto.DecryptStringAES(this.LicenseProxyUrl, id);
-                this.LicenseProxyUserName = crypto.DecryptStringAES(this.LicenseProxyUserName, id);
-                this.LicenseProxyPassword = crypto.DecryptStringAES(this.LicenseProxyPassword, id);
-                this.LicenseProxyDomainName = crypto.DecryptStringAES(this.LicenseProxyDomainName, id);
+                //Crypto crypto = new Crypto();
+                //this.LicenseProxyUrl = crypto.DecryptStringAES(this.LicenseProxyUrl, id);
+                //this.LicenseProxyUserName = crypto.DecryptStringAES(this.LicenseProxyUserName, id);
+                //this.LicenseProxyPassword = crypto.DecryptStringAES(this.LicenseProxyPassword, id);
+                //this.LicenseProxyDomainName = crypto.DecryptStringAES(this.LicenseProxyDomainName, id);
             }
         }
 
@@ -966,14 +968,15 @@ namespace EntitySpaces.MetadataEngine
                 (this.LicenseProxyPassword != null && this.LicenseProxyPassword.Length > 0) ||
                 (this.LicenseProxyDomainName != null && this.LicenseProxyDomainName.Length > 0))
             {
-                Licensing licensing = new Licensing();
-                string id = licensing.getUniqueID("C");
+                //TODO: Licensing
+                //Licensing licensing = new Licensing();
+                //string id = licensing.getUniqueID("C");
 
-                Crypto crypto = new Crypto();
-                this.LicenseProxyUrl = crypto.EncryptStringAES(this.LicenseProxyUrl, id);
-                this.LicenseProxyUserName = crypto.EncryptStringAES(this.LicenseProxyUserName, id);
-                this.LicenseProxyPassword = crypto.EncryptStringAES(this.LicenseProxyPassword, id);
-                this.LicenseProxyDomainName = crypto.EncryptStringAES(this.LicenseProxyDomainName, id);
+                //Crypto crypto = new Crypto();
+                //this.LicenseProxyUrl = crypto.EncryptStringAES(this.LicenseProxyUrl, id);
+                //this.LicenseProxyUserName = crypto.EncryptStringAES(this.LicenseProxyUserName, id);
+                //this.LicenseProxyPassword = crypto.EncryptStringAES(this.LicenseProxyPassword, id);
+                //this.LicenseProxyDomainName = crypto.EncryptStringAES(this.LicenseProxyDomainName, id);
             }
 
             xwriter.WriteStartElement("esSetting");
@@ -1091,16 +1094,17 @@ namespace EntitySpaces.MetadataEngine
 
         public esSettings Clone()
         {
-            IFormatter formatter = new BinaryFormatter();
-            Stream stream = new MemoryStream();
+            using (MemoryStream stream = new MemoryStream())
+            {
+                XmlSerializerNamespaces ns = new XmlSerializerNamespaces();
+                ns.Add("", "");
 
-            formatter.Serialize(stream, this);
-            stream.Seek(0, SeekOrigin.Begin);
-            esSettings clone = (esSettings)formatter.Deserialize(stream);
-            stream.Flush();
-            stream.Close();
+                XmlSerializer serializer = new XmlSerializer(typeof(esSettings));
+                serializer.Serialize(stream, this, ns);
+                stream.Seek(0, SeekOrigin.Begin);
 
-            return clone;
+                return (esSettings)serializer.Deserialize(stream);
+            }
         }
 
         public string GetDefaultConnectionString(string driver)

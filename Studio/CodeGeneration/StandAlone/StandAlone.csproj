@@ -1,267 +1,82 @@
-<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="15.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project Sdk="Microsoft.NET.Sdk">
+
   <PropertyGroup>
-    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
-    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
-    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProductVersion>9.0.30729</ProductVersion>
-    <SchemaVersion>2.0</SchemaVersion>
-    <ProjectGuid>{A62F7C6D-251D-470C-A922-4C590BEC768C}</ProjectGuid>
     <OutputType>WinExe</OutputType>
-    <AppDesignerFolder>Properties</AppDesignerFolder>
+	<TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+	<TargetPlatformVersion>10.0.19041.0</TargetPlatformVersion>
+	<SupportedOSPlatformVersion>10.0.19041.0</SupportedOSPlatformVersion>
+    <UseWindowsForms>true</UseWindowsForms>
+    
     <RootNamespace>EntitySpaces</RootNamespace>
     <AssemblyName>EntitySpaces</AssemblyName>
-    <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
-    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
-    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
-    <GenerateBindingRedirectsOutputType>true</GenerateBindingRedirectsOutputType>
-    <RestoreProjectStyle>PackageReference</RestoreProjectStyle>
-    <FileAlignment>512</FileAlignment>
-    <SignAssembly>true</SignAssembly>
-    <AssemblyOriginatorKeyFile>..\StrongNameKey\EntitySpaces.snk</AssemblyOriginatorKeyFile>
+    
+    <!-- Configuración general -->
     <ApplicationIcon>esIcon.ico</ApplicationIcon>
-    <IsWebBootstrapper>false</IsWebBootstrapper>
-    <FileUpgradeFlags>
-    </FileUpgradeFlags>
-    <UpgradeBackupLocation>
-    </UpgradeBackupLocation>
-    <OldToolsVersion>3.5</OldToolsVersion>
-    <TargetFrameworkProfile />
-    <NuGetPackageImportStamp>
-    </NuGetPackageImportStamp>
-    <PublishUrl>G:\WebDeploy-Installs\</PublishUrl>
-    <Install>true</Install>
-    <InstallFrom>Disk</InstallFrom>
-    <UpdateEnabled>false</UpdateEnabled>
-    <UpdateMode>Foreground</UpdateMode>
-    <UpdateInterval>7</UpdateInterval>
-    <UpdateIntervalUnits>Days</UpdateIntervalUnits>
-    <UpdatePeriodically>false</UpdatePeriodically>
-    <UpdateRequired>false</UpdateRequired>
-    <MapFileExtensions>true</MapFileExtensions>
-    <ApplicationRevision>0</ApplicationRevision>
-    <ApplicationVersion>1.0.0.%2a</ApplicationVersion>
-    <UseApplicationTrust>false</UseApplicationTrust>
-    <PublishWizardCompleted>true</PublishWizardCompleted>
-    <BootstrapperEnabled>true</BootstrapperEnabled>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
-    <DebugSymbols>true</DebugSymbols>
-    <DebugType>full</DebugType>
-    <Optimize>false</Optimize>
-    <OutputPath>bin\Debug\</OutputPath>
-    <DefineConstants>TRACE;DEBUG</DefineConstants>
-    <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
+    <!--<SignAssembly>true</SignAssembly>
+    <AssemblyOriginatorKeyFile>..\StrongNameKey\EntitySpaces.snk</AssemblyOriginatorKeyFile>-->
+    
+    <!-- Centralización de paquetes -->
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    
+    <!-- Evitar conflictos con Properties\AssemblyInfo.cs y SharedVersion.cs -->
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <PlatformTarget>x86</PlatformTarget>
-    <Prefer32Bit>false</Prefer32Bit>
-    <UseWinFormsOutOfProcDesigner>True</UseWinFormsOutOfProcDesigner>
   </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
-    <DebugType>pdbonly</DebugType>
-    <Optimize>true</Optimize>
-    <OutputPath>bin\Release\</OutputPath>
-    <DefineConstants>TRACE</DefineConstants>
-    <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
-    <PlatformTarget>x86</PlatformTarget>
-    <Prefer32Bit>false</Prefer32Bit>
-    <UseWinFormsOutOfProcDesigner>True</UseWinFormsOutOfProcDesigner>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x86' ">
-    <DebugSymbols>true</DebugSymbols>
-    <OutputPath>bin\x86\Debug\</OutputPath>
-    <DefineConstants>DEBUG;TRACE</DefineConstants>
-    <DebugType>full</DebugType>
-    <PlatformTarget>x86</PlatformTarget>
-    <ErrorReport>prompt</ErrorReport>
-    <Prefer32Bit>false</Prefer32Bit>
-    <UseWinFormsOutOfProcDesigner>True</UseWinFormsOutOfProcDesigner>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|x86' ">
-    <OutputPath>bin\x86\Release\</OutputPath>
-    <DefineConstants>TRACE;TRIAL__</DefineConstants>
-    <Optimize>true</Optimize>
-    <DebugType>pdbonly</DebugType>
-    <PlatformTarget>x86</PlatformTarget>
-    <ErrorReport>prompt</ErrorReport>
-    <Prefer32Bit>false</Prefer32Bit>
-    <UseWinFormsOutOfProcDesigner>True</UseWinFormsOutOfProcDesigner>
-  </PropertyGroup>
-  <PropertyGroup>
-    <StartupObject>EntitySpaces.Program</StartupObject>
-  </PropertyGroup>
+
+  <!-- Referencias a los proyectos que migramos y otros de la solución original -->
   <ItemGroup>
-    <!-- System references (all must be included) -->
-    <Reference Include="System" />
-    <Reference Include="System.ComponentModel.DataAnnotations" />
-    <Reference Include="System.Configuration" />
-    <Reference Include="System.Core" />
-    <Reference Include="System.Data" />
-    <Reference Include="System.Drawing" />
-    <Reference Include="System.Management" />
-    <Reference Include="System.Numerics" />
-    <Reference Include="System.Transactions" />
-    <Reference Include="System.Windows.Forms" />
-    <Reference Include="System.Xml" />
-    <Reference Include="System.Xml.Linq" />
+    <ProjectReference Include="..\ClassLibraries\EntitySpaces.AddIn.TemplateUI\EntitySpaces.AddIn.TemplateUI.csproj" />
+    <ProjectReference Include="..\ClassLibraries\EntitySpaces.AddIn\EntitySpaces.AddIn.csproj" />
+    <ProjectReference Include="..\ClassLibraries\EntitySpaces.CodeGenerator\EntitySpaces.CodeGenerator.csproj" />
+    <!--<ProjectReference Include="..\ClassLibraries\EntitySpaces.MetadataEngine.SQLAzure\EntitySpaces.MetadataEngine.SQLAzure.csproj" />-->
+    <ProjectReference Include="..\ClassLibraries\EntitySpaces.MetadataEngine.SQLite\EntitySpaces.MetadataEngine.SQLite.csproj" />
+    <ProjectReference Include="..\ClassLibraries\EntitySpaces.MetadataEngine\EntitySpaces.MetadataEngine.csproj" />
+    <ProjectReference Include="..\ClassLibraries\EntitySpaces.TemplateUI\EntitySpaces.TemplateUI.csproj" />
   </ItemGroup>
+
+	<!-- Referencias a paquetes NuGet (versiones gestionadas por Directory.Packages.props) -->
+	<ItemGroup>
+		<!-- Proveedores de Bases de Datos -->
+		<PackageReference Include="FirebirdSql.Data.FirebirdClient" />
+		<PackageReference Include="MySqlConnector" />
+		<PackageReference Include="Npgsql" />
+		<PackageReference Include="Oracle.ManagedDataAccess.Core" />
+
+		<!-- Utilidades e Infraestructura -->
+		<PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+	</ItemGroup>
+
+  <!-- Archivos vinculados y recursos especiales -->
   <ItemGroup>
-    <PackageReference Include="BouncyCastle.Cryptography" />
-    <PackageReference Include="FirebirdSql.Data.FirebirdClient" />
-    <PackageReference Include="Google.Protobuf" />
-    <PackageReference Include="K4os.Compression.LZ4" />
-    <PackageReference Include="K4os.Compression.LZ4.Streams" />
-    <PackageReference Include="K4os.Hash.xxHash" />
-    <PackageReference Include="Microsoft.Bcl.AsyncInterfaces" />
-    <PackageReference Include="Microsoft.Bcl.HashCode" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
-    <PackageReference Include="MySql.Data" />
-    <PackageReference Include="Npgsql" />
-    <PackageReference Include="Oracle.ManagedDataAccess" />
-    <PackageReference Include="System.Buffers" />
-    <PackageReference Include="System.Collections.Immutable" />
-    <PackageReference Include="System.Configuration.ConfigurationManager" />
-    <PackageReference Include="System.Diagnostics.DiagnosticSource" />
-    <PackageReference Include="System.Formats.Asn1" />
-    <PackageReference Include="System.Memory" />
-    <PackageReference Include="System.Numerics.Vectors" />
-    <PackageReference Include="System.Runtime.CompilerServices.Unsafe" />
-    <PackageReference Include="System.IO.Pipelines" />
-    <PackageReference Include="System.Text.Encodings.Web" />
-    <PackageReference Include="System.Text.Json" />
-    <PackageReference Include="System.Threading.Channels" />
-    <PackageReference Include="System.Threading.Tasks.Extensions" />
-    <PackageReference Include="System.ValueTuple" />
-    <PackageReference Include="ZstdSharp.Port" />
+    <Compile Include="..\SharedFiles\SharedVersion.cs" Link="SharedVersion.cs" />
+    <None Include="..\StrongNameKey\EntitySpaces.snk" Link="EntitySpaces.snk" />
+    
+    <!-- Archivos XSD -->
+    <!--<None Update="Oracle.DataAccess.Common.Configuration.Section.xsd" SubType="Designer" />
+    <None Update="Oracle.ManagedDataAccess.Client.Configuration.Section.xsd" SubType="Designer" />-->
   </ItemGroup>
+
+  <!-- Configuración explícita de recursos y diseñadores si el SDK no los auto-enlaza a la primera -->
   <ItemGroup>
-    <Compile Include="..\SharedFiles\SharedVersion.cs">
-      <Link>SharedVersion.cs</Link>
-    </Compile>
-    <Compile Include="AboutBox.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="AboutBox.Designer.cs">
-      <DependentUpon>AboutBox.cs</DependentUpon>
-    </Compile>
-    <Compile Include="FeedbackBox.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="FeedbackBox.Designer.cs">
-      <DependentUpon>FeedbackBox.cs</DependentUpon>
-    </Compile>
-    <Compile Include="Form1.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="Form1.Designer.cs">
-      <DependentUpon>Form1.cs</DependentUpon>
-    </Compile>
-    <Compile Include="Program.cs" />
-    <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Properties\Settings.Designer.cs">
+    <Compile Update="Properties\Resources.Designer.cs">
+      <DesignTime>True</DesignTime>
       <AutoGen>True</AutoGen>
-      <DesignTimeSharedInput>True</DesignTimeSharedInput>
-      <DependentUpon>Settings.settings</DependentUpon>
+      <DependentUpon>Resources.resx</DependentUpon>
     </Compile>
-    <Compile Include="TelemetryHelper.cs" />
-    <EmbeddedResource Include="AboutBox.resx">
-      <DependentUpon>AboutBox.cs</DependentUpon>
-      <SubType>Designer</SubType>
-    </EmbeddedResource>
-    <EmbeddedResource Include="FeedbackBox.resx">
-      <DependentUpon>FeedbackBox.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="Form1.resx">
-      <DependentUpon>Form1.cs</DependentUpon>
-      <SubType>Designer</SubType>
-      <Generator>ResXFileCodeGenerator</Generator>
-    </EmbeddedResource>
-    <EmbeddedResource Include="Properties\Resources.resx">
+    <Compile Update="Resource1.Designer.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Resource1.resx</DependentUpon>
+    </Compile>
+    
+    <EmbeddedResource Update="Properties\Resources.resx">
       <Generator>ResXFileCodeGenerator</Generator>
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>
-      <SubType>Designer</SubType>
     </EmbeddedResource>
-    <EmbeddedResource Include="Resource1.resx">
+    <EmbeddedResource Update="Resource1.resx">
       <Generator>PublicResXFileCodeGenerator</Generator>
       <LastGenOutput>Resource1.Designer.cs</LastGenOutput>
     </EmbeddedResource>
-    <Compile Include="Properties\Resources.Designer.cs">
-      <AutoGen>True</AutoGen>
-      <DependentUpon>Resources.resx</DependentUpon>
-      <DesignTime>True</DesignTime>
-    </Compile>
-    <None Include="..\StrongNameKey\EntitySpaces.snk">
-      <Link>EntitySpaces.snk</Link>
-    </None>
-    <Compile Include="Resource1.Designer.cs">
-      <AutoGen>True</AutoGen>
-      <DesignTime>True</DesignTime>
-      <DependentUpon>Resource1.resx</DependentUpon>
-    </Compile>
-    <None Include="app.config" />
-    <None Include="Oracle.DataAccess.Common.Configuration.Section.xsd">
-      <SubType>Designer</SubType>
-    </None>
-    <None Include="Oracle.ManagedDataAccess.Client.Configuration.Section.xsd">
-      <SubType>Designer</SubType>
-    </None>
-    <None Include="Properties\Settings.settings">
-      <Generator>SettingsSingleFileGenerator</Generator>
-      <LastGenOutput>Settings.Designer.cs</LastGenOutput>
-    </None>
-    <!-- <None Include="packages.config" /> -->
   </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\ClassLibraries\EntitySpaces.AddIn.TemplateUI\EntitySpaces.AddIn.TemplateUI.csproj">
-      <Project>{60B3C557-01AB-4099-82C8-616E8BBF20E7}</Project>
-      <Name>EntitySpaces.AddIn.TemplateUI</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\ClassLibraries\EntitySpaces.AddIn\EntitySpaces.AddIn.csproj">
-      <Project>{72548163-B3F2-407A-88C2-DD1DED62005D}</Project>
-      <Name>EntitySpaces.AddIn</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\ClassLibraries\EntitySpaces.CodeGenerator\EntitySpaces.CodeGenerator.csproj">
-      <Project>{4DEB54D3-804F-452A-8B60-BE78DCF06B16}</Project>
-      <Name>EntitySpaces.CodeGenerator</Name>
-      <Private>True</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\ClassLibraries\EntitySpaces.MetadataEngine.SQLAzure\EntitySpaces.MetadataEngine.SQLAzure.csproj">
-      <Project>{0EFAB27B-1897-41B4-922F-6524A8E9D106}</Project>
-      <Name>EntitySpaces.MetadataEngine.SQLAzure</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\ClassLibraries\EntitySpaces.MetadataEngine.SQLite\EntitySpaces.MetadataEngine.SQLite.csproj">
-      <Project>{93ad680c-1631-48d6-969d-090d2940c591}</Project>
-      <Name>EntitySpaces.MetadataEngine.SQLite</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\ClassLibraries\EntitySpaces.MetadataEngine\EntitySpaces.MetadataEngine.csproj">
-      <Project>{72BEAB1C-B55F-4F0E-89AF-17F71E74A452}</Project>
-      <Name>EntitySpaces.MetadataEngine</Name>
-      <Private>True</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\ClassLibraries\EntitySpaces.TemplateUI\EntitySpaces.TemplateUI.csproj">
-      <Project>{988af577-2940-47e7-a568-9a9c58c6418b}</Project>
-      <Name>EntitySpaces.TemplateUI</Name>
-    </ProjectReference>
-  </ItemGroup>
-  <ItemGroup>
-    <Folder Include="Resources\" />
-  </ItemGroup>
-  <ItemGroup>
-    <BootstrapperPackage Include=".NETFramework,Version=v4.8">
-      <Visible>False</Visible>
-      <ProductName>Microsoft .NET Framework 4.8 %28x86 and x64%29</ProductName>
-      <Install>true</Install>
-    </BootstrapperPackage>
-    <BootstrapperPackage Include="Microsoft.Net.Framework.3.5.SP1">
-      <Visible>False</Visible>
-      <ProductName>.NET Framework 3.5 SP1</ProductName>
-      <Install>false</Install>
-    </BootstrapperPackage>
-  </ItemGroup>
-  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
-  <PropertyGroup>
-    <PostBuildEvent>
-    </PostBuildEvent>
-  </PropertyGroup>
+
 </Project>

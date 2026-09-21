@@ -9,8 +9,8 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>EntitySpaces.MetadataEngine.SqlCe</RootNamespace>
     <AssemblyName>EntitySpaces.MetadataEngine.SqlCe</AssemblyName>
-    <SignAssembly>true</SignAssembly>
-    <AssemblyOriginatorKeyFile>..\..\StrongNameKey\EntitySpaces.snk</AssemblyOriginatorKeyFile>
+    <!--<SignAssembly>true</SignAssembly>
+    <AssemblyOriginatorKeyFile>..\..\StrongNameKey\EntitySpaces.snk</AssemblyOriginatorKeyFile>-->
     <FileUpgradeFlags>
     </FileUpgradeFlags>
     <OldToolsVersion>15.0</OldToolsVersion>

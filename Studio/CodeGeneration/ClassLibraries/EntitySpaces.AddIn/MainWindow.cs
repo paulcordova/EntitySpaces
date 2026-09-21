@@ -9,7 +9,7 @@ using System.Windows.Forms;
 
 using System.Net;
 using System.IO;
-using System.Management;
+
 
 using Microsoft.Win32;
 
@@ -27,7 +27,7 @@ namespace EntitySpaces.AddIn.ES2025
         private Licensing licensing = new Licensing();
         private object applicationObject;
         private List<esUserControl> userControlCollection = new List<esUserControl>();
-        private esSettings settings; 
+        private esSettings settings;
         internal string esVersion = VersionInfo.Version;
 
         internal OnTemplateExecute OnTemplateExecuteCallback;
@@ -60,8 +60,6 @@ namespace EntitySpaces.AddIn.ES2025
 
                     this.Settings = settings;
                     this.ucSettings.Settings = this.Settings;
-
-
 
                     esPlugIn plugin = new esPlugIn(settings);
 
@@ -205,12 +203,16 @@ namespace EntitySpaces.AddIn.ES2025
             }
         }
 
+        [Browsable(false)]
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public object ApplicationObject
         {
             get { return applicationObject; }
             set { applicationObject = value; }
         }
 
+        [Browsable(false)]
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public esSettings Settings
         {
             get { return settings; }

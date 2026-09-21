@@ -1005,16 +1005,17 @@ namespace EntitySpaces.MetadataEngine
 
         public esSettings Clone()
         {
-            IFormatter formatter = new BinaryFormatter();
-            Stream stream = new MemoryStream();
+            using (MemoryStream stream = new MemoryStream())
+            {
+                XmlSerializerNamespaces ns = new XmlSerializerNamespaces();
+                ns.Add("", "");
 
-            formatter.Serialize(stream, this);
-            stream.Seek(0, SeekOrigin.Begin);
-            esSettings clone = (esSettings)formatter.Deserialize(stream);
-            stream.Flush();
-            stream.Close();
+                XmlSerializer serializer = new XmlSerializer(typeof(esSettings));
+                serializer.Serialize(stream, this, ns);
+                stream.Seek(0, SeekOrigin.Begin);
 
-            return clone;
+                return (esSettings)serializer.Deserialize(stream);
+            }
         }
 
         static public string GetDefaultConnectionString(string driver)

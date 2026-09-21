@@ -34,34 +34,36 @@ namespace EntitySpaces.MetadataEngine
 				return string.Empty;
 			}
 		}
-		#endregion
+        #endregion
 
-		#region Property Helpers
+        #region Property Helpers
 
-		protected string GetString(DataColumn col)
-		{
-			if(null != col)
-			{
-				object o = _row[col];
+        protected string GetString(DataColumn col)
+        {
+            if (null != col)
+            {
+                object o = _row[col];
 
-				if(DBNull.Value != o)
-				{
-					string s = (string)o;
-					if(dbRoot.StripTrailingNulls)
-					{
-						if(s.EndsWith(dbRoot.TrailingNull))
-						{
-							s = s.Remove(s.Length - 1, 1);
-						}
-					}
-					return s;
-				}
-			}
+                if (DBNull.Value != o)
+                {
+                    string s = (string)o;
+                    if (dbRoot.StripTrailingNulls && !string.IsNullOrEmpty(dbRoot.TrailingNull))
+                    {
+                        // Usar StringComparison.Ordinal obliga a comparar el valor exacto del char
+                        // evitando que el motor ICU de .NET 8 le dé peso cero a '\0'
+                        if (s.EndsWith(dbRoot.TrailingNull, StringComparison.Ordinal))
+                        {
+                            s = s.Remove(s.Length - 1, 1);
+                        }
+                    }
+                    return s;
+                }
+            }
 
-			return string.Empty;
-		}
+            return string.Empty;
+        }
 
-		protected Guid GetGuid(DataColumn col)
+        protected Guid GetGuid(DataColumn col)
 		{
 			if(null != col)
 			{

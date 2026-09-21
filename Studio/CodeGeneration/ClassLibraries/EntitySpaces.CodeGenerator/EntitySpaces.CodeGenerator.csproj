@@ -1,103 +1,35 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="15.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <PropertyGroup>
-    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
-    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProductVersion>9.0.30729</ProductVersion>
-    <SchemaVersion>2.0</SchemaVersion>
-    <ProjectGuid>{4DEB54D3-804F-452A-8B60-BE78DCF06B16}</ProjectGuid>
-    <OutputType>Library</OutputType>
-    <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>EntitySpaces.CodeGenerator</RootNamespace>
-    <AssemblyName>EntitySpaces.CodeGenerator</AssemblyName>
-    <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
-    <FileAlignment>512</FileAlignment>
-    <SignAssembly>true</SignAssembly>
-    <AssemblyOriginatorKeyFile>..\..\StrongNameKey\EntitySpaces.snk</AssemblyOriginatorKeyFile>
-    <FileUpgradeFlags>
-    </FileUpgradeFlags>
-    <UpgradeBackupLocation>
-    </UpgradeBackupLocation>
-    <OldToolsVersion>15.0</OldToolsVersion>
-    <TargetFrameworkProfile />
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
-    <DebugSymbols>true</DebugSymbols>
-    <DebugType>full</DebugType>
-    <Optimize>false</Optimize>
-    <OutputPath>bin\Debug\</OutputPath>
-    <DefineConstants>DEBUG;TRACE</DefineConstants>
-    <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
-    <Prefer32Bit>false</Prefer32Bit>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
-    <DebugType>pdbonly</DebugType>
-    <Optimize>true</Optimize>
-    <OutputPath>bin\Release\</OutputPath>
-    <DefineConstants>TRACE</DefineConstants>
-    <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
-    <Prefer32Bit>false</Prefer32Bit>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x86' ">
-    <DebugSymbols>true</DebugSymbols>
-    <OutputPath>bin\x86\Debug\</OutputPath>
-    <DefineConstants>DEBUG;TRACE</DefineConstants>
-    <DebugType>full</DebugType>
-    <PlatformTarget>x86</PlatformTarget>
-    <ErrorReport>prompt</ErrorReport>
-    <Prefer32Bit>false</Prefer32Bit>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|x86' ">
-    <OutputPath>bin\x86\Release\</OutputPath>
-    <DefineConstants>TRACE</DefineConstants>
-    <Optimize>true</Optimize>
-    <DebugType>pdbonly</DebugType>
-    <PlatformTarget>x86</PlatformTarget>
-    <ErrorReport>prompt</ErrorReport>
-    <Prefer32Bit>false</Prefer32Bit>
-  </PropertyGroup>
-  <ItemGroup>
-    <Reference Include="System" />
-    <Reference Include="System.Core" />
-    <Reference Include="System.Xml.Linq" />
-    <Reference Include="System.Data.DataSetExtensions" />
-    <Reference Include="System.Data" />
-    <Reference Include="System.Xml" />
-  </ItemGroup>
-  <ItemGroup>
-    <Compile Include="..\..\SharedFiles\SharedVersion.cs">
-      <Link>SharedVersion.cs</Link>
-    </Compile>
-    <Compile Include="CodeBuilder.cs" />
-    <Compile Include="CompilerException.cs" />
-    <Compile Include="Compiler.cs" />
-    <Compile Include="Parser.cs" />
-    <Compile Include="Template.cs" />
-    <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="TemplateCache.cs" />
-    <Compile Include="TemplateHeader.cs" />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\EntitySpaces.MetadataEngine\EntitySpaces.MetadataEngine.csproj">
-      <Project>{72BEAB1C-B55F-4F0E-89AF-17F71E74A452}</Project>
-      <Name>EntitySpaces.MetadataEngine</Name>
-	  <Private>True</Private>
-    </ProjectReference>
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="..\..\StrongNameKey\EntitySpaces.snk">
-      <Link>EntitySpaces.snk</Link>
-    </None>
-    <None Include="app.config" />
-  </ItemGroup>
-  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
-  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
-       Other similar extension points exist, see Microsoft.Common.targets.
-  <Target Name="BeforeBuild">
-  </Target>
-  <Target Name="AfterBuild">
-  </Target>
-  -->
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<OutputType>Library</OutputType>
+		<TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+		<TargetPlatformVersion>10.0.19041.0</TargetPlatformVersion>
+		<SupportedOSPlatformVersion>10.0.19041.0</SupportedOSPlatformVersion>
+		<RootNamespace>EntitySpaces.CodeGenerator</RootNamespace>
+		<AssemblyName>EntitySpaces.CodeGenerator</AssemblyName>
+		<!--<SignAssembly>true</SignAssembly>
+		<AssemblyOriginatorKeyFile>..\..\StrongNameKey\EntitySpaces.snk</AssemblyOriginatorKeyFile>-->
+
+		<!-- Desactivado para evitar conflictos con Properties\AssemblyInfo.cs y SharedVersion.cs -->
+		<GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+		<PlatformTarget>x86</PlatformTarget>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\EntitySpaces.MetadataEngine\EntitySpaces.MetadataEngine.csproj" />
+	</ItemGroup>
+
+	<!-- ✅ ROSLYN - Reemplazo moderno de CodeDom para compilación en runtime en .NET 8 -->
+	<ItemGroup>
+		<PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
+		<PackageReference Include="Microsoft.CodeAnalysis.Analyzers" />
+		
+	</ItemGroup>
+
+	<ItemGroup>
+		<!-- Mantenemos los archivos vinculados (links) que están fuera del directorio actual -->
+		<Compile Include="..\..\SharedFiles\SharedVersion.cs" Link="SharedVersion.cs" />
+		<None Include="..\..\StrongNameKey\EntitySpaces.snk" Link="EntitySpaces.snk" />
+	</ItemGroup>
+
 </Project>

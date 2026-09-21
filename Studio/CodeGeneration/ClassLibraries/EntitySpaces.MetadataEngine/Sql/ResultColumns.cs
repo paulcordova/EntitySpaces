@@ -2,72 +2,66 @@ using System;
 using System.Collections;
 using System.Data;
 using System.Data.OleDb;
-using System.Data.SqlClient;
+using Microsoft.Data.SqlClient;
 
 namespace EntitySpaces.MetadataEngine.Sql
 {
-	public class SqlResultColumns : ResultColumns
-	{
-		public SqlResultColumns()
-		{
+    public class SqlResultColumns : ResultColumns
+    {
+        public SqlResultColumns()
+        {
 
-		}
+        }
 
-		override internal void LoadAll()
-		{
-			try
-			{
-				string schema = "";
+        override internal void LoadAll()
+        {
+            try
+            {
+                string schema = "";
 
-				if(-1 == this.Procedure.Schema.IndexOf("."))
-				{
-					schema = this.Procedure.Schema + ".";
-				}
+                if (-1 == this.Procedure.Schema.IndexOf("."))
+                {
+                    schema = this.Procedure.Schema + ".";
+                }
 
-                //SET FMTONLY ON 
-				string select = "EXEC [" + this.Procedure.Database.Name + "]." + schema + "[" +
-					this.Procedure.Name + "] ";
+                string select = "EXEC [" + this.Procedure.Database.Name + "]." + schema + "[" +
+                    this.Procedure.Name + "] ";
 
-				int paramCount = this.Procedure.Parameters.Count;
+                int paramCount = this.Procedure.Parameters.Count;
 
-				if(paramCount > 0)
-				{
-					IParameters parameters = this.Procedure.Parameters;
-					IParameter param = null;
+                if (paramCount > 0)
+                {
+                    IParameters parameters = this.Procedure.Parameters;
+                    IParameter param = null;
 
-					int c = parameters.Count;
+                    int c = parameters.Count;
 
-					for(int i = 0; i < c; i++)
-					{
-						param = parameters[i];
+                    for (int i = 0; i < c; i++)
+                    {
+                        param = parameters[i];
 
-						if(param.Direction == ParamDirection.ReturnValue)
-						{
-							paramCount--;
-						}
-					}
-				}
+                        if (param.Direction == ParamDirection.ReturnValue)
+                        {
+                            paramCount--;
+                        }
+                    }
+                }
 
-				for(int i = 0; i < paramCount; i++)
-				{
-					if(i > 0) 
-					{
-						select += ",";
-					}
+                for (int i = 0; i < paramCount; i++)
+                {
+                    if (i > 0)
+                    {
+                        select += ",";
+                    }
 
-					select += "null";
-				}
+                    select += "null";
+                }
 
-				DataTable metaData = new DataTable();
+                DataTable metaData = new DataTable();
 
-				try
-				{
-                    //Provider=SQLOLEDB.1;Persist Security Info=False;User ID=sa;Initial Catalog=Northwind;Data Source=localhost
-                    //Data Source=myServerAddress;Initial Catalog=myDataBase;User Id=myUsername;Password=myPassword;
-                    //Provider=SQLNCLI;Server=myServerAddress;Database=myDataBase;Uid=myUsername;Pwd=myPassword;
-                    //Data Source=myServerAddress;Initial Catalog=myDataBase;User Id=myUsername;Password=myPassword;
-
-					string[] pairs = dbRoot.ConnectionString.Split(';');
+                try
+                {
+                    string[] pairs = dbRoot.ConnectionString.Split(';');
                     Hashtable conn = new Hashtable();
                     int idx;
                     string name, val;
@@ -82,18 +76,20 @@ namespace EntitySpaces.MetadataEngine.Sql
                         }
                     }
 
-					string cn = "", tmp;
-					foreach(string key in conn.Keys)
+                    string cn = "";
+                    foreach (string key in conn.Keys)
                     {
-                        tmp = conn[key] as string;
-						switch(key.ToLower())
-						{
-							case "provider":
-								break;
-							case "extended properties":
+                        string tmp = conn[key] as string;
+                        switch (key.ToLower())
+                        {
+                            case "provider":
+                            case "extended properties":
+                            case "persist security info":
                                 break;
                             case "server":
                             case "data source":
+                            case "address":
+                            case "addr":
                                 cn += "Data Source=" + tmp + ";";
                                 break;
                             case "user id":
@@ -102,48 +98,69 @@ namespace EntitySpaces.MetadataEngine.Sql
                                 break;
                             case "password":
                             case "pwd":
-                                cn += "Password=" + tmp + ";"; 
+                                cn += "Password=" + tmp + ";";
                                 break;
                             case "initial catalog":
                             case "database":
                                 cn += "Initial Catalog=" + tmp + ";";
                                 break;
                             case "marsconn":
-                                if (tmp.ToLower() == "yes")
-                                {
-                                    cn += "MultipleActiveResultSets=" + ((tmp.ToLower() == "yes") ? "true" : "false") + ";";
-                                }
+                            case "multipleactiveresultsets":
+                                cn += "MultipleActiveResultSets=" + (tmp.ToLower() == "yes" || tmp.ToLower() == "true" ? "true" : "false") + ";";
                                 break;
-							default:
-                                cn += key + "=" + tmp + ";"; 
-								break;
-						}
-					}
-                    SqlConnection sqlconn = new SqlConnection(cn);
-                    sqlconn.Open();
-                    SqlCommand sqlcmd = sqlconn.CreateCommand(); 
-                    sqlcmd.CommandText = select;
-                    sqlcmd.CommandType = CommandType.Text;
-                    SqlDataReader reader = sqlcmd.ExecuteReader(CommandBehavior.SchemaOnly);
-
-                    metaData = reader.GetSchemaTable();
-                    SqlResultColumn resultColumn;
-                    foreach (DataRow row in metaData.Rows)
-                    {
-                        resultColumn = this.dbRoot.ClassFactory.CreateResultColumn() as Sql.SqlResultColumn;
-                        resultColumn.dbRoot = this.dbRoot;
-                        resultColumn.ResultColumns = this;
-                        resultColumn._row = row;
-                        this._array.Add(resultColumn);
+                            case "integrated security":
+                            case "trusted_connection":
+                                cn += "Integrated Security=" + tmp + ";";
+                                break;
+                            default:
+                                cn += key + "=" + tmp + ";";
+                                break;
+                        }
                     }
-				}
-				catch
-                {
-                   //
-				}
 
-			}
-			catch {}
-		}
-	}
+                    // Asegurar valores por defecto si falta seguridad integrada o usuario
+                    if (!cn.Contains("Integrated Security") && !cn.Contains("User ID"))
+                    {
+                        cn += "Integrated Security=true;TrustServerCertificate=true;";
+                    }
+                    else if (!cn.Contains("TrustServerCertificate"))
+                    {
+                        cn += "TrustServerCertificate=true;";
+                    }
+
+                    using (SqlConnection sqlconn = new SqlConnection(cn))
+                    {
+                        sqlconn.Open();
+                        using (SqlCommand sqlcmd = sqlconn.CreateCommand())
+                        {
+                            sqlcmd.CommandText = select;
+                            sqlcmd.CommandType = CommandType.Text;
+                            using (SqlDataReader reader = sqlcmd.ExecuteReader(CommandBehavior.SchemaOnly))
+                            {
+                                metaData = reader.GetSchemaTable();
+                            }
+                        }
+                    }
+
+                    if (metaData != null)
+                    {
+                        SqlResultColumn resultColumn;
+                        foreach (DataRow row in metaData.Rows)
+                        {
+                            resultColumn = this.dbRoot.ClassFactory.CreateResultColumn() as Sql.SqlResultColumn;
+                            resultColumn.dbRoot = this.dbRoot;
+                            resultColumn.ResultColumns = this;
+                            resultColumn._row = row;
+                            this._array.Add(resultColumn);
+                        }
+                    }
+                }
+                catch (Exception cx)
+                {
+                    // Opcional: puedes dejar un registro de excepción aquí si falla la conexión para depurar
+                }
+            }
+            catch { }
+        }
+    }
 }

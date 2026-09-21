@@ -12,8 +12,8 @@
     <AssemblyName>EntitySpaces.CommandLine</AssemblyName>
     <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
-    <SignAssembly>true</SignAssembly>
-    <AssemblyOriginatorKeyFile>..\StrongNameKey\EntitySpaces.snk</AssemblyOriginatorKeyFile>
+    <!--<SignAssembly>true</SignAssembly>
+    <AssemblyOriginatorKeyFile>..\StrongNameKey\EntitySpaces.snk</AssemblyOriginatorKeyFile>-->
     <IsWebBootstrapper>true</IsWebBootstrapper>
     <ApplicationIcon>Default.ico</ApplicationIcon>
     <PublishUrl>http://localhost/EntitySpaces.CommandLine/</PublishUrl>

@@ -2,7 +2,7 @@ using System;
 using System.Data;
 using System.Data.OleDb;
 
-using ADODB;
+
 
 namespace EntitySpaces.MetadataEngine.Firebird
 {

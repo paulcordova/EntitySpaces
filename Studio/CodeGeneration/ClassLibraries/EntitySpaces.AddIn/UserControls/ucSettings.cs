@@ -30,6 +30,8 @@ namespace EntitySpaces.AddIn
             }
         }
 
+        [Browsable(false)]
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public esSettings Settings 
         {
             get { return settings; }

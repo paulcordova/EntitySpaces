@@ -144,6 +144,7 @@ namespace EntitySpaces.TemplateUI
                     this.label4.Text = "Database";
                 }
 
+
                 int index = this.cboDatabase.FindString(database);
                 if (index != -1)
                 {

@@ -2,7 +2,7 @@ using System;
 using System.Data;
 using System.Data.OleDb;
 
-using ADODB;
+//using ADODB;
 
 namespace EntitySpaces.MetadataEngine.SQLite
 {
@@ -13,7 +13,7 @@ namespace EntitySpaces.MetadataEngine.SQLite
 
 		}
 
-		override public ADODB.Recordset ExecuteSql(string sql)
+		override public DataTable ExecuteSql(string sql)
 		{
             IDbConnection cn = ConnectionHelper.CreateConnection(this.dbRoot, this.Name);
 

@@ -361,21 +361,71 @@ namespace EntitySpaces.MetadataEngine
 			}
 		}
 
+        //private void ConnectUsingOracleDb(string connectionString)
+        //{
+        //    try
+        //    {
+        //        // Create an instance of OracleConnection
+        //        using (OracleConnection cn = new OracleConnection(connectionString))
+        //        {
+        //            cn.Open();
+        //            this._defaultDatabase = GetDefaultDatabase(cn);
+        //            cn.Close();
+        //        }
+        //    }
+        //    catch (OracleException ex)
+        //    {
+        //        // Handle Oracle exceptions
+        //        throw ex;
+        //    }
+        //}
+
+        private static bool _isOracleConfigured = false;
+
         private void ConnectUsingOracleDb(string connectionString)
         {
             try
             {
-                // Create an instance of OracleConnection
+                // Define the Oracle Wallet path (ensure this points to your actual wallet directory)
+                string walletPath = @"C:\oracle\wallet"; // Update this with your actual wallet path
+
+                // Apply configuration only if it has not been successfully validated yet
+                if (!_isOracleConfigured)
+                {
+                    if (!Directory.Exists(walletPath))
+                    {
+                        // Reset flag to allow retrying if the directory is missing
+                        _isOracleConfigured = false;
+                        throw new DirectoryNotFoundException("Oracle Wallet directory does not exist: " + walletPath);
+                    }
+
+                    OracleConfiguration.TnsAdmin = walletPath;
+                    OracleConfiguration.WalletLocation = walletPath;
+                    OracleConfiguration.SqlNetWalletOverride = true;
+                }
+
+                // Create and open the Oracle connection instance safely
                 using (OracleConnection cn = new OracleConnection(connectionString))
                 {
+                    // Ensure connection is closed before attempting to open
+                    if (cn.State != ConnectionState.Closed)
+                    {
+                        cn.Close();
+                    }
+
                     cn.Open();
                     this._defaultDatabase = GetDefaultDatabase(cn);
-                    cn.Close();
+
+                    // Mark configuration as successfully locked only after an open connection is achieved
+                    _isOracleConfigured = true;
                 }
             }
-            catch (OracleException ex)
+            catch (Exception ex)
             {
-                // Handle Oracle exceptions
+                // Reset configuration flag on failure so the user can retry without restarting Studio
+                _isOracleConfigured = false;
+
+                // Propagate the exception upward for proper error handling
                 throw ex;
             }
         }

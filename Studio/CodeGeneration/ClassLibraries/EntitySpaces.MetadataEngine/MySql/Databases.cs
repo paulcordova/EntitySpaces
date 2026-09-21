@@ -7,7 +7,7 @@ namespace EntitySpaces.MetadataEngine.MySql
 {
 	public class MySqlDatabases : Databases
 	{
-		static internal string nameSpace = "MySql.Data.MySqlClient."; 
+		static internal string nameSpace = "MySqlConnector."; 
 		static internal Assembly asm = null;
 		static internal Module   mod = null;
 
@@ -35,7 +35,8 @@ namespace EntitySpaces.MetadataEngine.MySql
 				{
 					try 
 					{
-						asm = Assembly.LoadWithPartialName("MySql.Data");
+
+						asm = Assembly.LoadWithPartialName("MySqlConnector");
 						Module[] mods = asm.GetModules(false);
 						mod = mods[0];
 					}

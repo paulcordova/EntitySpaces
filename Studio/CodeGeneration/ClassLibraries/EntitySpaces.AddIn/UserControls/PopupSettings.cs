@@ -22,6 +22,8 @@ namespace EntitySpaces.AddIn
             ucSettings1.PopulateUI();
         }
 
+        [Browsable(false)]
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public esSettings Settings 
         {
             get

@@ -19,6 +19,8 @@ namespace EntitySpaces.AddIn
 
         private MainWindow mainWindow;
 
+        [Browsable(false)]
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public MainWindow MainWindow
         {
             get { return mainWindow;  }
