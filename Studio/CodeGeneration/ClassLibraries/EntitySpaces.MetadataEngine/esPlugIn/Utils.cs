@@ -44,11 +44,12 @@
  * Works for JScript, but not for VBScript.
  */
 
-using System;
-using System.IO;
-using System.Xml;
-using System.Collections;
 using EntitySpaces.MetadataEngine;
+using System;
+using System.Collections;
+using System.IO;
+using System.Text;
+using System.Xml;
 
 namespace EntitySpaces.MetadataEngine
 {
@@ -100,46 +101,49 @@ namespace EntitySpaces.MetadataEngine
         }
 
         /// <summary>
-        /// Trim spaces from a string.
-        /// Pass in a char[] containing a list of additional characters
-        /// to remove. Spaces are always trimmed.
+        /// Removes illegal characters from a database object name (tables, columns) 
+        /// to construct a valid C# identifier.
         /// </summary>
-        /// <example>
-        /// <code>
-        /// char[] c = new char[5] {'\\', '@', ',', '-', ':'};
-        ///	string str = DnpUtils.TrimSpaces(Table.Alias, c);
-        /// </code>
-        /// </example>
-        /// <param name="name">The string that needs to be adjusted.</param>
-        /// <param name="trimList">char[] of characters to be trimmed.</param>
-        /// <returns>A string with all listed characters trimmed. </returns>
+        /// <param name="name">The raw database object name.</param>
+        /// <returns>A clean string suitable for C# class or property identifiers.</returns>
         public string RemoveIllegalCharacters(string name)
         {
-            string convertedName = String.Empty;
+            // 1. Guard against null or empty input
+            if (string.IsNullOrEmpty(name))
+            {
+                return string.Empty;
+            }
 
+            StringBuilder convertedName = new StringBuilder(name.Length);
+
+            // 2. Filter valid identifier characters (letters, digits, underscores)
             for (int i = 0; i < name.Length; i++)
             {
-                if (Char.IsLetterOrDigit(name[i]))
+                char c = name[i];
+                if (Char.IsLetterOrDigit(c) || c == '_')
                 {
-                    convertedName += name[i];
-                }
-                else if (name[i] == '_')
-                {
-                    convertedName += name[i];
+                    convertedName.Append(c);
                 }
             }
 
-            if (Char.IsNumber(convertedName[0]))
+            // 3. Safe check: Return empty string if no valid characters were found
+            if (convertedName.Length == 0)
             {
-                convertedName = convertedName.Insert(0, "_");
+                return string.Empty;
             }
 
-            return convertedName;
+            // 4. Ensure identifier does not start with a numeric digit
+            if (Char.IsDigit(convertedName[0]))
+            {
+                convertedName.Insert(0, "_");
+            }
+
+            return convertedName.ToString();
         }
 
         /// <summary>
-        /// SetPascalCase sets the first character to upper case,
-        /// trims spaces, underscores, and periods, and sets next to upper.
+        /// SetPascalCase sets the first character to upper case, trims spaces/special characters,
+        /// underscores, and periods, and sets next to upper.
         /// (PascalCase is sometimes referred to as UpperCamelCase.)
         /// </summary>
         /// <example>
@@ -148,13 +152,19 @@ namespace EntitySpaces.MetadataEngine
         /// </code>
         /// The result is "MyTableName"
         /// </example>
+        /// <param name="name">The input string to convert.</param>
+        /// <param name="settings">The configuration settings object.</param>
+        /// <returns>The formatted PascalCase string.</returns>
         public string SetPascalCase(string name, esSettings settings)
         {
-            string convertedName = String.Empty;
-            bool next2upper = true;
-            bool allUpper = true;
+            // 1. Guard against null or empty string to prevent NullReferenceException
+            if (string.IsNullOrEmpty(name))
+            {
+                return string.Empty;
+            }
 
-            // checks for names in all CAPS
+            // 2. Check if the entire string is in uppercase
+            bool allUpper = true;
             foreach (char c in name)
             {
                 if (Char.IsLower(c))
@@ -164,34 +174,42 @@ namespace EntitySpaces.MetadataEngine
                 }
             }
 
+            StringBuilder convertedName = new StringBuilder(name.Length);
+            bool next2upper = true;
+
             foreach (char c in name)
             {
-                if (Char.IsLetterOrDigit(c))
+                if (Char.IsLetter(c))
                 {
                     if (!settings.UseRawNames)
                     {
                         if (next2upper)
                         {
-                            convertedName += c.ToString().ToUpper();
+                            convertedName.Append(Char.ToUpperInvariant(c));
                             next2upper = false;
                         }
                         else if (allUpper)
                         {
-                            convertedName += c.ToString().ToLower();
+                            convertedName.Append(Char.ToLowerInvariant(c));
                         }
                         else
                         {
-                            convertedName += c;
+                            convertedName.Append(c);
                         }
                     }
                     else
                     {
-                        convertedName += c;
+                        convertedName.Append(c);
                     }
+                }
+                else if (Char.IsDigit(c))
+                {
+                    convertedName.Append(c);
+                    // Note: Digits are preserved but do NOT consume the 'next2upper' flag
                 }
                 else if (c == '_' && (settings.PreserveUnderscores || settings.UseRawNames))
                 {
-                    convertedName += c;
+                    convertedName.Append(c);
                     next2upper = true;
                 }
                 else
@@ -200,12 +218,13 @@ namespace EntitySpaces.MetadataEngine
                 }
             }
 
-            if (Char.IsDigit(convertedName[0]))
+            // 3. Safe length check before accessing index [0] to prevent IndexOutOfRangeException
+            if (convertedName.Length > 0 && Char.IsDigit(convertedName[0]))
             {
-                convertedName = convertedName.Insert(0, "_");
+                convertedName.Insert(0, "_");
             }
 
-            return convertedName;
+            return convertedName.ToString();
         }
 
         /// <summary>
