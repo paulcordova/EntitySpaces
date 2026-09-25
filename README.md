@@ -73,12 +73,12 @@ This fork focuses on:
 - Provider alignment across database engines
 - SQL Server modernization for SQL Server 2016–2025 and Microsoft.Data.SqlClient
 - MySQL / MariaDB LATERAL JOIN support with automatic engine detection
-- PostgreSQL modernization for PG 12–17 and Npgsql 7–10
+- PostgreSQL modernization for PG 13–18 and Npgsql 7–10 — tolerant column/property name resolution, single-pass RETURNING reader, safe transaction handling (no explicit `ROLLBACK` on enlisted connections), and corrected server-side column RETURNING for auditing fields
 - Clean compilation with warnings resolved
 - Correct exception propagation and improved debug support (`LastQuery` always available)
 - Reliable NuGet packaging
 - Thread-safe parameter cache using `ConcurrentDictionary` across all providers, eliminating lock contention in multi-threaded environments
-- Unified connection pool safety pattern (`hasError` + conditional rollback) across all five providers, preventing connection leaks and transaction state corruption in web applications
+- Unified transaction-safety pattern across all five providers. The PostgreSQL provider no longer issues explicit `ROLLBACK` on enlisted connections, which under Npgsql 6+ / `System.Transactions` could abort the *ambient* transaction instead of just the current command. Rollback is delegated to the owner of the transaction scope (EntitySpaces' native `esTransactionScope`), which is the correct design across all providers.
 
 The goal is not to redesign EntitySpaces, but to preserve and evolve its proven architecture for current .NET ecosystems.
 
@@ -170,13 +170,41 @@ This fork addresses these foundational issues head-on. By refactoring the core p
 
 - **Scalability under Web Load**: Your application handles concurrent HTTP requests efficiently, eliminating contention and deadlocks in the data access layer when hosted in IIS, Kestrel, or cloud environments.
 
-- **Cloud-Ready Connection Management**: Safe connection pool handling — now unified across all providers with a standard `hasError + ROLLBACK` pattern — ensures that errors during `Save()` or `Load()` never leave connections in a broken state. This prevents resource leaks and application crashes, a common pain point when moving legacy apps to the cloud.
-  
+- **Cloud-Ready Connection Management**: Safe connection pool handling — now unified across all providers — ensures that errors during `Save()` or `Load()` never leave connections in a broken state. This prevents resource leaks and application crashes, a common pain point when moving legacy apps to the cloud.
+
 - **Preserve Business Logic, Modernize the UI**: Paired with modern web frameworks like **Wisej.NET**—which mirrors the WinForms programming model—you can lift-and-shift your existing business logic and EntitySpaces queries directly to the web. There is no need to rewrite hundreds of stored procedures or complex SQL joins.
 
 - **Future-Proof Multi-Provider Support**: With automatic engine detection and full support for SQL Server, PostgreSQL, MySQL, SQLite, and Oracle, your modernized application is ready for Azure, AWS, Oracle Cloud, or hybrid on-premise environments without locking you into a single vendor.
 
 Your teams already know SQL and your existing ORM patterns. This modernization path preserves that investment while giving your applications a future-proof, web-ready architecture. Time-to-market is measured in weeks, not years.
+
+---
+
+# Transaction Management Across Providers
+
+EntitySpaces ships its own transaction scope — `esTransactionScope` — and this is the recommended mechanism across **all** providers:
+
+```csharp
+using (var scope = new esTransactionScope())
+{
+    // ... multiple Save() / Query.Load() operations ...
+    scope.Complete();   // omit to roll back
+}
+```
+
+**Do not use `System.Transactions.TransactionScope` to wrap EntitySpaces operations.** Modern database drivers (Npgsql 6+, Microsoft.Data.SqlClient 5+) no longer enlist connections into ambient `TransactionScope` transactions automatically. If you wrap EntitySpaces calls in a `TransactionScope`, the connections opened by the provider will run in autocommit mode and the `TransactionScope` rollback will not revert your data.
+
+Because EntitySpaces manages connection enlistment through its own scope, `esTransactionScope` is the only mechanism that guarantees correct commit/rollback semantics across all supported engines.
+
+**Provider-specific notes:**
+
+| Provider | Notes |
+|---|---|
+| SQL Server | Uses `SET XACT_ABORT ON` + `IF @@TRANCOUNT > 0 ROLLBACK` pattern; participates correctly in `esTransactionScope` |
+| PostgreSQL | No explicit `ROLLBACK` on enlisted connections — rollback delegated to the scope owner |
+| MySQL / MariaDB | `Transaction.Rollback()` in the `finally` block when a `hasError` flag is set |
+| SQLite | Single-connection model; transactions handled by `esTransactionScope` |
+| Oracle | Provider participates in `esTransactionScope`; **does not support MSDTC** — do not attempt to escalate to distributed transactions |
 
 ---
 
@@ -206,7 +234,7 @@ If your team understands SQL, you already understand EntitySpaces.
 | Database | Package | Status | Notes |
 |----------|---------|--------|-------|
 | SQL Server | EntitySpaces.ORM.SqlServer.NET | ✅ Modernized | SQL Server 2016–2025 · Concurrency exception detection · Connection pool safety |
-| PostgreSQL | EntitySpaces.ORM.PostgreSQL.NET | ✅ Modernized | PG 12–17 · Npgsql 7–10 · Neon compatible |
+| PostgreSQL | EntitySpaces.ORM.PostgreSQL.NET | ✅ Modernized | PG 13–18 · Npgsql 7–10 · Neon compatible |
 | MySQL | EntitySpaces.ORM.MySQL.NET | ✅ Modernized | MySQL 8.0.14+ · MariaDB 10.2+ · MySql.Data 9.x · Concurrency exception detection |
 | SQLite | EntitySpaces.ORM.SQLite.NET | ✅ Modernized | SQLite 3.x · System.Data.SQLite 1.0.119 · Auto-increment detection · FK enforcement · Concurrency exception detection |
 | Oracle | EntitySpaces.ORM.OracleManagedClient.NET | ✅ Modernized | Oracle 12c–19c · ODP.NET Managed · Oracle Cloud ATP · Concurrency exception detection · Connection pool safety · Navigation properties · Thread-safe parameter cache · .NET 8 compatible |
@@ -216,23 +244,79 @@ If your team understands SQL, you already understand EntitySpaces.
 
 # PostgreSQL Modernization
 
-> **Validated with:** PostgreSQL 13 · PostgreSQL 17 · Npgsql 7.x–10.x · Neon PostgreSQL cloud services
+> **Validated with:** PostgreSQL 13 · PostgreSQL 17 · PostgreSQL 18 · Npgsql 7.x–10.x · Neon PostgreSQL cloud services
 
 The PostgreSQL provider has been significantly modernized for compatibility with current PostgreSQL servers and modern Npgsql versions.
 
 Validated and updated features include:
 
-- PostgreSQL 13 through PostgreSQL 17
+- PostgreSQL 13 through PostgreSQL 18
 - Npgsql 7.x through 10.x
 - `GENERATED BY DEFAULT AS IDENTITY` — auto and explicit PK insert
 - `GENERATED ALWAYS AS IDENTITY`
 - `INSERT ... RETURNING` — consolidated single round-trip for all output columns
-- Concurrency exception detection and translation
+- **Tolerant column/property name resolution** — the provider accepts both the database column name (`order_id`) and the generated property name (`OrderId`) when deciding whether a column participates in an INSERT/UPDATE, and when mapping server-returned values back to the entity. This makes hierarchical saves and explicit-PK inserts work on snake_case schemas without any code changes.
+- **Single-pass RETURNING with `CommandBehavior.SingleRow`** — the reader is closed after the first row, keeping the connection healthy for the next command in the same scope and eliminating intermittent `25P02` cascades.
+- **Corrected server-side column RETURNING** — `DateModified`, `AddedBy`, and `ModifiedBy` now return their own columns. Previously all three incorrectly returned `DateAdded`.
+- **Explicit PK insert on IDENTITY columns** — when a user assigns a value to an auto-increment PK, the column is sent as `InputOutput` and included in `RETURNING`, so the entity is marked clean after save.
+- Concurrency exception detection and translation to `esConcurrencyException`
 - Server version auto-detection and cache per connection string
 - `LIMIT`/`OFFSET` translation
 - `APPLY` query translation using PostgreSQL `LATERAL` joins
 - `JOIN LATERAL` and `LEFT JOIN LATERAL` support
 - Compatible with Neon PostgreSQL cloud services
+
+## PostgreSQL Transaction Management
+
+**Use `esTransactionScope` for transactions — not `System.Transactions.TransactionScope`.**
+
+Starting with Npgsql 6.0, opening a connection while an ambient `System.Transactions.TransactionScope` is active no longer enlists that connection in the transaction automatically. Applications relying on `TransactionScope` for rollback will find that INSERT/UPDATE statements commit in autocommit mode — the rollback will not revert the data.
+
+The PostgreSQL provider participates correctly in EntitySpaces' native `esTransactionScope`, which is the supported mechanism across all EntitySpaces providers:
+
+```csharp
+using (var scope = new esTransactionScope())
+{
+    var employee = new Employees { FirstName = "Mike", LastName = "Griffin" };
+    employee.Save();
+
+    var product = new Products { ProductName = "Some Gadget" };
+    product.Save();
+
+    scope.Complete();   // commit; omit to roll back
+}
+```
+
+Nested scopes are supported. The inner scope votes on the outer transaction; omitting `Complete()` on the scope that owns the root rolls back everything created inside it.
+
+> The PostgreSQL provider **no longer issues explicit `ROLLBACK` on enlisted connections**. Doing so under Npgsql 6+ / `System.Transactions` could abort the ambient transaction, not just the current command. Rollback is delegated to the transaction scope owner.
+
+## PostgreSQL Hierarchical Save
+
+Hierarchical parent-child saves work correctly on PostgreSQL when using one of the two supported patterns.
+
+**Parent-initiated** — add children to the parent's collection, then call `parent.Save()`:
+
+```csharp
+var order = new Orders { CustomerId = "ALFKI", OrderDate = DateTime.Now };
+
+order.OrderDetailsCollectionByOrderId.Add(new OrderDetails
+{
+    ProductId = 10, UnitPrice = 15.50f, Quantity = 5, Discount = 0.00f
+});
+
+order.Save();   // parent saved first; child receives the generated order_id
+```
+
+**Child-initiated** — set `UpTo` on the child, then call `child.Save()`:
+
+```csharp
+var detail = new OrderDetails { ProductId = 1, UnitPrice = 25.00f, Quantity = 3, Discount = 0f };
+detail.UpToOrdersByOrderId = order;
+detail.Save();
+```
+
+> **⚠️ Do not use bidirectional linking** — setting both `parent.Children.Add(child)` and `child.UpToParent = parent` triggers a `StackOverflowException` in the framework's navigation property recursion. This is a limitation of the current EntitySpaces Core, not of the provider. Choose one direction.
 
 ## PostgreSQL APPLY Support
 
@@ -361,6 +445,7 @@ The provider auto-detects the PostgreSQL server version on the first operation p
 ```
 PostgreSQL 13.23  →  detected and cached on first query
 PostgreSQL 17.2   →  detected and cached on first query (separate cache entry)
+PostgreSQL 18.0   →  detected and cached on first query (separate cache entry)
 ```
 
 ## PostgreSQL Connection String
@@ -394,7 +479,7 @@ conn.ConnectionString = "Host=ep-xxx.us-east-1.aws.neon.tech;Port=5432;" +
 
 ## PostgreSQL DDL Recommendations
 
-For best compatibility across PostgreSQL 13–17, define IDENTITY columns on a single line:
+For best compatibility across PostgreSQL 13–18, define IDENTITY columns on a single line:
 
 ```sql
 -- Recommended — single line, works correctly on all versions and clients
@@ -1154,7 +1239,7 @@ foreach (var customer in customers)
 
 # Setup
 
-1. Install **EntitySpaces Studio** — see [Requires EntitySpaces Studio](#-requires-entityspaces-studio) above.    
+1. Install **EntitySpaces Studio** — see [Requires EntitySpaces Studio](#-requires-entityspaces-studio) above.
 
 ## Connection String Examples
 
@@ -2118,4 +2203,3 @@ Install-Package EntitySpaces.ORM.OracleManagedClient.NET
    - **Custom classes** — generated once, add your business logic here
 
 <img src="https://raw.githubusercontent.com/paulcordova/EntitySpaces/master/docs/Studio.PNG" alt="EntitySpaces Studio" width="632" height="406">
-```

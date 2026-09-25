@@ -41,14 +41,33 @@ namespace EntitySpaces.Npgsql2Provider
 {
     class Shared
     {
+
+        // ===================================================================
+        // Builds an INSERT command for a single entity.
+        //
+        // [NEW ADJUSTMENT] Key changes vs. the previous version:
+        //   1. When an auto-increment PK is supplied explicitly by the user,
+        //      the column is sent as InputOutput and added to RETURNING, so the
+        //      framework receives the value back and the entity is marked clean.
+        //   2. When a non-auto-increment PK is not covered by the isModified
+        //      branch, the PK is added to RETURNING only if it is auto-increment.
+        //   3. [BUGFIX] DateModified / AddedBy / ModifiedBy special columns now
+        //      add their own column name to RETURNING (previously all three
+        //      incorrectly returned "DateAdded").
+        //   4. [BUGFIX] AddedBy no longer dereferences cols.ModifiedBy when
+        //      reading the CharacterMaxLength — it uses cols.AddedBy.
+        //   5. Dead local variables (where, autoInc) removed.
+        //   6. [FIX1] Explicit-PK detection now uses IsColumnModified so that a
+        //      user-supplied PK reaches us under either the column name or the
+        //      property name. Fixes Categories_Can_Insert_With_Explicit_PK on
+        //      snake_case providers.
+        // ===================================================================
         static public NpgsqlCommand BuildDynamicInsertCommand(esDataRequest request, esEntitySavePacket packet)
         {
             string sql = String.Empty;
             string into = String.Empty;
             string values = String.Empty;
             string comma = String.Empty;
-            string where = String.Empty;
-            string autoInc = String.Empty;
             List<string> returningCols = new List<string>();
 
             NpgsqlParameter p = null;
@@ -61,13 +80,15 @@ namespace EntitySpaces.Npgsql2Provider
             esColumnMetadataCollection cols = request.Columns;
             foreach (esColumnMetadata col in cols)
             {
-                bool isModified = packet.ModifiedColumns == null ? false : packet.ModifiedColumns.Contains(col.Name);
+                // [NEW ADJUSTMENT] Use the tolerant helpers so that property-name-keyed
+                // modifications coming from generated ApplyPostSaveKeys are recognized.
+                bool isModified = IsColumnModified(packet, col);
 
                 if (isModified && (!col.IsAutoIncrement && !col.IsConcurrency && !col.IsEntitySpacesConcurrency))
                 {
                     p = cmd.Parameters.Add(CloneParameter(types[col.Name]));
 
-                    object value = packet.CurrentValues[col.Name];
+                    object value = GetColumnValue(packet, col);          // [NEW ADJUSTMENT]
                     p.Value = value != null ? value : DBNull.Value;
 
                     into += comma + Delimiters.ColumnOpen + col.Name + Delimiters.ColumnClose;
@@ -76,19 +97,28 @@ namespace EntitySpaces.Npgsql2Provider
                 }
                 else if (col.IsAutoIncrement)
                 {
-                    bool hasExplicitValue = packet.ModifiedColumns != null &&
-                                            packet.ModifiedColumns.Contains(col.Name);
+                    // [FIX1] Tolerant check — the user may have supplied the PK
+                    // under either the DB column name or the property name. Both
+                    // are valid markers of an explicit value.
+                    bool hasExplicitValue = IsColumnModified(packet, col);
 
                     if (hasExplicitValue)
                     {
-                        // The user assigned an explicit value — treat it as a normal column
+                        // [NEW ADJUSTMENT] The user assigned an explicit value to an
+                        // auto-increment column. Send it as InputOutput and include
+                        // the column in RETURNING so the framework receives the
+                        // value back and can mark the entity as clean.
                         p = cmd.Parameters.Add(CloneParameter(types[col.Name]));
-                        object value = packet.CurrentValues[col.Name];
+                        object value = GetColumnValue(packet, col);              // [NEW ADJUSTMENT]
                         p.Value = value != null ? value : DBNull.Value;
+                        p.Direction = ParameterDirection.InputOutput;   // [NEW ADJUSTMENT] was: Input (default)
 
                         into += comma + Delimiters.ColumnOpen + col.Name + Delimiters.ColumnClose;
                         values += comma + p.ParameterName;
                         comma = ", ";
+
+                        // [NEW ADJUSTMENT] Always include the explicit PK in RETURNING.
+                        returningCols.Add(Delimiters.ColumnOpen + col.Name + Delimiters.ColumnClose);
                     }
                     else
                     {
@@ -101,8 +131,8 @@ namespace EntitySpaces.Npgsql2Provider
                 }
                 else if (col.IsConcurrency)
                 {
-                    // These columns have defaults and they weren't supplied with values, so let's
-                    // return them
+                    // These columns have defaults and they weren't supplied with values,
+                    // so let's return them
                     p = cmd.Parameters.Add(CloneParameter(types[col.Name]));
                     p.Direction = ParameterDirection.InputOutput;
 
@@ -115,7 +145,7 @@ namespace EntitySpaces.Npgsql2Provider
                 }
                 else if (col.IsEntitySpacesConcurrency)
                 {
-                    p = cmd.Parameters.Add(CloneParameter(types[col.Name]));    
+                    p = cmd.Parameters.Add(CloneParameter(types[col.Name]));
                     p.Direction = ParameterDirection.Output;
 
                     into += comma + Delimiters.ColumnOpen + col.Name + Delimiters.ColumnClose;
@@ -123,7 +153,6 @@ namespace EntitySpaces.Npgsql2Provider
                     comma = ", ";
 
                     p.Value = 1; // Seems to work, We'll take it ...
-
                 }
                 else if (col.IsComputed)
                 {
@@ -135,8 +164,8 @@ namespace EntitySpaces.Npgsql2Provider
                 }
                 else if (col.HasDefault)
                 {
-                    // These columns have defaults and they weren't supplied with values, so let's
-                    // return them
+                    // These columns have defaults and they weren't supplied with values,
+                    // so let's return them
                     p = cmd.Parameters.Add(CloneParameter(types[col.Name]));
                     p.Direction = ParameterDirection.InputOutput;
                     p.Value = DBNull.Value; // required by Npgsql — null is not valid, use DBNull.Value
@@ -150,34 +179,40 @@ namespace EntitySpaces.Npgsql2Provider
                     }
                 }
 
+                // [NEW ADJUSTMENT] PK fallback block. Reached only when the PK
+                // column was not already added by the branches above. Explicit
+                // auto-increment values are handled by the IsAutoIncrement branch;
+                // manual PKs supplied as ModifiedColumns are handled by the
+                // isModified branch. This path covers PK columns present in the
+                // packet's OriginalValues but not in CurrentValues (e.g. composite
+                // PKs where only part of the key was supplied).
                 if (col.IsInPrimaryKey)
                 {
-                    if (where.Length > 0) where += " AND ";
-
-                    // Use the type definition to get the parameter name for the WHERE clause
                     NpgsqlParameter typeParam = types[col.Name];
-                    where += Delimiters.ColumnOpen + col.Name + Delimiters.ColumnClose + " = " + typeParam.ParameterName;
 
                     if (!cmd.Parameters.Contains(typeParam.ParameterName))
                     {
-
-                        // Reached only when PK column was not added by the isModified block above.
-                        // For IDENTITY PKs without explicit value, Output is correct (value comes from RETURNING).
-                        // For manual PKs, this path should not be reached if ModifiedColumns is populated correctly.
                         p = CloneParameter(typeParam);
 
                         if (col.IsAutoIncrement && !isModifiedPK(packet, col))
                         {
                             // Sequence-generated PK — output only, value comes from RETURNING
                             p.Direction = ParameterDirection.Output;
+
+                            // [NEW ADJUSTMENT] Ensure the auto-increment PK is also
+                            // present in RETURNING, since the value is expected back
+                            // on the client. Guard against duplicates.
+                            string colToken = Delimiters.ColumnOpen + col.Name + Delimiters.ColumnClose;
+                            if (!returningCols.Contains(colToken))
+                            {
+                                returningCols.Add(colToken);
+                            }
                         }
                         else
                         {
                             // Manual PK or explicit value — preserve the supplied value
                             p.Direction = ParameterDirection.Input;
-                            object value = packet.CurrentValues.ContainsKey(col.Name)
-                                ? packet.CurrentValues[col.Name]
-                                : null;
+                            object value = GetColumnValue(packet, col);              // [NEW ADJUSTMENT]
                             p.Value = value != null ? value : DBNull.Value;
                         }
 
@@ -197,7 +232,9 @@ namespace EntitySpaces.Npgsql2Provider
                 values += comma + request.ProviderMetadata["DateAdded.ServerSideText"];
                 comma = ", ";
 
-                returningCols.Add(cols.DateAdded.ColumnName);
+                // [NEW ADJUSTMENT] Wrap the column name in delimiters for consistency
+                // with the rest of the RETURNING list.
+                returningCols.Add(Delimiters.ColumnOpen + cols.DateAdded.ColumnName + Delimiters.ColumnClose);
             }
 
             if (cols.DateModified != null && cols.DateModified.IsServerSide)
@@ -210,7 +247,10 @@ namespace EntitySpaces.Npgsql2Provider
                 values += comma + request.ProviderMetadata["DateModified.ServerSideText"];
                 comma = ", ";
 
-                returningCols.Add(cols.DateAdded.ColumnName);
+                // [BUGFIX] Was adding cols.DateAdded.ColumnName — corrected to
+                // cols.DateModified.ColumnName. Previously DateModified was never
+                // returned and DateAdded could be duplicated in RETURNING.
+                returningCols.Add(Delimiters.ColumnOpen + cols.DateModified.ColumnName + Delimiters.ColumnClose);
             }
 
             if (cols.AddedBy != null && cols.AddedBy.IsServerSide)
@@ -223,9 +263,13 @@ namespace EntitySpaces.Npgsql2Provider
                 values += comma + request.ProviderMetadata["AddedBy.ServerSideText"];
                 comma = ", ";
 
-                returningCols.Add(cols.DateAdded.ColumnName);
+                // [BUGFIX] Was adding cols.DateAdded.ColumnName — corrected to
+                // cols.AddedBy.ColumnName.
+                returningCols.Add(Delimiters.ColumnOpen + cols.AddedBy.ColumnName + Delimiters.ColumnClose);
 
-                esColumnMetadata col = request.Columns[cols.ModifiedBy.ColumnName];
+                // [BUGFIX] Was reading cols.ModifiedBy.ColumnName — corrected to
+                // cols.AddedBy.ColumnName so the size is taken from the right column.
+                esColumnMetadata col = request.Columns[cols.AddedBy.ColumnName];
 
                 if (col.CharacterMaxLength > 0)
                 {
@@ -243,7 +287,9 @@ namespace EntitySpaces.Npgsql2Provider
                 values += comma + request.ProviderMetadata["ModifiedBy.ServerSideText"];
                 comma = ", ";
 
-                returningCols.Add(cols.DateAdded.ColumnName);
+                // [BUGFIX] Was adding cols.DateAdded.ColumnName — corrected to
+                // cols.ModifiedBy.ColumnName.
+                returningCols.Add(Delimiters.ColumnOpen + cols.ModifiedBy.ColumnName + Delimiters.ColumnClose);
 
                 esColumnMetadata col = request.Columns[cols.ModifiedBy.ColumnName];
 
@@ -258,7 +304,6 @@ namespace EntitySpaces.Npgsql2Provider
 
             sql += " INSERT INTO " + fullName;
 
-
             if (into.Length != 0)
             {
                 sql += " (" + into + ") VALUES (" + values + ")";
@@ -268,8 +313,9 @@ namespace EntitySpaces.Npgsql2Provider
                 sql += " DEFAULT VALUES";
             }
 
-            // Single RETURNING clause replaces both the old returning string and the second SELECT.
-            // All identity columns, defaults, concurrency, and special columns are returned together.
+            // Single RETURNING clause replaces both the old returning string and
+            // the second SELECT. All identity columns, defaults, concurrency, and
+            // special columns are returned together.
             if (returningCols.Count > 0)
             {
                 sql += " RETURNING " + string.Join(", ", returningCols);
@@ -277,17 +323,33 @@ namespace EntitySpaces.Npgsql2Provider
 
             sql += ";";
 
-
-            cmd.CommandText = sql + String.Empty;
+            cmd.CommandText = sql;
             cmd.CommandType = CommandType.Text;
+
             return cmd;
         }
 
+        // ===================================================================
+        // [FIX1] Reuses the tolerant column-modified check so a user-supplied
+        // PK recognized under the property name ("CategoryId") is treated the
+        // same as one recognized under the column name ("category_id").
+        // ===================================================================
         private static bool isModifiedPK(esEntitySavePacket packet, esColumnMetadata col)
         {
-            return packet.ModifiedColumns != null && packet.ModifiedColumns.Contains(col.Name);
+            return IsColumnModified(packet, col);
         }
 
+        // ===================================================================
+        // Builds an UPDATE command for a single entity.
+        //
+        // [NEW ADJUSTMENT] Key change vs. the previous version:
+        //   Modified-column detection and value lookup now accept both the DB
+        //   column name ("order_id") and the EntitySpaces property name
+        //   ("OrderId"). Generated ApplyPostSaveKeys calls SetProperty with the
+        //   property name, which previously fell through silently on providers
+        //   that use snake_case column names (PostgreSQL, Oracle, ...). On SQL
+        //   Server both names coincide, so behaviour is unchanged there.
+        // ===================================================================
         static public NpgsqlCommand BuildDynamicUpdateCommand(esDataRequest request, esEntitySavePacket packet)
         {
             string where = String.Empty;
@@ -310,13 +372,15 @@ namespace EntitySpaces.Npgsql2Provider
             esColumnMetadataCollection cols = request.Columns;
             foreach (esColumnMetadata col in cols)
             {
-                bool isModified = packet.ModifiedColumns == null ? false : packet.ModifiedColumns.Contains(col.Name);
+                // [NEW ADJUSTMENT] Tolerant modified-column check.
+                bool isModified = IsColumnModified(packet, col);
 
                 if (isModified && (!col.IsAutoIncrement && !col.IsConcurrency && !col.IsEntitySpacesConcurrency))
                 {
                     p = cmd.Parameters.Add(CloneParameter(types[col.Name]));
 
-                    object value = packet.CurrentValues[col.Name];
+                    // [NEW ADJUSTMENT] Tolerant value lookup.
+                    object value = GetColumnValue(packet, col);
                     p.Value = value != null ? value : DBNull.Value;
 
                     sql += scomma + Delimiters.ColumnOpen + col.Name + Delimiters.ColumnClose + " = " + p.ParameterName;
@@ -338,7 +402,9 @@ namespace EntitySpaces.Npgsql2Provider
                 else if (col.IsEntitySpacesConcurrency)
                 {
                     p = CloneParameter(types[col.Name]);
-                    p.Value = packet.OriginalValues[col.Name];
+
+                    // [NEW ADJUSTMENT] Tolerant original-value lookup.
+                    p.Value = GetOriginalColumnValue(packet, col);
                     p.Direction = ParameterDirection.InputOutput;
                     cmd.Parameters.Add(p);
 
@@ -367,7 +433,9 @@ namespace EntitySpaces.Npgsql2Provider
                 if (col.IsInPrimaryKey)
                 {
                     p = CloneParameter(types[col.Name]);
-                    p.Value = packet.OriginalValues[col.Name];
+
+                    // [NEW ADJUSTMENT] Tolerant original-value lookup for the WHERE clause.
+                    p.Value = GetOriginalColumnValue(packet, col);
                     cmd.Parameters.Add(p);
 
                     where += and + Delimiters.ColumnOpen + col.Name + Delimiters.ColumnClose + " = " + p.ParameterName;
@@ -426,6 +494,15 @@ namespace EntitySpaces.Npgsql2Provider
             return cmd;
         }
 
+        // ===================================================================
+        // Builds a DELETE command for a single entity.
+        //
+        // [NEW ADJUSTMENT] Key change vs. the previous version:
+        //   Original-value lookup for PK and concurrency columns now accepts
+        //   both the DB column name ("order_id") and the EntitySpaces property
+        //   name ("OrderId"). Generated code may store the key under either
+        //   depending on how the entity was populated before MarkAsDeleted().
+        // ===================================================================
         static public NpgsqlCommand BuildDynamicDeleteCommand(esDataRequest request, esEntitySavePacket packet)
         {
             Dictionary<string, NpgsqlParameter> types = Cache.GetParameters(request);
@@ -444,7 +521,9 @@ namespace EntitySpaces.Npgsql2Provider
                 {
                     NpgsqlParameter p = types[col.Name];
                     p = cmd.Parameters.Add(CloneParameter(p));
-                    p.Value = packet.OriginalValues[col.Name];
+
+                    // [NEW ADJUSTMENT] Tolerant original-value lookup.
+                    p.Value = GetOriginalColumnValue(packet, col);
 
                     sql += comma;
                     sql += Delimiters.ColumnOpen + col.Name + Delimiters.ColumnClose + " = " + p.ParameterName;
@@ -527,18 +606,13 @@ namespace EntitySpaces.Npgsql2Provider
 
             foreach (esColumnMetadata col in request.Columns)
             {
-                if (col.IsInPrimaryKey)
+                if (col.IsInPrimaryKey || col.IsConcurrency || col.IsEntitySpacesConcurrency)
                 {
-                    p = types[col.Name];
-                    p = CloneParameter(p);
-                    p.Value = packet.OriginalValues[col.Name];
-                    cmd.Parameters.Add(p);
-                }
-                else if (col.IsConcurrency || col.IsEntitySpacesConcurrency)
-                {
-                    p = types[col.Name];
-                    p = CloneParameter(p);
-                    p.Value = packet.OriginalValues[col.Name];
+                    p = CloneParameter(types[col.Name]);
+
+                    // [NEW ADJUSTMENT] Tolerant original-value lookup.
+                    p.Value = GetOriginalColumnValue(packet, col);
+
                     cmd.Parameters.Add(p);
                 }
             }
@@ -557,9 +631,11 @@ namespace EntitySpaces.Npgsql2Provider
                 p = types[col.Name];
                 p = CloneParameter(p);
 
-                if (packet.CurrentValues.ContainsKey(col.Name))
+                // [NEW ADJUSTMENT] Tolerant value lookup.
+                object value = GetColumnValue(packet, col);
+                if (value != null)
                 {
-                    p.Value = packet.CurrentValues[col.Name];
+                    p.Value = value;
                 }
 
                 if (p.NpgsqlDbType == NpgsqlDbType.Timestamp)
@@ -773,5 +849,86 @@ namespace EntitySpaces.Npgsql2Provider
                 }
             }
         }
-    }
+
+
+        // ===================================================================
+        // [NEW ADJUSTMENT] Checks if a column is marked as modified accepting
+        // both the DB column name and the EntitySpaces property name. This
+        // accommodates the generated code which, for providers that use
+        // snake_case column names (PostgreSQL, Oracle, ...), calls
+        // SetProperty("OrderId", value) with the property name instead of
+        // the column name ("order_id"). On SQL Server both names coincide
+        // so this is a no-op there.
+        // ===================================================================
+        static private bool IsColumnModified(esEntitySavePacket packet, esColumnMetadata col)
+        {
+            if (packet.ModifiedColumns == null) return false;
+            if (packet.ModifiedColumns.Contains(col.Name)) return true;
+            if (!string.IsNullOrEmpty(col.PropertyName) &&
+                packet.ModifiedColumns.Contains(col.PropertyName)) return true;
+            return false;
+        }
+
+        // ===================================================================
+        // [NEW ADJUSTMENT - REVISED] Reads a column value from CurrentValues,
+        // accepting either the DB column name or the EntitySpaces property name.
+        //
+        // IMPORTANT: esSmartDictionary exposes all registered column names via
+        // ContainsKey even when no value has been assigned (they resolve to
+        // null/DBNull). Checking ContainsKey alone is therefore insufficient —
+        // we must check the VALUE, and only fall through to the property-name
+        // lookup when the column-name slot is empty.
+        // ===================================================================
+        static private object GetColumnValue(esEntitySavePacket packet, esColumnMetadata col)
+        {
+            object byColumn = null;
+            if (packet.CurrentValues.ContainsKey(col.Name))
+                byColumn = packet.CurrentValues[col.Name];
+
+            // Only use the column-name slot if it holds a real value.
+            if (byColumn != null && byColumn != DBNull.Value)
+                return byColumn;
+
+            // Fall back to the property-name slot (populated by SetProperty from
+            // generated ApplyPostSaveKeys on snake_case providers).
+            if (!string.IsNullOrEmpty(col.PropertyName) &&
+                packet.CurrentValues.ContainsKey(col.PropertyName))
+            {
+                object byProperty = packet.CurrentValues[col.PropertyName];
+                if (byProperty != null && byProperty != DBNull.Value)
+                    return byProperty;
+            }
+
+            // Neither slot holds a value — return whatever we have so the caller
+            // can bind NULL / DBNull to the parameter.
+            return byColumn;
+        }
+
+        // ===================================================================
+        // [NEW ADJUSTMENT - REVISED] Same fix as GetColumnValue, applied to
+        // OriginalValues. Used by UPDATE and DELETE to build the WHERE clause.
+        // ===================================================================
+        static private object GetOriginalColumnValue(esEntitySavePacket packet, esColumnMetadata col)
+        {
+            if (packet.OriginalValues == null) return null;
+
+            object byColumn = null;
+            if (packet.OriginalValues.ContainsKey(col.Name))
+                byColumn = packet.OriginalValues[col.Name];
+
+            if (byColumn != null && byColumn != DBNull.Value)
+                return byColumn;
+
+            if (!string.IsNullOrEmpty(col.PropertyName) &&
+                packet.OriginalValues.ContainsKey(col.PropertyName))
+            {
+                object byProperty = packet.OriginalValues[col.PropertyName];
+                if (byProperty != null && byProperty != DBNull.Value)
+                    return byProperty;
+            }
+
+            return byColumn;
+        }
+
+    } // end class
 }

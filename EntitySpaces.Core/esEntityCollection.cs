@@ -172,7 +172,10 @@ namespace EntitySpaces.Core
             {
                 foreach (string column in fks.Keys)
                 {
-                    entity.SetColumn(column, fks[column]);
+                    // Use isVirtualColumn=false to ensure MarkFieldAsModified is called,
+                    // so FK columns propagated from parent PKs are included in ModifiedColumns
+                    // and therefore included in the INSERT statement by the provider.
+                    entity.SetColumn(column, fks[column], false);
                 }
             }
 

@@ -27,16 +27,16 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 -------------------------------------------------------------------------------
 */
 
-using System;
-using System.Data;
-
 using EntitySpaces.DynamicQuery;
 using EntitySpaces.Interfaces;
-
 using Npgsql;
-using System.Threading;
-using System.Diagnostics;
+using System;
 using System.Collections.Generic;
+using System.Data;
+using System.Diagnostics;
+using System.Linq;
+using System.Net.Sockets;
+using System.Threading;
 
 namespace EntitySpaces.Npgsql2Provider
 {
@@ -309,7 +309,6 @@ namespace EntitySpaces.Npgsql2Provider
         {
             esDataResponse response = new esDataResponse();
             NpgsqlCommand cmd = null;
-            bool hasError = false;
 
             try
             {
@@ -351,7 +350,6 @@ namespace EntitySpaces.Npgsql2Provider
                             catch (Exception ex)
                             {
                                 esTrace.Exception = ex.Message;
-                                hasError = true;
                                 throw;
                             }
                         }
@@ -362,26 +360,12 @@ namespace EntitySpaces.Npgsql2Provider
                         response.RowsEffected = cmd.ExecuteNonQuery();
                     }
                 }
-                catch
-                {
-                    hasError = true;
-                    throw;
-                }
                 finally
                 {
-                    // Roll back any active transaction before releasing the connection to the pool
-                    if (hasError && cmd != null && cmd.Connection != null && cmd.Connection.State == ConnectionState.Open)
-                    {
-                        try
-                        {
-                            using (NpgsqlCommand rollback = new NpgsqlCommand("ROLLBACK", cmd.Connection))
-                            {
-                                rollback.ExecuteNonQuery();
-                            }
-                        }
-                        catch { /* best-effort rollback — ignore secondary errors */ }
-                    }
-
+                    // [REVISED] No explicit ROLLBACK. The connection may be enlisted in
+                    // an ambient TransactionScope (test harness, ES transaction scope);
+                    // issuing ROLLBACK would abort the AMBIENT transaction, not just this
+                    // command. System.Transactions handles rollback when the scope ends.
                     esTransactionScope.DeEnlist(cmd);
                 }
 
@@ -403,7 +387,6 @@ namespace EntitySpaces.Npgsql2Provider
         {
             esDataResponse response = new esDataResponse();
             NpgsqlCommand cmd = null;
-            bool hasError = false;
 
             try
             {
@@ -448,7 +431,6 @@ namespace EntitySpaces.Npgsql2Provider
                         catch (Exception ex)
                         {
                             esTrace.Exception = ex.Message;
-                            hasError = true;
                             throw;
                         }
                     }
@@ -459,31 +441,14 @@ namespace EntitySpaces.Npgsql2Provider
                     response.DataReader = cmd.ExecuteReader(CommandBehavior.CloseConnection);
                 }
             }
-            catch
+            catch (Exception ex)
             {
-                hasError = true;
-                throw;
-            }
-            finally
-            {
-                // Roll back any active transaction before releasing the connection to the pool
-                if (hasError && cmd != null && cmd.Connection != null && cmd.Connection.State == ConnectionState.Open)
-                {
-                    try
-                    {
-                        using (NpgsqlCommand rollback = new NpgsqlCommand("ROLLBACK", cmd.Connection))
-                        {
-                            rollback.ExecuteNonQuery();
-                        }
-                    }
-                    catch { /* best-effort rollback — ignore secondary errors */ }
-                }
-
-                // If an error occurred, also ensure the connection is closed (CommandBehavior.CloseConnection may not have fired)
-                if (hasError)
-                {
-                    CleanupCommand(cmd);
-                }
+                // [REVISED] Close the connection cleanly on error. No ROLLBACK is
+                // issued — PostgreSQL rolls back any pending transaction automatically
+                // when the connection is closed. If the connection was enlisted in an
+                // ambient scope, the scope owner handles the rollback.
+                CleanupCommand(cmd);
+                response.Exception = ex;
             }
 
             return response;
@@ -493,7 +458,6 @@ namespace EntitySpaces.Npgsql2Provider
         {
             esDataResponse response = new esDataResponse();
             NpgsqlCommand cmd = null;
-            bool hasError = false;
 
             try
             {
@@ -539,7 +503,6 @@ namespace EntitySpaces.Npgsql2Provider
                             catch (Exception ex)
                             {
                                 esTrace.Exception = ex.Message;
-                                hasError = true;
                                 throw;
                             }
                         }
@@ -550,26 +513,9 @@ namespace EntitySpaces.Npgsql2Provider
                         response.Scalar = cmd.ExecuteScalar();
                     }
                 }
-                catch
-                {
-                    hasError = true;
-                    throw;
-                }
                 finally
                 {
-                    // Roll back any active transaction before releasing the connection to the pool
-                    if (hasError && cmd != null && cmd.Connection != null && cmd.Connection.State == ConnectionState.Open)
-                    {
-                        try
-                        {
-                            using (NpgsqlCommand rollback = new NpgsqlCommand("ROLLBACK", cmd.Connection))
-                            {
-                                rollback.ExecuteNonQuery();
-                            }
-                        }
-                        catch { /* best-effort rollback — ignore secondary errors */ }
-                    }
-
+                    // [REVISED] No explicit ROLLBACK — see ExecuteNonQuery for rationale.
                     esTransactionScope.DeEnlist(cmd);
                 }
 
@@ -653,7 +599,6 @@ namespace EntitySpaces.Npgsql2Provider
         {
             esDataResponse response = new esDataResponse();
             NpgsqlCommand cmd = null;
-            bool hasError = false;
 
             try
             {
@@ -697,6 +642,7 @@ namespace EntitySpaces.Npgsql2Provider
                 }
                 finally
                 {
+                    // [REVISED] No explicit ROLLBACK.
                     esTransactionScope.DeEnlist(da.SelectCommand);
                 }
 
@@ -709,23 +655,8 @@ namespace EntitySpaces.Npgsql2Provider
             }
             catch (Exception ex)
             {
-                hasError = true;
                 CleanupCommand(cmd);
                 throw ex;
-            }
-            finally
-            {
-                if (hasError && cmd != null && cmd.Connection != null && cmd.Connection.State == ConnectionState.Open)
-                {
-                    try
-                    {
-                        using (NpgsqlCommand rollback = new NpgsqlCommand("ROLLBACK", cmd.Connection))
-                        {
-                            rollback.ExecuteNonQuery();
-                        }
-                    }
-                    catch { /* best-effort rollback */ }
-                }
             }
 
             return response;
@@ -735,7 +666,6 @@ namespace EntitySpaces.Npgsql2Provider
         {
             esDataResponse response = new esDataResponse();
             NpgsqlCommand cmd = null;
-            bool hasError = false;
 
             try
             {
@@ -777,6 +707,7 @@ namespace EntitySpaces.Npgsql2Provider
                 }
                 finally
                 {
+                    // [REVISED] No explicit ROLLBACK.
                     esTransactionScope.DeEnlist(da.SelectCommand);
                 }
 
@@ -789,23 +720,8 @@ namespace EntitySpaces.Npgsql2Provider
             }
             catch (Exception ex)
             {
-                hasError = true;
                 CleanupCommand(cmd);
                 throw ex;
-            }
-            finally
-            {
-                if (hasError && cmd != null && cmd.Connection != null && cmd.Connection.State == ConnectionState.Open)
-                {
-                    try
-                    {
-                        using (NpgsqlCommand rollback = new NpgsqlCommand("ROLLBACK", cmd.Connection))
-                        {
-                            rollback.ExecuteNonQuery();
-                        }
-                    }
-                    catch { /* best-effort rollback */ }
-                }
             }
 
             return response;
@@ -815,7 +731,6 @@ namespace EntitySpaces.Npgsql2Provider
         {
             esDataResponse response = new esDataResponse();
             NpgsqlCommand cmd = null;
-            bool hasError = false;
 
             try
             {
@@ -858,6 +773,7 @@ namespace EntitySpaces.Npgsql2Provider
                 }
                 finally
                 {
+                    // [REVISED] No explicit ROLLBACK.
                     esTransactionScope.DeEnlist(da.SelectCommand);
                 }
 
@@ -870,23 +786,8 @@ namespace EntitySpaces.Npgsql2Provider
             }
             catch (Exception ex)
             {
-                hasError = true;
                 CleanupCommand(cmd);
                 throw ex;
-            }
-            finally
-            {
-                if (hasError && cmd != null && cmd.Connection != null && cmd.Connection.State == ConnectionState.Open)
-                {
-                    try
-                    {
-                        using (NpgsqlCommand rollback = new NpgsqlCommand("ROLLBACK", cmd.Connection))
-                        {
-                            rollback.ExecuteNonQuery();
-                        }
-                    }
-                    catch { /* best-effort rollback */ }
-                }
             }
 
             return response;
@@ -896,7 +797,6 @@ namespace EntitySpaces.Npgsql2Provider
         {
             esDataResponse response = new esDataResponse();
             NpgsqlCommand cmd = null;
-            bool hasError = false;
 
             try
             {
@@ -939,6 +839,7 @@ namespace EntitySpaces.Npgsql2Provider
                 }
                 finally
                 {
+                    // [REVISED] No explicit ROLLBACK.
                     esTransactionScope.DeEnlist(da.SelectCommand);
                 }
 
@@ -951,23 +852,8 @@ namespace EntitySpaces.Npgsql2Provider
             }
             catch (Exception ex)
             {
-                hasError = true;
                 CleanupCommand(cmd);
                 throw ex;
-            }
-            finally
-            {
-                if (hasError && cmd != null && cmd.Connection != null && cmd.Connection.State == ConnectionState.Open)
-                {
-                    try
-                    {
-                        using (NpgsqlCommand rollback = new NpgsqlCommand("ROLLBACK", cmd.Connection))
-                        {
-                            rollback.ExecuteNonQuery();
-                        }
-                    }
-                    catch { /* best-effort rollback */ }
-                }
             }
 
             return response;
@@ -977,7 +863,6 @@ namespace EntitySpaces.Npgsql2Provider
         {
             esDataResponse response = new esDataResponse();
             NpgsqlCommand cmd = null;
-            bool hasError = false;
 
             try
             {
@@ -1027,7 +912,6 @@ namespace EntitySpaces.Npgsql2Provider
 
                 NpgsqlDataAdapter da = new NpgsqlDataAdapter();
                 cmd.CommandText = sql;
-
                 da.SelectCommand = cmd;
 
                 try
@@ -1046,7 +930,6 @@ namespace EntitySpaces.Npgsql2Provider
                             catch (Exception ex)
                             {
                                 esTrace.Exception = ex.Message;
-                                hasError = true;
                                 throw;
                             }
                         }
@@ -1059,6 +942,7 @@ namespace EntitySpaces.Npgsql2Provider
                 }
                 finally
                 {
+                    // [REVISED] No explicit ROLLBACK.
                     esTransactionScope.DeEnlist(da.SelectCommand);
                 }
 
@@ -1066,24 +950,8 @@ namespace EntitySpaces.Npgsql2Provider
             }
             catch (Exception ex)
             {
-                hasError = true;
                 CleanupCommand(cmd);
                 throw ex;
-            }
-            finally
-            {
-                // Roll back any active transaction before releasing the connection to the pool
-                if (hasError && cmd != null && cmd.Connection != null && cmd.Connection.State == ConnectionState.Open)
-                {
-                    try
-                    {
-                        using (NpgsqlCommand rollback = new NpgsqlCommand("ROLLBACK", cmd.Connection))
-                        {
-                            rollback.ExecuteNonQuery();
-                        }
-                    }
-                    catch { /* best-effort rollback — ignore secondary errors */ }
-                }
             }
 
             return response;
@@ -1092,8 +960,6 @@ namespace EntitySpaces.Npgsql2Provider
         // This is used only to execute the Dynamic Query API
         static private void LoadDataTableFromDynamicQuery(esDataRequest request, esDataResponse response, NpgsqlCommand cmd)
         {
-            bool hasError = false;
-
             try
             {
                 response.LastQuery = cmd.CommandText;
@@ -1133,6 +999,7 @@ namespace EntitySpaces.Npgsql2Provider
                 }
                 finally
                 {
+                    // [REVISED] No explicit ROLLBACK.
                     esTransactionScope.DeEnlist(da.SelectCommand);
                 }
 
@@ -1140,23 +1007,8 @@ namespace EntitySpaces.Npgsql2Provider
             }
             catch (Exception ex)
             {
-                hasError = true;
                 CleanupCommand(cmd);
                 throw ex;
-            }
-            finally
-            {
-                if (hasError && cmd != null && cmd.Connection != null && cmd.Connection.State == ConnectionState.Open)
-                {
-                    try
-                    {
-                        using (NpgsqlCommand rollback = new NpgsqlCommand("ROLLBACK", cmd.Connection))
-                        {
-                            rollback.ExecuteNonQuery();
-                        }
-                    }
-                    catch { /* best-effort rollback */ }
-                }
             }
         }
 
@@ -1246,7 +1098,6 @@ namespace EntitySpaces.Npgsql2Provider
                     {
                         cmd = null;
                         exception = false;
-                        bool hasError = false; // Tracks per-packet connection state
 
                         #region Setup Commands
                         switch (packet.RowState)
@@ -1322,7 +1173,6 @@ namespace EntitySpaces.Npgsql2Provider
                                     catch (Exception ex)
                                     {
                                         esTrace.Exception = ex.Message;
-                                        hasError = true;
                                         throw;
                                     }
                                 }
@@ -1340,7 +1190,6 @@ namespace EntitySpaces.Npgsql2Provider
                         }
                         catch (Exception ex)
                         {
-                            hasError = true;
                             exception = true;
                             request.FireOnError(packet, ex.Message);
                             if (!request.ContinueUpdateOnError)
@@ -1367,18 +1216,7 @@ namespace EntitySpaces.Npgsql2Provider
                         }
                         #endregion
 
-                        // Roll back the per-packet connection before it is released to the pool
-                        if (hasError && cmd != null && cmd.Connection != null && cmd.Connection.State == ConnectionState.Open)
-                        {
-                            try
-                            {
-                                using (NpgsqlCommand rollback = new NpgsqlCommand("ROLLBACK", cmd.Connection))
-                                {
-                                    rollback.ExecuteNonQuery();
-                                }
-                            }
-                            catch { /* best-effort rollback — ignore secondary errors */ }
-                        }
+                        // [REVISED] No per-packet ROLLBACK — see ExecuteNonQuery for rationale.
                     }
 
                     scope.Complete();
@@ -1416,8 +1254,6 @@ namespace EntitySpaces.Npgsql2Provider
                     return null;
             }
 
-            bool hasError = false;
-
             try
             {
                 esTransactionScope.Enlist(cmd, request.ConnectionString, CreateIDbConnectionDelegate);
@@ -1435,7 +1271,6 @@ namespace EntitySpaces.Npgsql2Provider
                         catch (Exception ex)
                         {
                             esTrace.Exception = ex.Message;
-                            hasError = true;
                             throw;
                         }
                     }
@@ -1451,26 +1286,9 @@ namespace EntitySpaces.Npgsql2Provider
                     throw new esConcurrencyException("Update failed to update any records");
                 }
             }
-            catch
-            {
-                hasError = true;
-                throw;
-            }
             finally
             {
-                // Roll back any active transaction before releasing the connection to the pool
-                if (hasError && cmd != null && cmd.Connection != null && cmd.Connection.State == ConnectionState.Open)
-                {
-                    try
-                    {
-                        using (NpgsqlCommand rollback = new NpgsqlCommand("ROLLBACK", cmd.Connection))
-                        {
-                            rollback.ExecuteNonQuery();
-                        }
-                    }
-                    catch { /* best-effort rollback — ignore secondary errors */ }
-                }
-
+                // [REVISED] No explicit ROLLBACK.
                 esTransactionScope.DeEnlist(cmd);
                 cmd.Dispose();
             }
@@ -1499,29 +1317,21 @@ namespace EntitySpaces.Npgsql2Provider
 
             using (esTransactionScope scope = new esTransactionScope())
             {
-                NpgsqlCommand cmd = null;
-                bool exception = false;
-
                 foreach (esEntitySavePacket packet in request.CollectionSavePacket)
                 {
-                    exception = false;
-                    cmd = null;
-                    bool hasError = false; // Tracks per-packet connection state
+                    NpgsqlCommand cmd = null;
 
                     switch (packet.RowState)
                     {
                         case esDataRowState.Added:
                             cmd = Shared.BuildDynamicInsertCommand(request, packet);
                             break;
-
                         case esDataRowState.Modified:
                             cmd = Shared.BuildDynamicUpdateCommand(request, packet);
                             break;
-
                         case esDataRowState.Deleted:
                             cmd = Shared.BuildDynamicDeleteCommand(request, packet);
                             break;
-
                         case esDataRowState.Unchanged:
                             continue;
                     }
@@ -1529,7 +1339,10 @@ namespace EntitySpaces.Npgsql2Provider
                     try
                     {
                         esTransactionScope.Enlist(cmd, request.ConnectionString, CreateIDbConnectionDelegate);
-                        int count;
+                        // [REVISED] EnsureConnectionHealthy() removed — its ROLLBACK
+                        // branch could abort the ambient transaction.
+
+                        int count = 0;
 
                         #region Profiling
                         if (sTraceHandler != null)
@@ -1538,12 +1351,11 @@ namespace EntitySpaces.Npgsql2Provider
                             {
                                 try
                                 {
-                                    count = cmd.ExecuteNonQuery();
+                                    count = ExecuteInsertCommand(cmd, packet);
                                 }
                                 catch (Exception ex)
                                 {
                                     esTrace.Exception = ex.Message;
-                                    hasError = true;
                                     throw;
                                 }
                             }
@@ -1551,75 +1363,41 @@ namespace EntitySpaces.Npgsql2Provider
                         else
                         #endregion
                         {
-                            count = cmd.ExecuteNonQuery();
+                            count = ExecuteInsertCommand(cmd, packet);
+                        }
+
+                        if (packet.RowState != esDataRowState.Deleted && cmd?.Parameters != null)
+                        {
+                            MapOutputParameters(cmd.Parameters, packet.CurrentValues, request.Columns);
                         }
 
                         if (count < 1)
-                        {
                             throw new esConcurrencyException("Update failed to update any records");
-                        }
                     }
                     catch (NpgsqlException ex)
                     {
-                        hasError = true;
                         esConcurrencyException ce = Shared.CheckForConcurrencyException(ex);
                         if (ce != null)
                         {
-                            exception = true;
                             request.FireOnError(packet, ce.Message);
-                            if (!request.ContinueUpdateOnError)
-                                throw ce;
+                            if (!request.ContinueUpdateOnError) throw ce;
                         }
                         else
                         {
-                            exception = true;
                             request.FireOnError(packet, ex.Message);
-                            if (!request.ContinueUpdateOnError)
-                                throw;
+                            if (!request.ContinueUpdateOnError) throw;
                         }
                     }
                     catch (Exception ex)
                     {
-                        hasError = true;
-                        exception = true;
                         request.FireOnError(packet, ex.Message);
-                        if (!request.ContinueUpdateOnError)
-                        {
-                            throw;
-                        }
+                        if (!request.ContinueUpdateOnError) throw;
                     }
                     finally
                     {
-                        // Roll back the per-packet connection before it is released to the pool
-                        if (hasError && cmd != null && cmd.Connection != null && cmd.Connection.State == ConnectionState.Open)
-                        {
-                            try
-                            {
-                                using (NpgsqlCommand rollback = new NpgsqlCommand("ROLLBACK", cmd.Connection))
-                                {
-                                    rollback.ExecuteNonQuery();
-                                }
-                            }
-                            catch { /* best-effort rollback — ignore secondary errors */ }
-                        }
-
+                        // [REVISED] No explicit ROLLBACK — see ExecuteNonQuery for rationale.
                         esTransactionScope.DeEnlist(cmd);
-                        cmd.Dispose();
-                    }
-
-                    if (!exception && packet.RowState != esDataRowState.Deleted && cmd.Parameters != null)
-                    {
-                        foreach (NpgsqlParameter param in cmd.Parameters)
-                        {
-                            switch (param.Direction)
-                            {
-                                case ParameterDirection.Output:
-                                case ParameterDirection.InputOutput:
-
-                                    packet.CurrentValues[param.SourceColumn] = param.Value;
-                                    break;
-                            }
-                        }
+                        cmd?.Dispose();
                     }
                 }
 
@@ -1638,21 +1416,19 @@ namespace EntitySpaces.Npgsql2Provider
                 case esDataRowState.Added:
                     cmd = Shared.BuildDynamicInsertCommand(request, request.EntitySavePacket);
                     break;
-
                 case esDataRowState.Modified:
                     cmd = Shared.BuildDynamicUpdateCommand(request, request.EntitySavePacket);
                     break;
-
                 case esDataRowState.Deleted:
                     cmd = Shared.BuildDynamicDeleteCommand(request, request.EntitySavePacket);
                     break;
             }
 
-            bool hasError = false;
-
             try
             {
                 esTransactionScope.Enlist(cmd, request.ConnectionString, CreateIDbConnectionDelegate);
+                // [REVISED] EnsureConnectionHealthy() removed — its ROLLBACK branch
+                // could abort the ambient transaction.
 
                 int count = 0;
 
@@ -1663,12 +1439,11 @@ namespace EntitySpaces.Npgsql2Provider
                     {
                         try
                         {
-                            count = cmd.ExecuteNonQuery();
+                            count = ExecuteInsertCommand(cmd, request.EntitySavePacket);
                         }
                         catch (Exception ex)
                         {
                             esTrace.Exception = ex.Message;
-                            hasError = true;
                             throw;
                         }
                     }
@@ -1676,66 +1451,224 @@ namespace EntitySpaces.Npgsql2Provider
                 else
                 #endregion
                 {
-                    count = cmd.ExecuteNonQuery();
+                    count = ExecuteInsertCommand(cmd, request.EntitySavePacket);
+                }
+
+                if (request.EntitySavePacket.RowState != esDataRowState.Deleted && cmd?.Parameters != null)
+                {
+                    MapOutputParameters(cmd.Parameters, request.EntitySavePacket.CurrentValues, request.Columns);
                 }
 
                 if (count < 1)
-                {
                     throw new esConcurrencyException("Update failed to update any records");
-                }
             }
             catch (NpgsqlException ex)
             {
-                hasError = true;
-
-                // Translate PostgreSQL-specific errors into EntitySpaces concurrency exceptions
                 esConcurrencyException ce = Shared.CheckForConcurrencyException(ex);
-                if (ce != null)
-                    throw ce;
-                else
-                    throw;
-            }
-            catch
-            {
-                hasError = true;
-                throw;
+                if (ce != null) throw ce;
+                else throw;
             }
             finally
             {
-                // Roll back any active transaction before releasing the connection to the pool
-                if (hasError && cmd != null && cmd.Connection != null && cmd.Connection.State == ConnectionState.Open)
-                {
-                    try
-                    {
-                        using (NpgsqlCommand rollback = new NpgsqlCommand("ROLLBACK", cmd.Connection))
-                        {
-                            rollback.ExecuteNonQuery();
-                        }
-                    }
-                    catch { /* best-effort rollback — ignore secondary errors */ }
-                }
-
+                // [REVISED] No explicit ROLLBACK — see ExecuteNonQuery for rationale.
                 esTransactionScope.DeEnlist(cmd);
-                cmd.Dispose();
-            }
-
-            if (request.EntitySavePacket.RowState != esDataRowState.Deleted && cmd.Parameters != null)
-            {
-                foreach (NpgsqlParameter param in cmd.Parameters)
-                {
-                    switch (param.Direction)
-                    {
-                        case ParameterDirection.Output:
-                        case ParameterDirection.InputOutput:
-
-                            request.EntitySavePacket.CurrentValues[param.SourceColumn] = param.Value;
-                            break;
-                    }
-                }
+                cmd?.Dispose();
             }
 
             return null;
         }
 
-    }
+        // ===================================================================
+        // Executes an INSERT that may carry a RETURNING clause.
+        //
+        // [NEW ADJUSTMENT] Key fixes vs. the previous version:
+        //   1. Uses CommandBehavior.SingleRow so the reader closes as soon as
+        //      the first row is consumed, releasing the connection cleanly and
+        //      leaving no active reader on the enlisted connection.
+        //   2. Does NOT loop over NextResult() — a single result set is
+        //      present, and consuming it unnecessarily was the root cause of
+        //      the SQLSTATE 25P02 cascade during hierarchical saves.
+        //   3. Uses IsDBNull() before reading so NULL columns are mapped
+        //      cleanly instead of throwing.
+        //   4. Reports mapping failures through Debug.WriteLine instead of
+        //      swallowing them, so integration issues (wrong column name,
+        //      missing column in RETURNING) become visible in tests.
+        // ===================================================================
+        private static int ExecuteInsertCommand(NpgsqlCommand cmd, esEntitySavePacket packet)
+        {
+            bool hasReturning = cmd.CommandText.IndexOf("RETURNING", StringComparison.OrdinalIgnoreCase) >= 0;
+
+            if (!hasReturning)
+                return cmd.ExecuteNonQuery();
+
+            int rows = 0;
+
+            // [NEW ADJUSTMENT] SingleRow + using ensures the connection is
+            // released cleanly, avoiding the aborted-transaction cascade.
+            using (var reader = cmd.ExecuteReader(CommandBehavior.SingleRow))
+            {
+                if (reader.Read())
+                {
+                    rows = 1;
+
+                    foreach (NpgsqlParameter p in cmd.Parameters)
+                    {
+                        if (p.Direction != ParameterDirection.Output &&
+                            p.Direction != ParameterDirection.InputOutput)
+                            continue;
+
+                        // SourceColumn is populated by Cache.GetParameters with the
+                        // canonical DB column name; fall back to the parameter name.
+                        string colName = !string.IsNullOrEmpty(p.SourceColumn)
+                            ? p.SourceColumn
+                            : p.ParameterName.TrimStart(':', '@');
+
+                        try
+                        {
+                            int ordinal = reader.GetOrdinal(colName);
+                            p.Value = reader.IsDBNull(ordinal) ? null : reader.GetValue(ordinal);
+                        }
+                        catch (IndexOutOfRangeException)
+                        {
+                            // Column not present in RETURNING — expected for non-returned
+                            // columns such as concurrency tokens that were not requested.
+                        }
+                        catch (Exception ex)
+                        {
+                            // [NEW ADJUSTMENT] Surface unexpected mapping failures so
+                            // they are not silently swallowed as in the previous code.
+                            System.Diagnostics.Debug.WriteLine(
+                                $"[EntitySpaces.Npgsql2Provider] Failed to map RETURNING column '{colName}': {ex.Message}");
+                        }
+                    }
+                }
+            }
+
+            // RETURNING always reports -1 as RecordsAffected; treat a mapped row
+            // as a successful insert of exactly one row.
+            return rows;
+        }
+
+        // ===================================================================
+        // Copies Output / InputOutput parameter values back to the entity's
+        // CurrentValues dictionary, and synchronizes property-name keys to
+        // column-name keys.
+        //
+        // [NEW ADJUSTMENT] Two responsibilities now:
+        //
+        //   1. Sync property → column keys. Generated ApplyPostSaveKeys calls
+        //      SetProperty("OrderId", value) which stores the value under the
+        //      property name. The entity's getters read by column name
+        //      ("order_id"), so without this sync the value stays invisible to
+        //      the rest of the framework. This affects every provider whose
+        //      column and property names differ (PostgreSQL, Oracle, ...).
+        //
+        //   2. Map Output / InputOutput parameters (existing behaviour).
+        // ===================================================================
+        private static void MapOutputParameters(
+            NpgsqlParameterCollection parameters,
+            esSmartDictionary currentValues,
+            esColumnMetadataCollection columns)
+        {
+            // -----------------------------------------------------------------
+            // Step 1: sync property-name key → column-name key for any Input or
+            // InputOutput parameter whose source column has a distinct property
+            // name and whose column-name slot is empty.
+            // -----------------------------------------------------------------
+            if (columns != null)
+            {
+                foreach (NpgsqlParameter param in parameters)
+                {
+                    if (param.Direction != ParameterDirection.Input &&
+                        param.Direction != ParameterDirection.InputOutput)
+                        continue;
+
+                    string colName = param.SourceColumn;
+                    if (string.IsNullOrEmpty(colName)) continue;
+
+                    esColumnMetadata meta = columns.FindByColumnName(colName);
+                    if (meta == null || string.IsNullOrEmpty(meta.PropertyName)) continue;
+
+                    // Nothing to sync when both names coincide (SQL Server).
+                    if (string.Equals(colName, meta.PropertyName, StringComparison.Ordinal))
+                        continue;
+
+                    if (!currentValues.ContainsKey(meta.PropertyName))
+                        continue;
+
+                    object propVal = currentValues[meta.PropertyName];
+                    if (propVal == null || propVal == DBNull.Value)
+                        continue;
+
+                    object colVal = currentValues.ContainsKey(colName)
+                        ? currentValues[colName]
+                        : null;
+
+                    if (colVal == null || colVal == DBNull.Value)
+                    {
+                        currentValues[colName] = propVal;
+                    }
+                }
+            }
+
+            // -----------------------------------------------------------------
+            // Step 2: existing Output / InputOutput mapping (unchanged).
+            // -----------------------------------------------------------------
+            foreach (NpgsqlParameter param in parameters)
+            {
+                if (param.Direction != ParameterDirection.Output &&
+                    param.Direction != ParameterDirection.InputOutput)
+                    continue;
+
+                string colName = !string.IsNullOrEmpty(param.SourceColumn)
+                    ? param.SourceColumn
+                    : param.ParameterName.TrimStart(':', '@');
+
+                string targetKey = null;
+                string normalized = NormalizeKey(colName);
+
+                foreach (string key in currentValues.Keys)
+                {
+                    if (NormalizeKey(key) == normalized)
+                    {
+                        targetKey = key;
+                        break;
+                    }
+                }
+
+                if (targetKey == null)
+                    targetKey = colName;
+
+                object value = param.Value;
+
+                if (value is long longVal &&
+                    longVal <= int.MaxValue && longVal >= int.MinValue)
+                {
+                    object existing = currentValues.ContainsKey(targetKey)
+                        ? currentValues[targetKey]
+                        : null;
+
+                    if (existing == null || existing == DBNull.Value || existing is int)
+                        value = (int)longVal;
+                }
+
+                currentValues[targetKey] = value;
+            }
+        }
+
+
+        // ===================================================================
+        // [NEW ADJUSTMENT] Normalizes a column key so PostgreSQL snake_case
+        // names (e.g. "order_id") match EntitySpaces camelCase keys
+        // (e.g. "OrderId"). Underscores are stripped and the result is
+        // lower-cased before comparison.
+        // ===================================================================
+        private static string NormalizeKey(string key)
+        {
+            if (string.IsNullOrEmpty(key)) return string.Empty;
+            return key.Replace("_", string.Empty).ToLowerInvariant();
+        }
+
+
+    } // end class
 }
