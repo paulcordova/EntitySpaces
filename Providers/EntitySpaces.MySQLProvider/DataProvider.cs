@@ -374,7 +374,6 @@ namespace EntitySpaces.MySQLProvider
         {
             esDataResponse response = new esDataResponse();
             MySqlCommand cmd = null;
-            bool hasError = false;
 
             try
             {
@@ -416,7 +415,6 @@ namespace EntitySpaces.MySQLProvider
                             catch (Exception ex)
                             {
                                 esTrace.Exception = ex.Message;
-                                hasError = true;
                                 throw;
                             }
                         }
@@ -427,26 +425,12 @@ namespace EntitySpaces.MySQLProvider
                         response.RowsEffected = cmd.ExecuteNonQuery();
                     }
                 }
-                catch
-                {
-                    hasError = true;
-                    throw;
-                }
                 finally
                 {
-                    // Roll back any active transaction before releasing the connection to the pool
-                    if (hasError && cmd != null && cmd.Connection != null && cmd.Connection.State == ConnectionState.Open)
-                    {
-                        try
-                        {
-                            using (MySqlCommand rollback = new MySqlCommand("ROLLBACK", cmd.Connection))
-                            {
-                                rollback.ExecuteNonQuery();
-                            }
-                        }
-                        catch { /* best-effort rollback — ignore secondary errors */ }
-                    }
-
+                    // [REVISED] No explicit ROLLBACK — the connection may be enlisted in an
+                    // ambient esTransactionScope; issuing ROLLBACK would abort the whole scope,
+                    // not just this command. esTransactionScope.Dispose() handles rollback
+                    // when the scope ends without Complete().
                     esTransactionScope.DeEnlist(cmd);
                 }
 
@@ -468,7 +452,7 @@ namespace EntitySpaces.MySQLProvider
         {
             esDataResponse response = new esDataResponse();
             MySqlCommand cmd = null;
-            bool hasError = false;
+            bool needsCleanup = false;
 
             try
             {
@@ -513,7 +497,6 @@ namespace EntitySpaces.MySQLProvider
                         catch (Exception ex)
                         {
                             esTrace.Exception = ex.Message;
-                            hasError = true;
                             throw;
                         }
                     }
@@ -526,26 +509,16 @@ namespace EntitySpaces.MySQLProvider
             }
             catch
             {
-                hasError = true;
+                needsCleanup = true;
                 throw;
             }
             finally
             {
-                // Roll back any active transaction before releasing the connection to the pool
-                if (hasError && cmd != null && cmd.Connection != null && cmd.Connection.State == ConnectionState.Open)
-                {
-                    try
-                    {
-                        using (MySqlCommand rollback = new MySqlCommand("ROLLBACK", cmd.Connection))
-                        {
-                            rollback.ExecuteNonQuery();
-                        }
-                    }
-                    catch { /* best-effort rollback — ignore secondary errors */ }
-                }
-
-                // If an error occurred, also ensure the connection is closed (CommandBehavior.CloseConnection may not have fired)
-                if (hasError)
+                // [REVISED] No explicit ROLLBACK — see ExecuteNonQuery for rationale.
+                // ExecuteReader opens its OWN raw connection (no Enlist), so on error we
+                // must close it explicitly: CommandBehavior.CloseConnection only fires
+                // when ExecuteReader succeeds and the reader is disposed.
+                if (needsCleanup)
                 {
                     CleanupCommand(cmd);
                 }
@@ -553,12 +526,10 @@ namespace EntitySpaces.MySQLProvider
 
             return response;
         }
-
         esDataResponse IDataProvider.ExecuteScalar(esDataRequest request)
         {
             esDataResponse response = new esDataResponse();
             MySqlCommand cmd = null;
-            bool hasError = false;
 
             try
             {
@@ -604,7 +575,6 @@ namespace EntitySpaces.MySQLProvider
                             catch (Exception ex)
                             {
                                 esTrace.Exception = ex.Message;
-                                hasError = true;
                                 throw;
                             }
                         }
@@ -615,26 +585,9 @@ namespace EntitySpaces.MySQLProvider
                         response.Scalar = cmd.ExecuteScalar();
                     }
                 }
-                catch
-                {
-                    hasError = true;
-                    throw;
-                }
                 finally
                 {
-                    // Roll back any active transaction before releasing the connection to the pool
-                    if (hasError && cmd != null && cmd.Connection != null && cmd.Connection.State == ConnectionState.Open)
-                    {
-                        try
-                        {
-                            using (MySqlCommand rollback = new MySqlCommand("ROLLBACK", cmd.Connection))
-                            {
-                                rollback.ExecuteNonQuery();
-                            }
-                        }
-                        catch { /* best-effort rollback — ignore secondary errors */ }
-                    }
-
+                    // [REVISED] No explicit ROLLBACK — see ExecuteNonQuery for rationale.
                     esTransactionScope.DeEnlist(cmd);
                 }
 
@@ -718,7 +671,6 @@ namespace EntitySpaces.MySQLProvider
         {
             esDataResponse response = new esDataResponse();
             MySqlCommand cmd = null;
-            bool hasError = false;
 
             try
             {
@@ -728,8 +680,8 @@ namespace EntitySpaces.MySQLProvider
                 cmd.CommandType = CommandType.StoredProcedure;
                 cmd.CommandText = request.QueryText;
 
-                if(request.CommandTimeout != null) cmd.CommandTimeout = request.CommandTimeout.Value;
-                if(request.Parameters != null) Shared.AddParameters(cmd, request);
+                if (request.CommandTimeout != null) cmd.CommandTimeout = request.CommandTimeout.Value;
+                if (request.Parameters != null) Shared.AddParameters(cmd, request);
 
                 MySqlDataAdapter da = new MySqlDataAdapter();
                 da.SelectCommand = cmd;
@@ -762,6 +714,7 @@ namespace EntitySpaces.MySQLProvider
                 }
                 finally
                 {
+                    // [REVISED] No explicit ROLLBACK — see ExecuteNonQuery for rationale.
                     esTransactionScope.DeEnlist(da.SelectCommand);
                 }
 
@@ -774,23 +727,8 @@ namespace EntitySpaces.MySQLProvider
             }
             catch (Exception)
             {
-                hasError = true;
                 CleanupCommand(cmd);
                 throw;
-            }
-            finally
-            {
-                if (hasError && cmd != null && cmd.Connection != null && cmd.Connection.State == ConnectionState.Open)
-                {
-                    try
-                    {
-                        using (MySqlCommand rollback = new MySqlCommand("ROLLBACK", cmd.Connection))
-                        {
-                            rollback.ExecuteNonQuery();
-                        }
-                    }
-                    catch { /* best-effort rollback */ }
-                }
             }
 
             return response;
@@ -862,18 +800,11 @@ namespace EntitySpaces.MySQLProvider
             }
             finally
             {
-                // Roll back any active transaction before releasing the connection to the pool
-                if (hasError && cmd != null && cmd.Connection != null && cmd.Connection.State == ConnectionState.Open)
-                {
-                    try
-                    {
-                        using (MySqlCommand rollback = new MySqlCommand("ROLLBACK", cmd.Connection))
-                        {
-                            rollback.ExecuteNonQuery();
-                        }
-                    }
-                    catch { /* best-effort rollback — ignore secondary errors */ }
-                }
+                // [REVISED] No explicit ROLLBACK — the connection may be enlisted in an
+                // ambient esTransactionScope; issuing ROLLBACK would abort the whole scope,
+                // not just this command. esTransactionScope.Dispose() handles rollback
+                // when the scope ends without Complete().
+                esTransactionScope.DeEnlist(cmd);
             }
 
             return response;
@@ -883,7 +814,6 @@ namespace EntitySpaces.MySQLProvider
         {
             esDataResponse response = new esDataResponse();
             MySqlCommand cmd = null;
-            bool hasError = false;
 
             try
             {
@@ -892,8 +822,8 @@ namespace EntitySpaces.MySQLProvider
                 cmd = new MySqlCommand();
                 cmd.CommandType = CommandType.StoredProcedure;
                 cmd.CommandText = request.QueryText;
-                if(request.CommandTimeout != null) cmd.CommandTimeout = request.CommandTimeout.Value;
-                if(request.Parameters != null) Shared.AddParameters(cmd, request);
+                if (request.CommandTimeout != null) cmd.CommandTimeout = request.CommandTimeout.Value;
+                if (request.Parameters != null) Shared.AddParameters(cmd, request);
 
                 MySqlDataAdapter da = new MySqlDataAdapter();
                 da.SelectCommand = cmd;
@@ -926,6 +856,7 @@ namespace EntitySpaces.MySQLProvider
                 }
                 finally
                 {
+                    // [REVISED] No explicit ROLLBACK — see ExecuteNonQuery for rationale.
                     esTransactionScope.DeEnlist(da.SelectCommand);
                 }
 
@@ -938,23 +869,8 @@ namespace EntitySpaces.MySQLProvider
             }
             catch (Exception)
             {
-                hasError = true;
                 CleanupCommand(cmd);
                 throw;
-            }
-            finally
-            {
-                if (hasError && cmd != null && cmd.Connection != null && cmd.Connection.State == ConnectionState.Open)
-                {
-                    try
-                    {
-                        using (MySqlCommand rollback = new MySqlCommand("ROLLBACK", cmd.Connection))
-                        {
-                            rollback.ExecuteNonQuery();
-                        }
-                    }
-                    catch { /* best-effort rollback */ }
-                }
             }
 
             return response;
@@ -964,7 +880,6 @@ namespace EntitySpaces.MySQLProvider
         {
             esDataResponse response = new esDataResponse();
             MySqlCommand cmd = null;
-            bool hasError = false;
 
             try
             {
@@ -972,8 +887,8 @@ namespace EntitySpaces.MySQLProvider
 
                 cmd = new MySqlCommand();
                 cmd.CommandType = CommandType.Text;
-                if(request.CommandTimeout != null) cmd.CommandTimeout = request.CommandTimeout.Value;
-                if(request.Parameters != null) Shared.AddParameters(cmd, request);
+                if (request.CommandTimeout != null) cmd.CommandTimeout = request.CommandTimeout.Value;
+                if (request.Parameters != null) Shared.AddParameters(cmd, request);
 
                 MySqlDataAdapter da = new MySqlDataAdapter();
                 cmd.CommandText = request.QueryText;
@@ -1007,6 +922,7 @@ namespace EntitySpaces.MySQLProvider
                 }
                 finally
                 {
+                    // [REVISED] No explicit ROLLBACK — see ExecuteNonQuery for rationale.
                     esTransactionScope.DeEnlist(da.SelectCommand);
                 }
 
@@ -1019,23 +935,8 @@ namespace EntitySpaces.MySQLProvider
             }
             catch (Exception)
             {
-                hasError = true;
                 CleanupCommand(cmd);
                 throw;
-            }
-            finally
-            {
-                if (hasError && cmd != null && cmd.Connection != null && cmd.Connection.State == ConnectionState.Open)
-                {
-                    try
-                    {
-                        using (MySqlCommand rollback = new MySqlCommand("ROLLBACK", cmd.Connection))
-                        {
-                            rollback.ExecuteNonQuery();
-                        }
-                    }
-                    catch { /* best-effort rollback */ }
-                }
             }
 
             return response;
@@ -1045,7 +946,6 @@ namespace EntitySpaces.MySQLProvider
         {
             esDataResponse response = new esDataResponse();
             MySqlCommand cmd = null;
-            bool hasError = false;
 
             try
             {
@@ -1053,15 +953,15 @@ namespace EntitySpaces.MySQLProvider
 
                 cmd = new MySqlCommand();
                 cmd.CommandType = CommandType.Text;
-                if(request.CommandTimeout != null) cmd.CommandTimeout = request.CommandTimeout.Value;
+                if (request.CommandTimeout != null) cmd.CommandTimeout = request.CommandTimeout.Value;
 
                 string mmQuery = request.QueryText;
 
                 string[] sections = mmQuery.Split('|');
-                string[] tables  = sections[0].Split(',');
+                string[] tables = sections[0].Split(',');
                 string[] columns = sections[1].Split(',');
 
-                // We build the query, we don't use Delimiters to avoid tons of extra concatentation
+                // We build the query, we don't use Delimiters to avoid tons of extra concatenation
                 string sql = "SELECT * FROM `" + tables[0];
                 sql += "` JOIN `" + tables[1] + "` ON `" + tables[0] + "`.`" + columns[0] + "` = `";
                 sql += tables[1] + "`.`" + columns[1];
@@ -1079,7 +979,6 @@ namespace EntitySpaces.MySQLProvider
 
                 MySqlDataAdapter da = new MySqlDataAdapter();
                 cmd.CommandText = sql;
-
                 da.SelectCommand = cmd;
 
                 try
@@ -1110,6 +1009,7 @@ namespace EntitySpaces.MySQLProvider
                 }
                 finally
                 {
+                    // [REVISED] No explicit ROLLBACK — see ExecuteNonQuery for rationale.
                     esTransactionScope.DeEnlist(da.SelectCommand);
                 }
 
@@ -1117,23 +1017,8 @@ namespace EntitySpaces.MySQLProvider
             }
             catch (Exception)
             {
-                hasError = true;
                 CleanupCommand(cmd);
                 throw;
-            }
-            finally
-            {
-                if (hasError && cmd != null && cmd.Connection != null && cmd.Connection.State == ConnectionState.Open)
-                {
-                    try
-                    {
-                        using (MySqlCommand rollback = new MySqlCommand("ROLLBACK", cmd.Connection))
-                        {
-                            rollback.ExecuteNonQuery();
-                        }
-                    }
-                    catch { /* best-effort rollback */ }
-                }
             }
 
             return response;
@@ -1142,7 +1027,6 @@ namespace EntitySpaces.MySQLProvider
         // This is used only to execute the Dynamic Query API
         static private void LoadDataTableFromDynamicQuery(esDataRequest request, esDataResponse response, MySqlCommand cmd)
         {
-            bool hasError = false;
             try
             {
                 response.LastQuery = cmd.CommandText;
@@ -1170,7 +1054,6 @@ namespace EntitySpaces.MySQLProvider
                             catch (Exception ex)
                             {
                                 esTrace.Exception = ex.Message;
-                                hasError = true;
                                 throw;
                             }
                         }
@@ -1178,26 +1061,13 @@ namespace EntitySpaces.MySQLProvider
                     else
                     #endregion
                     {
-                        try
-                        {
-                            da.Fill(dataTable);
-                        }
-                        catch
-                        {
-                            hasError = true;
-                            throw;
-                        }
+                        da.Fill(dataTable);
                     }
                 }
                 finally
                 {
-                    // Clean up connection state before returning to pool if an error occurred
-                    if (hasError && cmd.Connection != null &&
-                        cmd.Connection.State == ConnectionState.Open &&
-                        cmd.Transaction != null)
-                    {
-                        try { cmd.Transaction.Rollback(); } catch { }
-                    }
+                    // [REVISED] No explicit Rollback on cmd.Transaction — that would abort
+                    // the ambient esTransactionScope. See ExecuteNonQuery for rationale.
                     esTransactionScope.DeEnlist(da.SelectCommand);
                 }
 
@@ -1371,6 +1241,13 @@ namespace EntitySpaces.MySQLProvider
                             {
                                 da.Update(dataTable);
                             }
+
+                            // [C2 FIX — complement] Sync keys for each saved packet.
+                            foreach (esEntitySavePacket pkt in request.CollectionSavePacket)
+                            {
+                                if (pkt.CurrentValues != null)
+                                    SyncColumnAndPropertyKeys(pkt, request.Columns);
+                            }
                         }
                         finally
                         {
@@ -1399,9 +1276,6 @@ namespace EntitySpaces.MySQLProvider
 
         static private DataTable SaveStoredProcEntity(esDataRequest request)
         {
-            bool needToDelete = request.EntitySavePacket.RowState == esDataRowState.Deleted;
-            bool hasError = false;
-
             DataTable dataTable = CreateDataTable(request);
 
             using (MySqlDataAdapter da = new MySqlDataAdapter())
@@ -1454,7 +1328,6 @@ namespace EntitySpaces.MySQLProvider
                             }
                             catch (Exception ex)
                             {
-                                hasError = true;
                                 esTrace.Exception = ex.Message;
                                 throw;
                             }
@@ -1466,26 +1339,14 @@ namespace EntitySpaces.MySQLProvider
                         da.Update(singleRow);
                     }
                 }
-                catch
-                {
-                    hasError = true;
-                    throw;
-                }
                 finally
                 {
-                    if (hasError && cmd != null && cmd.Connection != null && cmd.Connection.State == ConnectionState.Open)
-                    {
-                        try
-                        {
-                            using (MySqlCommand rollback = new MySqlCommand("ROLLBACK", cmd.Connection))
-                            {
-                                rollback.ExecuteNonQuery();
-                            }
-                        }
-                        catch { /* best-effort rollback */ }
-                    }
+                    // [REVISED] No explicit ROLLBACK — see ExecuteNonQuery for rationale.
                     esTransactionScope.DeEnlist(cmd);
                 }
+
+                // [C2 FIX — complement] Sync keys BEFORE the framework calls AcceptChanges.
+                SyncColumnAndPropertyKeys(request.EntitySavePacket, request.Columns);
 
                 if (cmd.Parameters != null)
                 {
@@ -1495,7 +1356,6 @@ namespace EntitySpaces.MySQLProvider
                         {
                             case ParameterDirection.Output:
                             case ParameterDirection.InputOutput:
-
                                 request.EntitySavePacket.CurrentValues[param.SourceColumn] = param.Value;
                                 break;
                         }
@@ -1574,7 +1434,6 @@ namespace EntitySpaces.MySQLProvider
                         DataRow[] singleRow = new DataRow[1];
                         singleRow[0] = row;
 
-                        bool hasError = false;
                         try
                         {
                             esTransactionScope.Enlist(cmd, request.ConnectionString, CreateIDbConnectionDelegate);
@@ -1591,7 +1450,6 @@ namespace EntitySpaces.MySQLProvider
                                     catch (Exception ex)
                                     {
                                         esTrace.Exception = ex.Message;
-                                        hasError = true;
                                         throw;
                                     }
                                 }
@@ -1599,15 +1457,7 @@ namespace EntitySpaces.MySQLProvider
                             else
                             #endregion
                             {
-                                try
-                                {
-                                    da.Update(singleRow);
-                                }
-                                catch
-                                {
-                                    hasError = true;
-                                    throw;
-                                }
+                                da.Update(singleRow);
                             }
 
                             if (row.HasErrors)
@@ -1617,15 +1467,14 @@ namespace EntitySpaces.MySQLProvider
                         }
                         finally
                         {
-                            // Roll back connection state before returning to pool if an error occurred
-                            if (hasError && cmd.Connection != null &&
-                                cmd.Connection.State == ConnectionState.Open &&
-                                cmd.Transaction != null)
-                            {
-                                try { cmd.Transaction.Rollback(); } catch { }
-                            }
+                            // [REVISED] No explicit ROLLBACK — see ExecuteNonQuery for rationale.
                             esTransactionScope.DeEnlist(cmd);
-                            dataTable.Rows.Clear();
+                        }
+
+                        // [C2 FIX — complement] Sync keys BEFORE the framework calls AcceptChanges.
+                        if (!row.HasErrors)
+                        {
+                            SyncColumnAndPropertyKeys(packet, request.Columns);
                         }
 
                         if (!row.HasErrors && packet.RowState != esDataRowState.Deleted && cmd.Parameters != null)
@@ -1636,7 +1485,6 @@ namespace EntitySpaces.MySQLProvider
                                 {
                                     case ParameterDirection.Output:
                                     case ParameterDirection.InputOutput:
-
                                         packet.CurrentValues[param.SourceColumn] = param.Value;
                                         break;
                                 }
@@ -1777,7 +1625,6 @@ namespace EntitySpaces.MySQLProvider
                     da.RowUpdated += new MySqlRowUpdatedEventHandler(OnRowUpdated);
                 }
 
-                bool hasError = false;
                 try
                 {
                     esTransactionScope.Enlist(cmd, request.ConnectionString, CreateIDbConnectionDelegate);
@@ -1794,7 +1641,6 @@ namespace EntitySpaces.MySQLProvider
                             catch (Exception ex)
                             {
                                 esTrace.Exception = ex.Message;
-                                hasError = true;
                                 throw;
                             }
                         }
@@ -1802,28 +1648,17 @@ namespace EntitySpaces.MySQLProvider
                     else
                     #endregion
                     {
-                        try
-                        {
-                            da.Update(singleRow);
-                        }
-                        catch
-                        {
-                            hasError = true;
-                            throw;
-                        }
+                        da.Update(singleRow);
                     }
                 }
                 finally
                 {
-                    // Roll back connection state before returning to pool if an error occurred
-                    if (hasError && cmd.Connection != null &&
-                        cmd.Connection.State == ConnectionState.Open &&
-                        cmd.Transaction != null)
-                    {
-                        try { cmd.Transaction.Rollback(); } catch { }
-                    }
+                    // [REVISED] No explicit ROLLBACK — see ExecuteNonQuery for rationale.
                     esTransactionScope.DeEnlist(cmd);
                 }
+
+                // [C2 FIX — complement] Sync keys BEFORE the framework calls AcceptChanges.
+                SyncColumnAndPropertyKeys(request.EntitySavePacket, request.Columns);
 
                 if (request.EntitySavePacket.RowState != esDataRowState.Deleted && cmd.Parameters != null)
                 {
@@ -1833,7 +1668,6 @@ namespace EntitySpaces.MySQLProvider
                         {
                             case ParameterDirection.Output:
                             case ParameterDirection.InputOutput:
-
                                 request.EntitySavePacket.CurrentValues[param.SourceColumn] = param.Value;
                                 break;
                         }
@@ -1870,6 +1704,47 @@ namespace EntitySpaces.MySQLProvider
             return dataTable;
         }
 
+        // ===================================================================
+        // [C1/C2 FIX] Tolerant value lookup: accepts both the DB column name
+        // ("invoiceid") and the EntitySpaces property name ("Invoiceid").
+        // ApplyPostSaveKeys writes CurrentValues[PropertyName] on snake_case
+        // providers (or lowercase column providers like this Northwind), so
+        // the naive FindByColumnName lookup fails silently.
+        // ===================================================================
+        static private esColumnMetadata FindColumnByAnyName(esColumnMetadataCollection columns, string name)
+        {
+            if (columns == null || string.IsNullOrEmpty(name)) return null;
+
+            var byColumn = columns.FindByColumnName(name);
+            if (byColumn != null) return byColumn;
+
+            foreach (esColumnMetadata col in columns)
+            {
+                if (string.Equals(col.PropertyName, name, StringComparison.Ordinal))
+                    return col;
+            }
+            return null;
+        }
+
+        static private object GetValueFromDictionary(esSmartDictionary dict, esColumnMetadata col)
+        {
+            if (dict == null || col == null) return null;
+
+            if (dict.ContainsKey(col.Name))
+            {
+                object v = dict[col.Name];
+                if (v != null && v != DBNull.Value) return v;
+            }
+
+            if (!string.IsNullOrEmpty(col.PropertyName) && dict.ContainsKey(col.PropertyName))
+            {
+                object v = dict[col.PropertyName];
+                if (v != null && v != DBNull.Value) return v;
+            }
+
+            return null;
+        }
+
         static void SetOriginalValues(esDataRequest request, esEntitySavePacket packet, DataRow row, bool primaryKeysAndConcurrencyOnly)
         {
             foreach (esColumnMetadata col in request.Columns)
@@ -1877,25 +1752,75 @@ namespace EntitySpaces.MySQLProvider
                 if (primaryKeysAndConcurrencyOnly &&
                     (!col.IsInPrimaryKey && !col.IsConcurrency && !col.IsEntitySpacesConcurrency)) continue;
 
-                string columnName = col.Name;
-
-                if (packet.OriginalValues.ContainsKey(columnName))
-                {
-                    row[columnName] = packet.OriginalValues[columnName];
-                }
+                object value = GetValueFromDictionary(packet.OriginalValues, col);
+                if (value != null)
+                    row[col.Name] = value;
             }
         }
 
         static void SetModifiedValues(esDataRequest request, esEntitySavePacket packet, DataRow row)
         {
-            foreach (string column in packet.ModifiedColumns)
+            foreach (string key in packet.ModifiedColumns)
             {
-                if (request.Columns.FindByColumnName(column) != null)
+                esColumnMetadata col = FindColumnByAnyName(request.Columns, key);
+                if (col == null) continue;
+
+                object value = GetValueFromDictionary(packet.CurrentValues, col);
+                row[col.Name] = value ?? (object)DBNull.Value;
+            }
+        }
+
+        // ===================================================================
+        // [C2 FIX — complement] After a successful INSERT/UPDATE, synchronize
+        // CurrentValues keys so both the DB column name ("invoiceid") and the
+        // EntitySpaces property name ("Invoiceid") hold the same value.
+        //
+        // Why: ApplyPostSaveKeys writes the FK under the PROPERTY name via
+        // SetProperty("Invoiceid", value). The entity getter, however, reads
+        // under the COLUMN name via GetSystemInt32("invoiceid"). Without this
+        // sync, the FK is correctly persisted to the DB (thanks to the C1 fix)
+        // but stays invisible to the in-memory entity (getter returns null).
+        //
+        // Direction is bidirectional: any key with a real value is propagated
+        // to its alias if the alias slot is empty.
+        // ===================================================================
+        static private void SyncColumnAndPropertyKeys(esEntitySavePacket packet, esColumnMetadataCollection columns)
+        {
+            if (packet.CurrentValues == null || columns == null) return;
+
+            foreach (esColumnMetadata col in columns)
+            {
+                if (string.IsNullOrEmpty(col.PropertyName)) continue;
+                if (string.Equals(col.Name, col.PropertyName, StringComparison.Ordinal)) continue;
+
+                // Property → Column
+                if (packet.CurrentValues.ContainsKey(col.PropertyName))
                 {
-                    row[column] = packet.CurrentValues[column];
+                    object propVal = packet.CurrentValues[col.PropertyName];
+                    if (propVal != null && propVal != DBNull.Value)
+                    {
+                        object colVal = packet.CurrentValues.ContainsKey(col.Name)
+                            ? packet.CurrentValues[col.Name] : null;
+                        if (colVal == null || colVal == DBNull.Value)
+                            packet.CurrentValues[col.Name] = propVal;
+                    }
+                }
+
+                // Column → Property
+                if (packet.CurrentValues.ContainsKey(col.Name))
+                {
+                    object colVal = packet.CurrentValues[col.Name];
+                    if (colVal != null && colVal != DBNull.Value)
+                    {
+                        object propVal = packet.CurrentValues.ContainsKey(col.PropertyName)
+                            ? packet.CurrentValues[col.PropertyName] : null;
+                        if (propVal == null || propVal == DBNull.Value)
+                            packet.CurrentValues[col.PropertyName] = colVal;
+                    }
                 }
             }
         }
+
 
         protected static void OnRowUpdated(object sender, MySqlRowUpdatedEventArgs e)
         {
@@ -1907,69 +1832,23 @@ namespace EntitySpaces.MySQLProvider
                     props = (PropertyCollection)props["props"];
                 }
 
-                if (e.Status == UpdateStatus.Continue && (e.StatementType == StatementType.Insert || e.StatementType == StatementType.Update))
+                if (e.Status != UpdateStatus.Continue) return;
+                if (e.StatementType != StatementType.Insert && e.StatementType != StatementType.Update) return;
+
+                esDataRequest request = props["esDataRequest"] as esDataRequest;
+                esEntitySavePacket packet = (esEntitySavePacket)props["esEntityData"];
+                string source = props["Source"] as string;
+
+                if (e.StatementType == StatementType.Insert)
                 {
-                    esDataRequest request = props["esDataRequest"] as esDataRequest;
-                    esEntitySavePacket packet = (esEntitySavePacket)props["esEntityData"];
-                    string source = props["Source"] as string;
-
-                    if (e.StatementType == StatementType.Insert)
+                    if (props.Contains("AutoInc"))
                     {
-                        if (props.Contains("AutoInc"))
-                        {
-                            string autoInc = props["AutoInc"] as string;
-
-                            MySqlCommand cmd = new MySqlCommand();
-                            cmd.Connection = e.Command.Connection;
-                            cmd.Transaction = e.Command.Transaction;
-                            cmd.CommandText = "SELECT LAST_INSERT_ID();";
-
-                            object o = null;
-
-                            #region Profiling
-                            if (sTraceHandler != null)
-                            {
-                                using (esTraceArguments esTrace = new esTraceArguments(request, cmd, "OnRowUpdated", System.Environment.StackTrace))
-                                {
-                                    try
-                                    {
-                                        o = cmd.ExecuteScalar();
-                                    }
-                                    catch (Exception ex)
-                                    {
-                                        esTrace.Exception = ex.Message;
-                                        throw;
-                                    }
-                                }
-                            }
-                            else
-                            #endregion
-                            {
-                                o = cmd.ExecuteScalar();
-                            }
-
-                            if (o != null)
-                            {
-                                e.Row[autoInc] = o;
-                                e.Command.Parameters["?" + autoInc].Value = o;
-                            }
-                        }
-
-                        if (props.Contains("EntitySpacesConcurrency"))
-                        {
-                            string esConcurrencyColumn = props["EntitySpacesConcurrency"] as string;
-                            packet.CurrentValues[esConcurrencyColumn] = 1;
-                        }
-                    }
-
-                    if (props.Contains("Timestamp"))
-                    {
-                        string column = props["Timestamp"] as string;
+                        string autoIncColumn = props["AutoInc"] as string;
 
                         MySqlCommand cmd = new MySqlCommand();
                         cmd.Connection = e.Command.Connection;
                         cmd.Transaction = e.Command.Transaction;
-                        cmd.CommandText = "SELECT LastTimestamp('" + source + "');";
+                        cmd.CommandText = "SELECT LAST_INSERT_ID();";
 
                         object o = null;
 
@@ -1978,15 +1857,8 @@ namespace EntitySpaces.MySQLProvider
                         {
                             using (esTraceArguments esTrace = new esTraceArguments(request, cmd, "OnRowUpdated", System.Environment.StackTrace))
                             {
-                                try
-                                {
-                                    o = cmd.ExecuteScalar();
-                                }
-                                catch (Exception ex)
-                                {
-                                    esTrace.Exception = ex.Message;
-                                    throw;
-                                }
+                                try { o = cmd.ExecuteScalar(); }
+                                catch (Exception ex) { esTrace.Exception = ex.Message; throw; }
                             }
                         }
                         else
@@ -1995,108 +1867,185 @@ namespace EntitySpaces.MySQLProvider
                             o = cmd.ExecuteScalar();
                         }
 
-                        if (o != null)
+                        if (o != null && o != DBNull.Value)
                         {
-                            e.Command.Parameters["?" + column].Value = o;
-                        }
-                    }
+                            // [C8 FIX] Write to the DataRow by column name.
+                            e.Row[autoIncColumn] = o;
 
-                    //-------------------------------------------------------------------------------------------------
-                    // Fetch any defaults, SQLite doesn't support output parameters so we gotta do this the hard way
-                    //-------------------------------------------------------------------------------------------------
-                    if (props.Contains("Defaults"))
-                    {
-                        // Build the Where parameter and parameters
-                        MySqlCommand cmd = new MySqlCommand();
-                        cmd.Connection = e.Command.Connection;
-                        cmd.Transaction = e.Command.Transaction;
-
-                        string select = (string)props["Defaults"];
-
-                        string[] whereParameters = ((string)props["Where"]).Split(',');
-
-                        string comma = String.Empty;
-                        string where = String.Empty;
-                        int i = 1;
-                        foreach (string parameter in whereParameters)
-                        {
-                            MySqlParameter p = new MySqlParameter("?p" + i++.ToString(), e.Row[parameter]);
-                            cmd.Parameters.Add(p);
-                            where += comma + "`" + parameter + "` = " + p.ParameterName;
-                            comma = " AND ";
-                        }
-
-                        // Okay, now we can execute the sql and get any values that have defaults that were
-                        // null at the time of the insert and/or our timestamp
-                        cmd.CommandText = "SELECT " + select + " FROM `" + request.ProviderMetadata.Source + "` WHERE " + where + ";";
-
-                        MySqlDataReader rdr = null;
-
-                        try
-                        {
-                            #region Profiling
-                            if (sTraceHandler != null)
+                            // [C8 FIX — hallazgo] Parameter name is "?PropertyName", not "?ColumnName".
+                            // Iterate by SourceColumn (which IS the column name) to find the right param.
+                            foreach (MySqlParameter p in e.Command.Parameters)
                             {
-                                using (esTraceArguments esTrace = new esTraceArguments(request, cmd, "OnRowUpdated", System.Environment.StackTrace))
+                                if (string.Equals(p.SourceColumn, autoIncColumn, StringComparison.OrdinalIgnoreCase))
                                 {
-                                    try
-                                    {
-                                        rdr = cmd.ExecuteReader(CommandBehavior.SingleResult);
-                                    }
-                                    catch (Exception ex)
-                                    {
-                                        esTrace.Exception = ex.Message;
-                                        throw;
-                                    }
+                                    p.Value = o;
+                                    break;
                                 }
                             }
-                            else
-                            #endregion
-                            {
-                                rdr = cmd.ExecuteReader(CommandBehavior.SingleResult);
-                            }
 
-                            if (rdr.Read())
+                            // Also update CurrentValues under both keys so getters see the value.
+                            if (packet.CurrentValues != null)
                             {
-                                select = select.Replace("`", String.Empty).Replace("`", String.Empty);
-                                string[] selectCols = select.Split(',');
+                                packet.CurrentValues[autoIncColumn] = o;
 
-                                for (int k = 0; k < selectCols.Length; k++)
+                                esColumnMetadata meta = request?.Columns?.FindByColumnName(autoIncColumn);
+                                if (meta != null && !string.IsNullOrEmpty(meta.PropertyName)
+                                    && !string.Equals(meta.PropertyName, autoIncColumn, StringComparison.Ordinal))
                                 {
-                                    packet.CurrentValues[selectCols[k]] = rdr.GetValue(k);
+                                    packet.CurrentValues[meta.PropertyName] = o;
                                 }
                             }
                         }
-                        finally
-                        {
-                            // Make sure we close the reader no matter what
-                            if (rdr != null) rdr.Close();
-                        }
                     }
 
-                    if (e.StatementType == StatementType.Update)
+                    if (props.Contains("EntitySpacesConcurrency"))
                     {
-                        string colName = props["EntitySpacesConcurrency"] as string;
-                        object o = e.Row[colName];
+                        string esConcurrencyColumn = props["EntitySpacesConcurrency"] as string;
+                        if (packet.CurrentValues != null)
+                            packet.CurrentValues[esConcurrencyColumn] = 1;
+                    }
+                }
 
-                        MySqlParameter p = e.Command.Parameters["?" + colName];
-                        object v = null;
+                if (props.Contains("Timestamp"))
+                {
+                    string column = props["Timestamp"] as string;
 
-                        switch (Type.GetTypeCode(o.GetType()))
+                    MySqlCommand cmd = new MySqlCommand();
+                    cmd.Connection = e.Command.Connection;
+                    cmd.Transaction = e.Command.Transaction;
+                    cmd.CommandText = "SELECT LastTimestamp('" + source + "');";
+
+                    object o = null;
+
+                    #region Profiling
+                    if (sTraceHandler != null)
+                    {
+                        using (esTraceArguments esTrace = new esTraceArguments(request, cmd, "OnRowUpdated", System.Environment.StackTrace))
                         {
-                            case TypeCode.Int16: v = ((System.Int16)o) + 1; break;
-                            case TypeCode.Int32: v = ((System.Int32)o) + 1; break;
-                            case TypeCode.Int64: v = ((System.Int64)o) + 1; break;
-                            case TypeCode.UInt16: v = ((System.UInt16)o) + 1; break;
-                            case TypeCode.UInt32: v = ((System.UInt32)o) + 1; break;
-                            case TypeCode.UInt64: v = ((System.UInt64)o) + 1; break;
+                            try { o = cmd.ExecuteScalar(); }
+                            catch (Exception ex) { esTrace.Exception = ex.Message; throw; }
+                        }
+                    }
+                    else
+                    #endregion
+                    {
+                        o = cmd.ExecuteScalar();
+                    }
+
+                    if (o != null && o != DBNull.Value)
+                    {
+                        foreach (MySqlParameter p in e.Command.Parameters)
+                        {
+                            if (string.Equals(p.SourceColumn, column, StringComparison.OrdinalIgnoreCase))
+                            {
+                                p.Value = o;
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                if (props.Contains("Defaults"))
+                {
+                    MySqlCommand cmd = new MySqlCommand();
+                    cmd.Connection = e.Command.Connection;
+                    cmd.Transaction = e.Command.Transaction;
+
+                    string select = (string)props["Defaults"];
+                    string[] whereParameters = ((string)props["Where"]).Split(',');
+
+                    string comma = String.Empty;
+                    string where = String.Empty;
+                    int i = 1;
+                    foreach (string parameter in whereParameters)
+                    {
+                        MySqlParameter p = new MySqlParameter("?p" + i++.ToString(), e.Row[parameter]);
+                        cmd.Parameters.Add(p);
+                        where += comma + "`" + parameter + "` = " + p.ParameterName;
+                        comma = " AND ";
+                    }
+
+                    cmd.CommandText = "SELECT " + select + " FROM `" + request.ProviderMetadata.Source + "` WHERE " + where + ";";
+
+                    MySqlDataReader rdr = null;
+                    try
+                    {
+                        #region Profiling
+                        if (sTraceHandler != null)
+                        {
+                            using (esTraceArguments esTrace = new esTraceArguments(request, cmd, "OnRowUpdated", System.Environment.StackTrace))
+                            {
+                                try { rdr = cmd.ExecuteReader(CommandBehavior.SingleResult); }
+                                catch (Exception ex) { esTrace.Exception = ex.Message; throw; }
+                            }
+                        }
+                        else
+                        #endregion
+                        {
+                            rdr = cmd.ExecuteReader(CommandBehavior.SingleResult);
                         }
 
-                        p.Value = v;
+                        if (rdr.Read())
+                        {
+                            string cleanSelect = select.Replace("`", String.Empty);
+                            string[] selectCols = cleanSelect.Split(',');
+
+                            for (int k = 0; k < selectCols.Length && k < rdr.FieldCount; k++)
+                            {
+                                string key = selectCols[k].Trim();
+                                object val = rdr.IsDBNull(k) ? null : rdr.GetValue(k);
+
+                                if (packet.CurrentValues != null)
+                                {
+                                    packet.CurrentValues[key] = val;
+
+                                    esColumnMetadata meta = request?.Columns?.FindByColumnName(key);
+                                    if (meta != null && !string.IsNullOrEmpty(meta.PropertyName))
+                                        packet.CurrentValues[meta.PropertyName] = val;
+                                }
+                            }
+                        }
+                    }
+                    finally
+                    {
+                        if (rdr != null) rdr.Close();
+                    }
+                }
+
+                if (e.StatementType == StatementType.Update && props.Contains("EntitySpacesConcurrency"))
+                {
+                    string colName = props["EntitySpacesConcurrency"] as string;
+                    object o = e.Row[colName];
+                    if (o != null && o != DBNull.Value)
+                    {
+                        foreach (MySqlParameter p in e.Command.Parameters)
+                        {
+                            if (string.Equals(p.SourceColumn, colName, StringComparison.OrdinalIgnoreCase))
+                            {
+                                object v = null;
+                                switch (Type.GetTypeCode(o.GetType()))
+                                {
+                                    case TypeCode.Int16: v = ((System.Int16)o) + 1; break;
+                                    case TypeCode.Int32: v = ((System.Int32)o) + 1; break;
+                                    case TypeCode.Int64: v = ((System.Int64)o) + 1; break;
+                                    case TypeCode.UInt16: v = ((System.UInt16)o) + 1; break;
+                                    case TypeCode.UInt32: v = ((System.UInt32)o) + 1; break;
+                                    case TypeCode.UInt64: v = ((System.UInt64)o) + 1; break;
+                                }
+                                p.Value = v;
+                                break;
+                            }
+                        }
                     }
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                // [C8 FIX] Do NOT swallow silently. Surface for diagnostics; still
+                // let ADO.NET continue so the row's error state is preserved.
+                System.Diagnostics.Debug.WriteLine(
+                    "[EntitySpaces.MySQLProvider] OnRowUpdated failed: " + ex);
+            }
         }
     }
 }

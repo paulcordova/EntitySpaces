@@ -40,6 +40,18 @@ namespace EntitySpaces.MySQLProvider
 {
     class Shared
     {
+        // ===================================================================
+        // [C1 FIX] Tolerant modified-column check: accepts both the DB column
+        // name ("invoiceid") and the EntitySpaces property name ("Invoiceid").
+        // ===================================================================
+        static private bool IsColumnModified(List<string> modifiedColumns, esColumnMetadata col)
+        {
+            if (modifiedColumns == null || col == null) return false;
+            if (modifiedColumns.Contains(col.Name)) return true;
+            if (!string.IsNullOrEmpty(col.PropertyName) && modifiedColumns.Contains(col.PropertyName)) return true;
+            return false;
+        }
+
         static public MySqlCommand BuildDynamicInsertCommand(esDataRequest request, List<string> modifiedColumns)
         {
             string sql = String.Empty;
@@ -62,7 +74,7 @@ namespace EntitySpaces.MySQLProvider
             esColumnMetadataCollection cols = request.Columns;
             foreach (esColumnMetadata col in cols)
             {
-                bool isModified = modifiedColumns == null ? false : modifiedColumns.Contains(col.Name);
+                bool isModified = IsColumnModified(modifiedColumns, col);
 
                 if (isModified && (!col.IsAutoIncrement && !col.IsConcurrency && !col.IsEntitySpacesConcurrency))
                 {
@@ -75,12 +87,30 @@ namespace EntitySpaces.MySQLProvider
                 }
                 else if (col.IsAutoIncrement)
                 {
-                    props["AutoInc"] = col.Name;
-                    props["Source"] = request.ProviderMetadata.Source;
+                    // [C7 FIX] If the user supplied an explicit value (under either the
+                    // column name or the property name), include it in the INSERT as a
+                    // regular input parameter. MySQL accepts explicit AUTO_INCREMENT
+                    // values; LAST_INSERT_ID() is not used in that case.
+                    if (isModified)
+                    {
+                        p = CloneParameter(types[col.Name]);
+                        p.Direction = ParameterDirection.Input;
+                        cmd.Parameters.Add(p);
 
-                    p = CloneParameter(types[col.Name]);
-                    p.Direction = ParameterDirection.Output;
-                    cmd.Parameters.Add(p);
+                        into += comma + Delimiters.ColumnOpen + col.Name + Delimiters.ColumnClose;
+                        values += comma + p.ParameterName;
+                        comma = ", ";
+                    }
+                    else
+                    {
+                        // Sequence-generated — LastInsertId is fetched in OnRowUpdated.
+                        props["AutoInc"] = col.Name;
+                        props["Source"] = request.ProviderMetadata.Source;
+
+                        p = CloneParameter(types[col.Name]);
+                        p.Direction = ParameterDirection.Output;
+                        cmd.Parameters.Add(p);
+                    }
                 }
                 else if (col.IsConcurrency)
                 {
@@ -99,16 +129,16 @@ namespace EntitySpaces.MySQLProvider
 
                     p = CloneParameter(types[col.Name]);
                     p.Direction = ParameterDirection.Output;
-                    p.Value = 1; // Seems to work, We'll take it ...
+                    p.Value = 1;
                     cmd.Parameters.Add(p);
                 }
                 else if (col.IsComputed)
                 {
-                    // Do nothing but leave this here
+                    // Do nothing
                 }
                 else if (cols.IsSpecialColumn(col))
                 {
-                    // Do nothing but leave this here
+                    // Do nothing
                 }
                 else if (col.HasDefault)
                 {
@@ -124,6 +154,8 @@ namespace EntitySpaces.MySQLProvider
             }
 
             #region Special Columns
+            // [FIX] Each block adds ITS OWN column to RETURNING-equivalent SELECT (MySQL: to Defaults).
+            // Preserved from existing code — no copy-paste bugs in MySQL version.
             if (cols.DateAdded != null && cols.DateAdded.IsServerSide)
             {
                 into += comma + Delimiters.ColumnOpen + cols.DateAdded.ColumnName + Delimiters.ColumnClose;
@@ -213,7 +245,7 @@ namespace EntitySpaces.MySQLProvider
             esColumnMetadataCollection cols = request.Columns;
             foreach (esColumnMetadata col in cols)
             {
-                bool isModified = modifiedColumns == null ? false : modifiedColumns.Contains(col.Name);
+                bool isModified = IsColumnModified(modifiedColumns, col);
 
                 if (isModified && (!col.IsAutoIncrement && !col.IsConcurrency && !col.IsEntitySpacesConcurrency))
                 {
