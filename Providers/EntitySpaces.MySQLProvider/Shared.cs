@@ -435,7 +435,7 @@ namespace EntitySpaces.MySQLProvider
         static public MySqlCommand BuildStoredProcDeleteCommand(esDataRequest request)
         {
             MySqlCommand cmd = new MySqlCommand();
-            if(request.CommandTimeout != null) cmd.CommandTimeout = request.CommandTimeout.Value;
+            if (request.CommandTimeout != null) cmd.CommandTimeout = request.CommandTimeout.Value;
 
             cmd.CommandType = CommandType.StoredProcedure;
             cmd.CommandText = Delimiters.StoredProcNameOpen + request.ProviderMetadata.spDelete + Delimiters.StoredProcNameClose;
@@ -451,7 +451,16 @@ namespace EntitySpaces.MySQLProvider
                     p = types[col.Name];
                     p = CloneParameter(p);
                     p.ParameterName = p.ParameterName.Replace("?", "?p");
-                    p.SourceVersion = DataRowVersion.Current;
+
+                    // [C3 FIX] DataRowVersion.Original instead of Current.
+                    // For a row in the Deleted state, ADO.NET returns the pre-delete
+                    // values under DataRowVersion.Original. Using Current happens to
+                    // work because DataAdapter treats deleted rows specially, but it
+                    // depends on implicit behavior. Original makes the intent explicit
+                    // and stays correct if the caller changes the row state before the
+                    // DataAdapter runs.
+                    p.SourceVersion = DataRowVersion.Original;
+
                     cmd.Parameters.Add(p);
                 }
             }

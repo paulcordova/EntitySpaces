@@ -1345,10 +1345,12 @@ namespace EntitySpaces.MySQLProvider
                     esTransactionScope.DeEnlist(cmd);
                 }
 
-                // [C2 FIX — complement] Sync keys BEFORE the framework calls AcceptChanges.
-                SyncColumnAndPropertyKeys(request.EntitySavePacket, request.Columns);
-
-                if (cmd.Parameters != null)
+                // [C2 FIX — reordered] Copy Output/InputOutput params FIRST, then sync.
+                // Previous order ran sync before the output copy, so a stored proc that
+                // returned AutoInc (or any other server-generated value) as an output
+                // parameter left the value only under the column name — the property
+                // name slot stayed empty and the entity getter returned null.
+                if (request.EntitySavePacket.RowState != esDataRowState.Deleted && cmd.Parameters != null)
                 {
                     foreach (MySqlParameter param in cmd.Parameters)
                     {
@@ -1361,6 +1363,10 @@ namespace EntitySpaces.MySQLProvider
                         }
                     }
                 }
+
+                // Now that both Output params and entity values are in CurrentValues,
+                // synchronize column-name and property-name slots.
+                SyncColumnAndPropertyKeys(request.EntitySavePacket, request.Columns);
             }
 
             return dataTable;
@@ -1399,6 +1405,13 @@ namespace EntitySpaces.MySQLProvider
 
                     MySqlCommand cmd = null;
 
+                    // [C5 FIX — optional] Command reuse for homogeneous bulk saves.
+                    // Most collections come from a single entity type with the same
+                    // modified-columns signature. Rebuilding the command on every row
+                    // is safe but wasteful. Cache the signature and only rebuild when
+                    // the column set (or row state) actually changes.
+                    string lastSignature = null;
+
                     if (!request.IgnoreComputedColumns)
                     {
                         da.RowUpdated += new MySqlRowUpdatedEventHandler(OnRowUpdated);
@@ -1406,20 +1419,45 @@ namespace EntitySpaces.MySQLProvider
 
                     foreach (esEntitySavePacket packet in request.CollectionSavePacket)
                     {
-                        if (packet.RowState != esDataRowState.Added && packet.RowState != esDataRowState.Modified) continue;
+                        if (packet.RowState != esDataRowState.Added && packet.RowState != esDataRowState.Modified)
+                            continue;
 
                         DataRow row = dataTable.NewRow();
                         dataTable.Rows.Add(row);
 
+                        // Build a signature that captures row state and modified columns.
+                        // Two packets with the same signature produce identical SQL and
+                        // parameter layout, so the command object can be reused safely.
+                        string signature = packet.RowState + "|" +
+                            string.Join(",", packet.ModifiedColumns ?? new List<string>());
+
+                        bool sameSignature = signature == lastSignature;
+
                         switch (packet.RowState)
                         {
                             case esDataRowState.Added:
-                                cmd = da.InsertCommand = Shared.BuildDynamicInsertCommand(request, packet.ModifiedColumns);
+                                if (!sameSignature || da.InsertCommand == null)
+                                {
+                                    cmd = da.InsertCommand = Shared.BuildDynamicInsertCommand(request, packet.ModifiedColumns);
+                                    lastSignature = signature;
+                                }
+                                else
+                                {
+                                    cmd = da.InsertCommand;
+                                }
                                 SetModifiedValues(request, packet, row);
                                 break;
 
                             case esDataRowState.Modified:
-                                cmd = da.UpdateCommand = Shared.BuildDynamicUpdateCommand(request, packet.ModifiedColumns);
+                                if (!sameSignature || da.UpdateCommand == null)
+                                {
+                                    cmd = da.UpdateCommand = Shared.BuildDynamicUpdateCommand(request, packet.ModifiedColumns);
+                                    lastSignature = signature;
+                                }
+                                else
+                                {
+                                    cmd = da.UpdateCommand;
+                                }
                                 SetOriginalValues(request, packet, row, false);
                                 SetModifiedValues(request, packet, row);
                                 row.AcceptChanges();
@@ -1471,12 +1509,8 @@ namespace EntitySpaces.MySQLProvider
                             esTransactionScope.DeEnlist(cmd);
                         }
 
-                        // [C2 FIX — complement] Sync keys BEFORE the framework calls AcceptChanges.
-                        if (!row.HasErrors)
-                        {
-                            SyncColumnAndPropertyKeys(packet, request.Columns);
-                        }
-
+                        // [C2 FIX — reordered] Copy Output/InputOutput params FIRST,
+                        // then sync keys. See SaveStoredProcEntity for rationale.
                         if (!row.HasErrors && packet.RowState != esDataRowState.Deleted && cmd.Parameters != null)
                         {
                             foreach (MySqlParameter param in cmd.Parameters)
@@ -1489,6 +1523,11 @@ namespace EntitySpaces.MySQLProvider
                                         break;
                                 }
                             }
+                        }
+
+                        if (!row.HasErrors)
+                        {
+                            SyncColumnAndPropertyKeys(packet, request.Columns);
                         }
                     }
                 }
@@ -2041,9 +2080,38 @@ namespace EntitySpaces.MySQLProvider
             }
             catch (Exception ex)
             {
-                // [C8 FIX] Do NOT swallow silently. Surface for diagnostics; still
-                // let ADO.NET continue so the row's error state is preserved.
+                // [C8 FIX — enhanced] Surface the failure so it is not silently
+                // swallowed. Two complementary mechanisms:
+                //
+                //   1. Mark the DataRow with RowError. The caller's
+                //      ContinueUpdateOnError logic iterates GetErrors() and
+                //      calls request.FireOnError(packet, row.RowError), which
+                //      sets entity.rowError and is visible to application code.
+                //
+                //   2. Emit the exception through both Debug (visible in IDE
+                //      during development) and Trace (visible in production
+                //      when a trace listener is attached — ETW, log4net, etc.).
+                //
+                // Do NOT change e.Status to UpdateStatus.ErrorsOccurred here:
+                // the SQL statement already executed successfully. What failed
+                // is the post-processing (LAST_INSERT_ID, LastTimestamp, or
+                // defaults retrieval). Failing the whole batch would discard a
+                // successful insert, which is worse than surfacing the missing
+                // value as a row error.
+
+                try
+                {
+                    if (string.IsNullOrEmpty(e.Row.RowError))
+                    {
+                        e.Row.RowError = "OnRowUpdated: " + ex.Message;
+                    }
+                }
+                catch { /* never let error-surfacing itself throw */ }
+
                 System.Diagnostics.Debug.WriteLine(
+                    "[EntitySpaces.MySQLProvider] OnRowUpdated failed: " + ex);
+
+                System.Diagnostics.Trace.WriteLine(
                     "[EntitySpaces.MySQLProvider] OnRowUpdated failed: " + ex);
             }
         }
