@@ -2579,6 +2579,14 @@ namespace EntitySpaces.Core
         /// <seealso cref="Save"/>
         virtual protected void SaveToProvider(esSqlAccessType sqlAccessType)
         {
+
+            // Normalize any PropertyName-keyed entries in currentValues to their canonical ColumnName
+            // before the provider reads them. ApplyPostSaveKeys writes to child entities via
+            // SetProperty(propertyName, value), while typed setters and getters use ColumnName values
+            // from metadata. Without this sync, both forms coexist as distinct keys and the getter
+            // (which reads ColumnName) sees a null value after a hierarchical save.
+            SyncCurrentValueKeys();
+
             esDataRequest request = CreateRequest();
 
             #region Auditing fields
@@ -2639,6 +2647,49 @@ namespace EntitySpaces.Core
 
                 // Game over, we received an exception
                 throw response.Exception;
+            }
+        }
+
+        /// <summary>
+        /// Merges any PropertyName-keyed entries in currentValues into their canonical ColumnName
+        /// counterpart. Called only from SaveToProvider so the normalization is scoped to the write
+        /// path and does not affect reads, lazy loads, or extra-column serialization.
+        ///
+        /// Note: esSmartDictionary does not expose a Remove method, so PropertyName-keyed entries are
+        /// left in place after their value has been propagated to the canonical ColumnName. The
+        /// classification of those entries as extra columns is prevented in GetExtraColumns by
+        /// resolving identifiers through FindByPropertyName as a fallback.
+        /// </summary>
+        private void SyncCurrentValueKeys()
+        {
+            if (currentValues == null || currentValues.Count == 0) return;
+
+            esColumnMetadataCollection cols = this.Meta.Columns;
+            if (cols == null) return;
+
+            // Snapshot the keys because we may add new entries while iterating.
+            List<string> keys = new List<string>(currentValues.Keys);
+
+            foreach (string key in keys)
+            {
+                // Keys that already are canonical ColumnNames need no sync.
+                if (cols.FindByColumnName(key) != null) continue;
+
+                // Look up by PropertyName as a fallback.
+                esColumnMetadata col = cols.FindByPropertyName(key);
+                if (col == null) continue;
+
+                // Propagate the value to the canonical ColumnName key, but never
+                // overwrite a non-null value already stored there.
+                object propValue = currentValues[key];
+                if (propValue != null && propValue != DBNull.Value)
+                {
+                    object current = currentValues[col.Name];
+                    if (current == null || current == DBNull.Value)
+                    {
+                        currentValues[col.Name] = propValue;
+                    }
+                }
             }
         }
 
