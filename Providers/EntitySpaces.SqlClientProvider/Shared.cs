@@ -76,7 +76,8 @@ namespace EntitySpaces.SqlClientProvider
 
                 if (request.SelectedColumns != null && !request.SelectedColumns.ContainsKey(colName)) continue;
 
-                bool isModified = modifiedColumns == null ? false : modifiedColumns.Contains(col.Name);
+                // ★ Tolerant to divergence column name / property name (BUG 1)
+                bool isModified = IsColumnModified(modifiedColumns, colName);
 
                 if (isModified && !col.IsComputed && !col.IsConcurrency && !col.IsAutoIncrement)
                 {
@@ -84,7 +85,7 @@ namespace EntitySpaces.SqlClientProvider
                     p = types[colName];
                     p = cmd.Parameters.Add(CloneParameter(p));
 
-                    object value = packet.CurrentValues[colName];
+                    object value = GetColumnValue(packet.CurrentValues, colName);
                     p.Value = value != null ? value : DBNull.Value;
 
                     CreateInsertSQLSnippet(colName, p, ref into, ref values, ref comma);
@@ -369,7 +370,7 @@ namespace EntitySpaces.SqlClientProvider
             if (request.CommandTimeout != null) cmd.CommandTimeout = request.CommandTimeout.Value;
 
             string set = string.Empty;
-            string sql = "SET NOCOUNT OFF; SET XACT_ABORT ON;"; // XACT_ABORT ensures constraint errors raise SqlException in all SQL Server versions
+            string sql = "SET NOCOUNT OFF; SET XACT_ABORT ON;";
             sql += "UPDATE " + CreateFullName(request) + GetTableHints(packet) + " SET ";
 
             string where = String.Empty;
@@ -383,24 +384,25 @@ namespace EntitySpaces.SqlClientProvider
 
             List<string> modifiedColumns = packet.ModifiedColumns;
 
-            foreach (string colName in modifiedColumns)
+			// Refactor: iterate over ColumnMetadata (table order) filtering by IsColumnModified.
+			// The original loop iterated over modifiedColumns (PascalCase) and looked up
+			// request.Columns[colName], which returned null → column silently omitted (BUG 1 in UPDATE).
+            foreach (esColumnMetadata col in request.Columns)
             {
-                esColumnMetadata col = request.Columns[colName];
+                if (!IsColumnModified(modifiedColumns, col.Name)) continue;
+                if (col.IsInPrimaryKey || col.IsComputed) continue;
 
-                if (col == null) continue;
+                string colName = col.Name;
 
-                if (!col.IsInPrimaryKey && !col.IsComputed)
-                {
-                    p = CloneParameter(types[colName]);
-                    p = cmd.Parameters.Add(p);
+                p = CloneParameter(types[colName]);
+                p = cmd.Parameters.Add(p);
 
-                    object value = packet.CurrentValues[colName];
-                    p.Value = value != null ? value : DBNull.Value;
+                object value = GetColumnValue(packet.CurrentValues, colName);
+                p.Value = value != null ? value : DBNull.Value;
 
-                    sql += comma;
-                    sql += Delimiters.ColumnOpen + colName + Delimiters.ColumnClose + " = " + p.ParameterName;
-                    comma = ", ";
-                }
+                sql += comma;
+                sql += Delimiters.ColumnOpen + colName + Delimiters.ColumnClose + " = " + p.ParameterName;
+                comma = ", ";
             }
 
             foreach (esColumnMetadata col in request.Columns)
@@ -496,7 +498,6 @@ namespace EntitySpaces.SqlClientProvider
 
                 set += " SET " + p.ParameterName + " = " + request.ProviderMetadata["ModifiedBy.ServerSideText"] + ";";
             }
-
 
             sql = set + sql + " WHERE (" + where + ")";
             if (conncur.Length > 0)
@@ -997,5 +998,67 @@ namespace EntitySpaces.SqlClientProvider
                 }
             }
         }
-    }
+
+        #region Column/Property Name Tolerance Helpers
+
+        #region Column/Property Name Tolerance Helpers
+
+        /// <summary>
+        /// Returns true if modifiedColumns contains columnName, ignoring case.
+        /// Tolerates the divergence between ColumnNames (e.g. "invoiceid") and PropertyNames
+        /// (e.g. "Invoiceid") produced by ApplyPostSaveKeys when it calls SetProperty(name, value).
+        /// </summary>
+        static private bool IsColumnModified(List<string> modifiedColumns, string columnName)
+        {
+            if (modifiedColumns == null || modifiedColumns.Count == 0) return false;
+
+            for (int i = 0; i < modifiedColumns.Count; i++)
+            {
+                if (string.Equals(modifiedColumns[i], columnName, StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Reads the value of columnName from the values dictionary, tolerating column/property
+        /// name divergence. Prioritizes non-null values because esSmartDictionary pre-registers
+        /// every metadata column with a null value; if ApplyPostSaveKeys wrote the actual value
+        /// under the property name (PascalCase) while the column name already existed as null,
+        /// we must check both forms and keep the one that carries data.
+        /// </summary>
+        static private object GetColumnValue(esSmartDictionary values, string columnName)
+        {
+            if (values == null) return null;
+
+            // Pass 1: exact match with a non-null value (normal case)
+            object exact = null;
+            bool hasExact = values.TryGetValue(columnName, out exact);
+            if (hasExact && exact != null && exact != DBNull.Value)
+                return exact;
+
+            // Pass 2: case-insensitive match with a non-null value
+            // (tolerates ApplyPostSaveKeys → SetProperty using PascalCase)
+            foreach (string key in values.Keys)
+            {
+                if (string.Equals(key, columnName, StringComparison.OrdinalIgnoreCase))
+                {
+                    object candidate = values[key];
+                    if (candidate != null && candidate != DBNull.Value)
+                        return candidate;
+                }
+            }
+
+            // Pass 3: nothing non-null found. Return the exact match if it existed (may be null),
+            // otherwise null.
+            return hasExact ? exact : (object)null;
+        }
+
+        #endregion
+
+        #endregion
+
+
+    } // end class
 }
