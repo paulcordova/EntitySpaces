@@ -67,7 +67,11 @@ namespace EntitySpaces.SqlClientProvider
             SqlParameter p = null;
             if (request.CommandTimeout != null) cmd.CommandTimeout = request.CommandTimeout.Value;
 
-            // XACT_ABORT ensures CHECK/FK constraint errors raise SqlException in all SQL Server versions
+            // XACT_ABORT forces constraint errors to abort the batch and propagate as
+            // SqlException on SQL Server 2016 and earlier. SQL Server 2025 Express has a
+            // known regression where CHECK/FK violations inside parameterized batches are
+            // silently swallowed regardless of XACT_ABORT (see OrderDetails_Fails_With_*
+            // tests for the observed behavior on both versions).
             string sql = "SET NOCOUNT OFF; SET XACT_ABORT ON;";
 
             foreach (esColumnMetadata col in request.Columns)
@@ -370,6 +374,11 @@ namespace EntitySpaces.SqlClientProvider
             if (request.CommandTimeout != null) cmd.CommandTimeout = request.CommandTimeout.Value;
 
             string set = string.Empty;
+            // XACT_ABORT forces constraint errors to abort the batch and propagate as
+            // SqlException on SQL Server 2016 and earlier. SQL Server 2025 Express has a
+            // known regression where CHECK/FK violations inside parameterized batches are
+            // silently swallowed regardless of XACT_ABORT (see OrderDetails_Fails_With_*
+            // tests for the observed behavior on both versions).
             string sql = "SET NOCOUNT OFF; SET XACT_ABORT ON;";
             sql += "UPDATE " + CreateFullName(request) + GetTableHints(packet) + " SET ";
 
@@ -527,7 +536,12 @@ namespace EntitySpaces.SqlClientProvider
             SqlCommand cmd = new SqlCommand();
             if (request.CommandTimeout != null) cmd.CommandTimeout = request.CommandTimeout.Value;
 
-            string sql = "SET NOCOUNT OFF; SET XACT_ABORT ON;"; // XACT_ABORT ensures constraint errors raise SqlException in all SQL Server versions
+            // XACT_ABORT forces constraint errors to abort the batch and propagate as
+            // SqlException on SQL Server 2016 and earlier. SQL Server 2025 Express has a
+            // known regression where CHECK/FK violations inside parameterized batches are
+            // silently swallowed regardless of XACT_ABORT (see OrderDetails_Fails_With_*
+            // tests for the observed behavior on both versions).
+            string sql = "SET NOCOUNT OFF; SET XACT_ABORT ON;"; 
             sql += "DELETE FROM " + CreateFullName(request) + " ";
 
             string comma = String.Empty;
