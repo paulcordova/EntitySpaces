@@ -59,8 +59,6 @@ namespace EntitySpaces.SqlClientProvider
             string outputComma = string.Empty;
             bool hasOutputCols = false;
 
-            List<string> modifiedColumns = packet.ModifiedColumns;
-
             Dictionary<string, SqlParameter> types = Cache.GetParameters(request);
 
             SqlCommand cmd = new SqlCommand();
@@ -80,8 +78,9 @@ namespace EntitySpaces.SqlClientProvider
 
                 if (request.SelectedColumns != null && !request.SelectedColumns.ContainsKey(colName)) continue;
 
-                // ★ Tolerant to divergence column name / property name (BUG 1)
-                bool isModified = IsColumnModified(modifiedColumns, colName);
+                // Metadata-aware check: accepts the column name ("invoiceid") or the
+                // property name ("Invoiceid") as produced by ApplyPostSaveKeys.
+                bool isModified = IsColumnModified(packet, col);
 
                 if (isModified && !col.IsComputed && !col.IsConcurrency && !col.IsAutoIncrement)
                 {
@@ -89,7 +88,7 @@ namespace EntitySpaces.SqlClientProvider
                     p = types[colName];
                     p = cmd.Parameters.Add(CloneParameter(p));
 
-                    object value = GetColumnValue(packet.CurrentValues, colName);
+                    object value = GetColumnValue(packet, col);
                     p.Value = value != null ? value : DBNull.Value;
 
                     CreateInsertSQLSnippet(colName, p, ref into, ref values, ref comma);
@@ -391,14 +390,12 @@ namespace EntitySpaces.SqlClientProvider
 
             SqlParameter p = null;
 
-            List<string> modifiedColumns = packet.ModifiedColumns;
-
-			// Refactor: iterate over ColumnMetadata (table order) filtering by IsColumnModified.
-			// The original loop iterated over modifiedColumns (PascalCase) and looked up
-			// request.Columns[colName], which returned null → column silently omitted (BUG 1 in UPDATE).
+            // Metadata-aware iteration: compare against packet.ModifiedColumns via
+            // IsColumnModified so entries written under either the column name or the
+            // property name are recognized.
             foreach (esColumnMetadata col in request.Columns)
             {
-                if (!IsColumnModified(modifiedColumns, col.Name)) continue;
+                if (!IsColumnModified(packet, col)) continue;
                 if (col.IsInPrimaryKey || col.IsComputed) continue;
 
                 string colName = col.Name;
@@ -406,7 +403,7 @@ namespace EntitySpaces.SqlClientProvider
                 p = CloneParameter(types[colName]);
                 p = cmd.Parameters.Add(p);
 
-                object value = GetColumnValue(packet.CurrentValues, colName);
+                object value = GetColumnValue(packet, col);
                 p.Value = value != null ? value : DBNull.Value;
 
                 sql += comma;
@@ -419,7 +416,7 @@ namespace EntitySpaces.SqlClientProvider
                 if (col.IsInPrimaryKey)
                 {
                     p = CloneParameter(types[col.Name]);
-                    p.Value = packet.OriginalValues[col.Name];
+                    p.Value = GetOriginalColumnValue(packet, col);
                     cmd.Parameters.Add(p);
 
                     where += and;
@@ -429,7 +426,7 @@ namespace EntitySpaces.SqlClientProvider
                 else if (col.IsConcurrency)
                 {
                     p = CloneParameter(types[col.Name]);
-                    p.Value = packet.OriginalValues[col.Name];
+                    p.Value = GetOriginalColumnValue(packet, col);
                     p.Direction = ParameterDirection.InputOutput;
                     cmd.Parameters.Add(p);
 
@@ -461,11 +458,13 @@ namespace EntitySpaces.SqlClientProvider
                 }
                 else if (col.IsEntitySpacesConcurrency)
                 {
-                    if (packet.OriginalValues != null && packet.OriginalValues.ContainsKey(col.Name))
+                    object originalValue = GetOriginalColumnValue(packet, col);
+
+                    if (originalValue != null)
                     {
                         p = CloneParameter(types[col.Name]);
                         p.Direction = ParameterDirection.InputOutput;
-                        p.Value = packet.OriginalValues[col.Name];
+                        p.Value = originalValue;
                         cmd.Parameters.Add(p);
 
                         sql += comma.Length > 0 ? ", " : string.Empty;
@@ -541,19 +540,19 @@ namespace EntitySpaces.SqlClientProvider
             // known regression where CHECK/FK violations inside parameterized batches are
             // silently swallowed regardless of XACT_ABORT (see OrderDetails_Fails_With_*
             // tests for the observed behavior on both versions).
-            string sql = "SET NOCOUNT OFF; SET XACT_ABORT ON;"; 
+            string sql = "SET NOCOUNT OFF; SET XACT_ABORT ON;";
             sql += "DELETE FROM " + CreateFullName(request) + " ";
 
             string comma = String.Empty;
             string concur = String.Empty;
-            comma = String.Empty;
             sql += " WHERE ";
+
             foreach (esColumnMetadata col in request.Columns)
             {
                 if (col.IsInPrimaryKey)
                 {
                     SqlParameter p = CloneParameter(types[col.Name]);
-                    p.Value = packet.OriginalValues[col.Name];
+                    p.Value = GetOriginalColumnValue(packet, col);
                     cmd.Parameters.Add(p);
 
                     sql += comma;
@@ -563,7 +562,7 @@ namespace EntitySpaces.SqlClientProvider
                 else if (col.IsConcurrency || col.IsEntitySpacesConcurrency)
                 {
                     SqlParameter p = CloneParameter(types[col.Name]);
-                    p.Value = packet.OriginalValues[col.Name];
+                    p.Value = GetOriginalColumnValue(packet, col);
                     cmd.Parameters.Add(p);
 
                     int version = ResolveServerMajorVersion(request);
@@ -1015,64 +1014,86 @@ namespace EntitySpaces.SqlClientProvider
 
         #region Column/Property Name Tolerance Helpers
 
-        #region Column/Property Name Tolerance Helpers
-
         /// <summary>
-        /// Returns true if modifiedColumns contains columnName, ignoring case.
-        /// Tolerates the divergence between ColumnNames (e.g. "invoiceid") and PropertyNames
-        /// (e.g. "Invoiceid") produced by ApplyPostSaveKeys when it calls SetProperty(name, value).
+        /// Returns true if the packet's ModifiedColumns list contains an entry that
+        /// matches the column, accepting either the canonical DB column name or the
+        /// EntitySpaces property name.
+        ///
+        /// On SQL Server both names usually differ only in casing ("invoiceid" vs
+        /// "Invoiceid"), but the metadata-aware form is robust to any future
+        /// divergence (e.g. snake_case columns) and matches the pattern used by the
+        /// MySQL and PostgreSQL providers.
         /// </summary>
-        static private bool IsColumnModified(List<string> modifiedColumns, string columnName)
+        static private bool IsColumnModified(esEntitySavePacket packet, esColumnMetadata col)
         {
-            if (modifiedColumns == null || modifiedColumns.Count == 0) return false;
+            if (packet.ModifiedColumns == null || col == null) return false;
 
-            for (int i = 0; i < modifiedColumns.Count; i++)
+            List<string> modified = packet.ModifiedColumns;
+
+            for (int i = 0; i < modified.Count; i++)
             {
-                if (string.Equals(modifiedColumns[i], columnName, StringComparison.OrdinalIgnoreCase))
-                    return true;
+                string entry = modified[i];
+
+                if (string.Equals(entry, col.Name, StringComparison.Ordinal)) return true;
+
+                if (!string.IsNullOrEmpty(col.PropertyName) &&
+                    string.Equals(entry, col.PropertyName, StringComparison.Ordinal)) return true;
             }
 
             return false;
         }
 
         /// <summary>
-        /// Reads the value of columnName from the values dictionary, tolerating column/property
-        /// name divergence. Prioritizes non-null values because esSmartDictionary pre-registers
-        /// every metadata column with a null value; if ApplyPostSaveKeys wrote the actual value
-        /// under the property name (PascalCase) while the column name already existed as null,
-        /// we must check both forms and keep the one that carries data.
+        /// Reads a column value from CurrentValues, accepting either the canonical
+        /// DB column name or the EntitySpaces property name. Prefers the column-name
+        /// slot when it holds a real value; falls back to the property-name slot
+        /// (populated by generated ApplyPostSaveKeys on snake_case providers).
         /// </summary>
-        static private object GetColumnValue(esSmartDictionary values, string columnName)
+        static private object GetColumnValue(esEntitySavePacket packet, esColumnMetadata col)
         {
-            if (values == null) return null;
+            return GetValueFromDictionary(packet.CurrentValues, col);
+        }
 
-            // Pass 1: exact match with a non-null value (normal case)
-            object exact = null;
-            bool hasExact = values.TryGetValue(columnName, out exact);
-            if (hasExact && exact != null && exact != DBNull.Value)
-                return exact;
+        /// <summary>
+        /// Same semantics as GetColumnValue, applied to OriginalValues. Used by
+        /// UPDATE and DELETE to build the WHERE clause.
+        /// </summary>
+        static private object GetOriginalColumnValue(esEntitySavePacket packet, esColumnMetadata col)
+        {
+            return GetValueFromDictionary(packet.OriginalValues, col);
+        }
 
-            // Pass 2: case-insensitive match with a non-null value
-            // (tolerates ApplyPostSaveKeys → SetProperty using PascalCase)
-            foreach (string key in values.Keys)
+        /// <summary>
+        /// Shared lookup logic. esSmartDictionary pre-registers every metadata column
+        /// with a null value, so ContainsKey alone is insufficient — we must verify
+        /// the value is not null/DBNull before accepting it.
+        /// </summary>
+        static private object GetValueFromDictionary(esSmartDictionary values, esColumnMetadata col)
+        {
+            if (values == null || col == null) return null;
+
+            // Exact match on column name first (normal path — typed setters).
+            if (values.ContainsKey(col.Name))
             {
-                if (string.Equals(key, columnName, StringComparison.OrdinalIgnoreCase))
-                {
-                    object candidate = values[key];
-                    if (candidate != null && candidate != DBNull.Value)
-                        return candidate;
-                }
+                object v = values[col.Name];
+                if (v != null && v != DBNull.Value) return v;
             }
 
-            // Pass 3: nothing non-null found. Return the exact match if it existed (may be null),
-            // otherwise null.
-            return hasExact ? exact : (object)null;
+            // Fallback to property name (ApplyPostSaveKeys path).
+            if (!string.IsNullOrEmpty(col.PropertyName) &&
+                !string.Equals(col.Name, col.PropertyName, StringComparison.Ordinal) &&
+                values.ContainsKey(col.PropertyName))
+            {
+                object v = values[col.PropertyName];
+                if (v != null && v != DBNull.Value) return v;
+            }
+
+            // Neither slot has a real value. Return whatever the column-name slot
+            // contains (may be null/DBNull) so callers can bind it as NULL.
+            return values.ContainsKey(col.Name) ? values[col.Name] : (object)null;
         }
 
         #endregion
-
-        #endregion
-
 
     } // end class
 }
