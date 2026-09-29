@@ -2411,6 +2411,19 @@ namespace EntitySpaces.Core
         /// </summary>
         virtual public void AcceptChanges()
         {
+
+            // Sync any PropertyName-keyed entries into their canonical ColumnName
+            // counterparts before freezing the state into originalValues.
+            //
+            // ApplyPostSaveKeys writes child FKs via SetProperty(propertyName, value)
+            // while typed setters and getters use ColumnName values from metadata.
+            // Without this merge, both forms coexist as distinct keys and the getter
+            // returns null for the FK after a hierarchical save.
+            //
+            // Called here (not in SaveToProvider) because children saved through
+            // esEntityCollection.Save() bypass SaveToProvider entirely.
+            SyncCurrentValueKeys();
+
             if (rowState == esDataRowState.Deleted)
             {
                 currentValues = originalValues = null;
@@ -2580,13 +2593,6 @@ namespace EntitySpaces.Core
         virtual protected void SaveToProvider(esSqlAccessType sqlAccessType)
         {
 
-            // Normalize any PropertyName-keyed entries in currentValues to their canonical ColumnName
-            // before the provider reads them. ApplyPostSaveKeys writes to child entities via
-            // SetProperty(propertyName, value), while typed setters and getters use ColumnName values
-            // from metadata. Without this sync, both forms coexist as distinct keys and the getter
-            // (which reads ColumnName) sees a null value after a hierarchical save.
-            SyncCurrentValueKeys();
-
             esDataRequest request = CreateRequest();
 
             #region Auditing fields
@@ -2655,10 +2661,10 @@ namespace EntitySpaces.Core
         /// counterpart. Called only from SaveToProvider so the normalization is scoped to the write
         /// path and does not affect reads, lazy loads, or extra-column serialization.
         ///
-        /// Note: esSmartDictionary does not expose a Remove method, so PropertyName-keyed entries are
-        /// left in place after their value has been propagated to the canonical ColumnName. The
-        /// classification of those entries as extra columns is prevented in GetExtraColumns by
-        /// resolving identifiers through FindByPropertyName as a fallback.
+        /// Uses an exact (case-sensitive) match to distinguish a real column name from a
+        /// PropertyName that differs only in casing (e.g. "invoiceid" vs "Invoiceid").
+        /// FindByColumnName is case-insensitive and would misclassify the PropertyName as the
+        /// canonical key, skipping the sync.
         /// </summary>
         private void SyncCurrentValueKeys()
         {
@@ -2667,20 +2673,24 @@ namespace EntitySpaces.Core
             esColumnMetadataCollection cols = this.Meta.Columns;
             if (cols == null) return;
 
-            // Snapshot the keys because we may add new entries while iterating.
+            // Fast exact (case-sensitive) lookup set of canonical column names.
+            HashSet<string> exactColumnNames = new HashSet<string>(StringComparer.Ordinal);
+            foreach (esColumnMetadata c in cols)
+            {
+                exactColumnNames.Add(c.Name);
+            }
+
             List<string> keys = new List<string>(currentValues.Keys);
 
             foreach (string key in keys)
             {
-                // Keys that already are canonical ColumnNames need no sync.
-                if (cols.FindByColumnName(key) != null) continue;
+                // Already a canonical ColumnName (exact match): nothing to sync.
+                if (exactColumnNames.Contains(key)) continue;
 
-                // Look up by PropertyName as a fallback.
+                // Try PropertyName lookup as fallback.
                 esColumnMetadata col = cols.FindByPropertyName(key);
                 if (col == null) continue;
 
-                // Propagate the value to the canonical ColumnName key, but never
-                // overwrite a non-null value already stored there.
                 object propValue = currentValues[key];
                 if (propValue != null && propValue != DBNull.Value)
                 {
