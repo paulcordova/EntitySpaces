@@ -45,7 +45,7 @@ This package provides the SQL Server runtime only — it does not generate code.
 - Error 547 (CHECK/FK violation) now reads the constraint name from `SqlError.Message` instead of `SqlException.Message`, ensuring it's available on every SQL Server version including 2025
 - Worked around a SQL Server 2025 regression where `OUTPUT...INTO @table_variable` inside a parameterized batch could silently suppress CHECK constraint exceptions — columns with `HasDefault` (non-GUID) now use a post-insert `SELECT ... WHERE pk = SCOPE_IDENTITY()` instead
 
-> **Known limitation — SQL Server 2025 Express:** CHECK/FK constraint violations inside parameterized batches with `Output` parameters may not propagate as `SqlException` (confirmed on Express 17.0.4040). Does not affect SQL Server 2016 Express or any non-Express edition.
+> **Known limitation — SQL Server 2025 Express:** CHECK/FK constraint violations inside parameterized batches are silently swallowed by the server — the row is persisted with invalid values and no `SqlException` reaches the provider (confirmed on Express 17.0.4085.5 / CU8+GDR, September 2026). Independent of constraint type (CHECK vs FK), ambient transaction, and presence of `OUTPUT INSERTED`. Does not affect SQL Server 2016 Express (13.00.5026). Track upstream at [dotnet/SqlClient](https://github.com/dotnet/SqlClient/issues).
 
 ## Dependency Updates
 
