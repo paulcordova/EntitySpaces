@@ -1200,8 +1200,42 @@ namespace EntitySpaces.Core
                         {
                             entity.rowError = null;
 
-                            entity.PrepareSpecialFields();
+                            // [FIX] Apply the collection-level foreign keys before PreSave.
+                            //
+                            // Covers the parent-initiated pattern where the parent was saved
+                            // before the children were added to the collection. In that scenario
+                            // the parent's ApplyPostSaveKeys() never runs with the children
+                            // present, and the FK is only carried to the SQL parameters via the
+                            // collection's fks dictionary (set by the parent's navigation getter)
+                            // but is never written to the child's CurrentValues. As a result the
+                            // FK is persisted correctly in the database but the typed getter
+                            // returns null after save.
+                            //
+                            // Mirrors the behavior of AddNew(), which applies fks immediately at
+                            // creation time. Skips entities that already have the FK assigned
+                            // (Cases 1 and 2, where ApplyPostSaveKeys of the parent wrote it, and
+                            // Case 4, where the user set it explicitly through UpTo navigation).
+                            if (this.fks != null && this.fks.Count > 0 && entity.es.RowState == esDataRowState.Added)
+                            {
+                                foreach (string column in this.fks.Keys)
+                                {
+                                    object fkValue = this.fks[column];
+                                    if (fkValue == null) continue;
 
+                                    // Do not overwrite an explicitly assigned value — the user
+                                    // may have set a specific FK that intentionally differs from
+                                    // the collection's parent.
+                                    if (entity.GetColumn(column) == null)
+                                    {
+                                        // isVirtualColumn = false forces MarkFieldAsModified() so
+                                        // the FK is included in ModifiedColumns and therefore in
+                                        // the INSERT statement.
+                                        entity.SetColumn(column, fkValue, false);
+                                    }
+                                }
+                            }
+
+                            entity.PrepareSpecialFields();
                             entity.CommitPreSaves();
                             entity.ApplyPreSaveKeys();
 
