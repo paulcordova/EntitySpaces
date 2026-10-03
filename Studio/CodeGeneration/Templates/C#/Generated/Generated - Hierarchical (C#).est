@@ -429,29 +429,25 @@ namespace <%=Namespace%>
 				string nullTest = "";
 				string objName = "";
 				if(tr.IsSelfReference)
-				{
-					objName = esMeta.esPlugIn.CollectionRelationName(tr.ForeignTable, tr.PrimaryColumns[0], tr.IsSelfReference);
-					if(HasAutoIncrement(tr.PrimaryTable))
 					{
+						objName = esMeta.esPlugIn.CollectionRelationName(tr.ForeignTable, tr.PrimaryColumns[0], tr.IsSelfReference);
+						//FIX 2026.09 - Emit ApplyPostSaveKeys for user-supplied PKs (Zero-to-Many)
 						postItem.objName = objName;
 						postItem.primaryColumn = esMeta.esPlugIn.PropertyName(tr.ForeignColumns[0]);
 						postItem.foreignColumn = esMeta.esPlugIn.PropertyName(tr.PrimaryColumns[0]);
 						postItem.objType = esMeta.esPlugIn.Entity(tr.ForeignTable);
 						postSaveItemList.Add(postItem);
 					}
-				}
 				else
-				{
-					objName = esMeta.esPlugIn.CollectionRelationName(tr.ForeignTable, tr.ForeignColumns[0], tr.IsSelfReference);
-					if(HasAutoIncrement(tr.PrimaryTable))
 					{
+						objName = esMeta.esPlugIn.CollectionRelationName(tr.ForeignTable, tr.ForeignColumns[0], tr.IsSelfReference);
+						//FIX 2026.09 - Emit ApplyPostSaveKeys for user-supplied PKs (Zero-to-Many)
 						postItem.objName = objName;
 						postItem.primaryColumn = esMeta.esPlugIn.PropertyName(tr.PrimaryColumns[0]);
 						postItem.foreignColumn = esMeta.esPlugIn.PropertyName(tr.ForeignColumns[0]);
 						postItem.objType = esMeta.esPlugIn.Entity(tr.ForeignTable);
 						postSaveItemList.Add(postItem);
 					}
-				}
 				prefetchCandidates.Add(objName);
 				hierarchicalBindings.Add("this, \"" + objName + "\", typeof(" + esMeta.esPlugIn.Collection(tr.ForeignTable) + "), new " + esMeta.esPlugIn.Entity(tr.ForeignTable) + "())");
 				
@@ -796,6 +792,8 @@ if(RiaServicesSupport) {%>
 		/// <param name="value">The column value</param>
 		private void Apply(esEntityCollectionBase coll, string key, object value)
 		{
+			if (value == null) return;
+
 			foreach (esEntity obj in coll)
 			{
 				if (obj.es.IsAdded)
