@@ -268,8 +268,8 @@ Namespace <%=Namespace%>
 				string objName = upToPrefix + esMeta.esPlugIn.CollectionRelationName(tr.CrossReferenceTable, tr.ForeignTable);
 				string manyName = esMeta.esPlugIn.CollectionRelationName(tr.PrimaryTable, tr.ForeignTable);
 					if(HasAutoIncrement(tr.PrimaryTable))
-					{
-						postItem.objName = esMeta.esPlugIn.Collection(tr.ForeignTable);
+					{ //FIX 2025.08
+						postItem.objName = objName;  // ← NEW: point to read-only view
 						postItem.primaryColumn = esMeta.esPlugIn.PropertyName(tr.PrimaryColumns[0]);
 						postItem.foreignColumn = esMeta.esPlugIn.PropertyName(tr.ForeignColumns[0]);
 						postItem.objType = esMeta.esPlugIn.Entity(tr.ForeignTable);
@@ -383,26 +383,22 @@ Namespace <%=Namespace%>
 				if(tr.IsSelfReference)
 				{
 					objName = esMeta.esPlugIn.CollectionRelationName(tr.ForeignTable, tr.PrimaryColumns[0], tr.IsSelfReference);
-					if(HasAutoIncrement(tr.PrimaryTable))
-					{
-						postItem.objName = objName;
-						postItem.primaryColumn = esMeta.esPlugIn.PropertyName(tr.ForeignColumns[0]);
-						postItem.foreignColumn = esMeta.esPlugIn.PropertyName(tr.PrimaryColumns[0]);
-						postItem.objType = esMeta.esPlugIn.Entity(tr.ForeignTable);
-						postSaveItemList.Add(postItem);
-					}
-				}
+					postItem.objName = objName;
+					postItem.primaryColumn = esMeta.esPlugIn.PropertyName(tr.ForeignColumns[0]);
+					postItem.foreignColumn = esMeta.esPlugIn.PropertyName(tr.PrimaryColumns[0]);
+					postItem.objType = esMeta.esPlugIn.Entity(tr.ForeignTable);
+					postSaveItemList.Add(postItem);
+
+				}				
 				else
 				{
 					objName = esMeta.esPlugIn.CollectionRelationName(tr.ForeignTable, tr.ForeignColumns[0], tr.IsSelfReference);
-					if(HasAutoIncrement(tr.PrimaryTable))
-					{
-						postItem.objName = objName;
-						postItem.primaryColumn = esMeta.esPlugIn.PropertyName(tr.PrimaryColumns[0]);
-						postItem.foreignColumn = esMeta.esPlugIn.PropertyName(tr.ForeignColumns[0]);
-						postItem.objType = esMeta.esPlugIn.Entity(tr.ForeignTable);
-						postSaveItemList.Add(postItem);
-					}
+					postItem.objName = objName;
+					postItem.primaryColumn = esMeta.esPlugIn.PropertyName(tr.PrimaryColumns[0]);
+					postItem.foreignColumn = esMeta.esPlugIn.PropertyName(tr.ForeignColumns[0]);
+					postItem.objType = esMeta.esPlugIn.Entity(tr.ForeignTable);
+					postSaveItemList.Add(postItem);
+
 				}
 				
 				prefetchCandidates.Add(objName);
@@ -710,6 +706,8 @@ if(RiaServicesSupport) {%>
 		''' <param name="key">"The column name</param>
 		''' <param name="value">The column value</param>
 		Private Sub Apply(coll As esEntityCollectionBase, key As String, value As Object)
+			If value Is Nothing Then Return
+
 			For Each obj As esEntity In coll
 				If obj.es.IsAdded Then
 					obj.SetProperty(key, value)
