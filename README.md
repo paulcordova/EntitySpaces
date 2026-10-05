@@ -194,26 +194,106 @@ invoice.Save();
 // Now:    invoicedetail.Invoiceid == "INV-2026-0001"
 ```
 
-## Core — Collection Save FK Sync
+> **Coverage of all construction patterns:** The template fix above covers `parent.Collection.Add(child)` followed by `parent.Save()` — the parent-initiated path. The `## Core — Collection FK Sync` section below covers the complementary path where the collection is saved directly (`collection.Save()` / `collection.BulkInsert()`) without re-saving the parent. Together, both fixes close every construction pattern for user-supplied PKs.
 
-`esEntityCollection<T>.Save()` now writes the collection's foreign keys into each child's `CurrentValues` **before** invoking the child `Save()`. Previously the FKs were only consumed when building the `INSERT`, leaving child typed FK getters returning `null` after `collection.Save()` even though the row was persisted correctly.
 
-This closes the `parent.Save()` + `collection.Add(child)` + `collection.Save()` pattern, where the parent is never re-saved and `ApplyPostSaveKeys` on the parent does not run with the children present.
+## Core — Collection FK Sync
+
+The `esEntityCollection<T>` class has three code paths that persist children in bulk: `Save()`, `BulkInsert()`, and `Combine()`. All three now write the collection's `fks` dictionary into each child's `CurrentValues` before the SQL is generated, closing a class of silent failures where the FK was correctly persisted to the database but the child's typed FK getter returned `null` after save.
+
+### Two families of construction patterns
+
+Before the specifics, it is useful to distinguish the two families of patterns for building a parent-child graph. The Core fix applies to one of them; the other is unchanged and always requires explicit FK assignment.
+
+| Family | How the collection is obtained | `fks` populated? | FK propagation |
+|--------|-------------------------------|-------------------|----------------|
+| **Parent-attached** | `parent.ChildCollection` (navigation getter) | ✅ Yes | Automatic — the collection knows its parent |
+| **Detached** | `new ChildCollection()` | ❌ No | Manual — assign the FK on each child before `Save()` |
+
+**Parent-attached** is the idiomatic EntitySpaces pattern: the navigation getter (e.g. `invoice.InvoicedetailCollectionByInvoiceid`) is what populates the collection's internal `fks` dictionary with the parent's primary key. Any `Save()`, `BulkInsert()`, or `Combine()` on that collection has access to the parent context.
+
+**Detached** is the escape hatch: a collection created with `new` has no parent and no `fks`. Assign the FK explicitly on each child — the framework cannot infer it.
+
+The Core fixes below affect only the parent-attached family. Detached collections continue to work as before.
+
+### `Save()` — parent-initiated hierarchical save
+
+When the parent is saved **before** the children are added to the collection, `ApplyPostSaveKeys()` on the parent runs with an empty collection — the FK is never propagated. In that scenario the FK was carried to the SQL parameters through the collection's `fks` dictionary but was never written to the child's `CurrentValues`.
+
+`Save()` now applies the collection's `fks` entries to every Added child whose FK column is still `null`, using `SetProperty` so the value is written and the column marked as modified. Explicitly assigned FKs are preserved.
+
+### `BulkInsert()` — bulk insert with FK propagation
+
+Same pattern. `SqlBulkCopy` builds a `DataTable` from `packet.ModifiedColumns`. Without the fix, the FK column was absent from that set and `SqlBulkCopy` wrote `NULL`. `BulkInsert()` now applies the collection's `fks` before building the save packets — identical to `Save()`.
+
+### `Combine()` — value comparison, not unconditional marking
+
+`Combine()` moves entities from a source collection into a target collection. The target's `fks` (if populated) must be written into each combined entity. The previous implementation used `SetColumn(..., false)`, which calls `MarkFieldAsModified` unconditionally. The result: combining a freshly-loaded collection into a parent's navigation collection flipped every `Unchanged` entity to `Modified`, causing spurious UPDATE statements on subsequent `Save()` calls.
+
+`Combine()` now uses `SetProperty`, which routes through `SetValue` and compares the incoming value against the existing one. Entities whose FK already matches remain `Unchanged`; Added entities with a null FK still get the value written and the column marked as modified.
+
+### Behavior — parent-attached pattern
+
+The fix applies when the collection is obtained from the parent's navigation getter. That getter is what populates the collection's `fks` dictionary with the parent's primary key.
 
 ```csharp
-var invoice = new Invoice { Invoiceid = "INV-2026-0001" };
+var invoice = new Invoice { Blablabla = "INV-2026-0001" };
 invoice.Save();
 
-var details = new InvoicedetailCollection();
-details.Add(new Invoicedetail { ProductId = 10, UnitPrice = 15.50m, Quantity = 5 });
+// The navigation getter populates fks on the collection.
+var details = invoice.InvoicedetailCollectionByInvoiceid;
+details.Add(new Invoicedetail { Description = "Line 1" });
+details.Add(new Invoicedetail { Description = "Line 2" });
+
 details.Save();
 
-// Child FK getters now return the same value stored in the database.
+// Before the fix: details[*].Invoiceid was null in memory,
+//                 even though the FK was written correctly to the database.
+// Now:            details[*].Invoiceid equals invoice.Id.
 ```
 
-This change lives in **EntitySpaces.Core** and is shared across all providers — no provider-specific changes were required.
+The same pattern applies to `BulkInsert()`:
 
----
+```csharp
+var invoice = new Invoice { Blablabla = "INV-2026-0002" };
+invoice.Save();
+
+var details = invoice.InvoicedetailCollectionByInvoiceid;
+details.Add(new Invoicedetail { Description = "Line 1" });
+details.Add(new Invoicedetail { Description = "Line 2" });
+
+details.BulkInsert();
+
+// FKs are persisted to the database and visible on the child entities.
+```
+
+### Behavior — detached pattern
+
+A collection created with `new` has no parent reference and therefore no `fks` to apply. Assign the FK on each child before calling `Save()` — this has always been the required approach and is unchanged by the Core fix.
+
+```csharp
+var details = new InvoicedetailCollection();
+details.Add(new Invoicedetail
+{
+    Invoiceid = invoice.Id,   // explicit FK
+    Description = "Line 1"
+});
+details.Add(new Invoicedetail
+{
+    Invoiceid = invoice.Id,
+    Description = "Line 2"
+});
+
+details.Save();
+```
+
+The framework does not know which parent the detached collection belongs to; it cannot infer the FK.
+
+### Why this matters
+
+These fixes close a class of silent failures where the row was correctly persisted in the database but the entity in memory returned a different value from its typed getter. Applications that read the FK back after `Save()` — for example to build a navigation link, to serialize the entity, or to feed a subsequent operation — would receive `null` and misbehave.
+
+All three fixes live in **EntitySpaces.Core** and are shared across every provider — no provider-specific changes were required.
 
 ## Why Now? The Bridge from Legacy to Modern Web
 
@@ -253,7 +333,7 @@ Because EntitySpaces manages connection enlistment through its own scope, `esTra
 
 | Provider | Notes |
 |---|---|
-| SQL Server | Uses `SET XACT_ABORT ON` + `IF @@TRANCOUNT > 0 ROLLBACK` pattern; participates correctly in `esTransactionScope` |
+| SQL Server | Uses `SET XACT_ABORT ON` on all INSERT/UPDATE/DELETE statements; no explicit `ROLLBACK` on enlisted connections — rollback delegated to the scope owner (same pattern as PostgreSQL and MySQL) |
 | PostgreSQL | No explicit `ROLLBACK` on enlisted connections — rollback delegated to the scope owner |
 | MySQL / MariaDB | No explicit `ROLLBACK` on enlisted connections — rollback delegated to the scope owner (same pattern as PostgreSQL) |
 | SQLite | Single-connection model; transactions handled by `esTransactionScope` |
@@ -286,7 +366,7 @@ If your team understands SQL, you already understand EntitySpaces.
 
 | Database | Package | Status | Notes |
 |----------|---------|--------|-------|
-| SQL Server | EntitySpaces.ORM.SqlServer.NET | ✅ Modernized | SQL Server 2016–2025 · Concurrency exception detection · Connection pool safety |
+| SQL Server | EntitySpaces.ORM.SqlServer.NET | ✅ Modernized | SQL Server 2016–2025 · Concurrency exception detection · Connection pool safety (no explicit ROLLBACK on enlisted connections) |
 | PostgreSQL | EntitySpaces.ORM.PostgreSQL.NET | ✅ Modernized | PG 13–18 · Npgsql 7–10 · Neon compatible |
 | MySQL | EntitySpaces.ORM.MySQL.NET | ✅ Modernized | MySQL 8.0.14+ · MariaDB 10.2+ · MySqlConnector 2.6.2 · Concurrency exception detection · Hierarchical save · Explicit AUTO_INCREMENT PK insert |
 | SQLite | EntitySpaces.ORM.SQLite.NET | ✅ Modernized | SQLite 3.x · System.Data.SQLite 1.0.119 · Auto-increment detection · FK enforcement · Concurrency exception detection |
@@ -547,16 +627,15 @@ product_id INTEGER GENERATED BY DEFAULT AS IDENTITY
 
 # SQL Server Modernization
 
-> **Validated with:** SQL Server 2016 · SQL Server 2017 · SQL Server 2025 (17.x) · Microsoft.Data.SqlClient 6.x / 7.x · .NET Framework 4.8 · .NET 8–10
+> **Validated with:** SQL Server 2016 Express (13.00.5026) · SQL Server 2022 · SQL Server 2025 Express (17.0.4085.5 / CU8+GDR) · Microsoft.Data.SqlClient 6.x / 7.x · .NET Framework 4.8 · .NET 8–10
 
 The SQL Server provider has been modernized for robustness, correctness, and compatibility across all current SQL Server versions.
 
 ### SQL Server provider
 
-The SQL Server provider is the most extensively tested in the fork: **83 unit tests** cover CRUD, dynamic queries, hierarchical saves (parent →
-child and child → parent), composite-key entities, rollback and commit semantics, and constraint propagation across SQL Server versions.
+The SQL Server provider is the most extensively tested in the fork: **119 unit tests** cover CRUD, dynamic queries, hierarchical saves (parent → child and child → parent), user-supplied PK propagation, composite-key entities, rollback and commit semantics, constraint propagation across SQL Server versions, and the `esEntityCollection.Save` / `BulkInsert` / `Combine` FK-sync paths.
 
-Verified against **SQL Server 2016 Express (13.00.5026)** and **SQL Server 2025 Express (17.0.4085.5 / CU8+GDR)**. A known limitation of SQL Server 2025 Express — CHECK/FK constraint violations inside parameterized batches are silently swallowed by the server — is documented in the provider README along with the diagnostic evidence and the exact build where it was observed.
+Verified against **SQL Server 2016 Express (13.00.5026)**, **SQL Server 2022**, and **SQL Server 2025 Express (17.0.4085.5 / CU8+GDR)**. A known limitation of SQL Server 2025 Express — CHECK/FK constraint violations inside parameterized batches are silently swallowed by the server — is documented in the provider README along with the diagnostic evidence and the exact build where it was observed.
 
 ## Metadata-Aware Column/Property Resolution
 
@@ -615,8 +694,11 @@ catch (esConcurrencyException ex)
 All save and load operations implement safe connection pool management. If an error occurs during `Save()` or `LoadCollection()`, the provider:
 
 - Sets a `hasError` flag on exception
-- Issues `IF @@TRANCOUNT > 0 ROLLBACK` in the `finally` block before returning the connection to the pool
-- Prevents connections in a broken transaction state from being reused by subsequent operations
+- Does **not** issue an explicit `ROLLBACK` on the connection — doing so would abort the transaction held by an ambient `esTransactionScope` and leave it in an unusable state
+- Delegates rollback to the owner of the transaction scope (`esTransactionScope.Dispose`), which handles the case where `Complete()` is not invoked
+- Closes the connection cleanly before returning it to the pool
+
+> **Note:** A previous version of this provider issued a defensive `IF @@TRANCOUNT > 0 ROLLBACK` in the `finally` blocks. On current `Microsoft.Data.SqlClient`, executing that command without an explicit `Transaction` assignment aborts the ambient transaction. That pattern has been removed — see the "Transaction Scope — Defensive ROLLBACK Removed" section below for the full rationale.
 
 This matches the same robustness pattern implemented in the PostgreSQL and MySQL providers.
 

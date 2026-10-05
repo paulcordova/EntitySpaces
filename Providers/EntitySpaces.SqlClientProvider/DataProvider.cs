@@ -331,14 +331,6 @@ namespace EntitySpaces.SqlClientProvider
 
             response.Table = request.Table;
 
-#if DEBUG
-            System.IO.File.AppendAllText(@"C:\temp\es_sqlserver_debug.txt",
-                $"esSaveDataTable returning response.Exception="
-                + (response.Exception == null ? "NULL"
-                    : response.Exception.GetType().Name + ": " + response.Exception.Message)
-                + "\n");
-#endif
-
             return response;
         }
 
@@ -1501,13 +1493,6 @@ namespace EntitySpaces.SqlClientProvider
                     break;
             }
 
-#if DEBUG
-            System.IO.File.AppendAllText(@"C:\temp\es_sqlserver_debug.txt",
-                $"SaveDynamicEntity RowState={request.EntitySavePacket.RowState} "
-                + $"CurrentValues={request.EntitySavePacket.CurrentValues?.Count} "
-                + $"ModifiedColumns={string.Join(",", request.EntitySavePacket.ModifiedColumns ?? new System.Collections.Generic.List<string>())}\n");
-#endif
-
             try
             {
                 esTransactionScope.Enlist(cmd, request.ConnectionString, CreateIDbConnectionDelegate);
@@ -1551,17 +1536,6 @@ namespace EntitySpaces.SqlClientProvider
             }
             finally
             {
-#if DEBUG
-                System.IO.File.AppendAllText(@"C:\temp\es_sqlserver_debug.txt",
-                    $"SaveDynamicEntity finally\n"
-                    + $"Driver: {cmd?.Connection?.GetType().Assembly.GetName().Name} "
-                    + $"ServerVersion: {cmd?.Connection?.ServerVersion}\n"
-                    + $"FULL SQL:\n{cmd?.CommandText}\n\nPARAMS:\n"
-                    + string.Join("\n", cmd?.Parameters.Cast<SqlParameter>()
-                        .Select(p => $"  {p.ParameterName}={p.Value} dir={p.Direction}")
-                        ?? System.Linq.Enumerable.Empty<string>()) + "\n---\n");
-#endif
-
                 esTransactionScope.DeEnlist(cmd);
                 cmd.Dispose();
             }
