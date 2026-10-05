@@ -272,7 +272,20 @@ namespace EntitySpaces.Core
                 {
                     foreach (string col in this.fks.Keys)
                     {
-                        entity.currentValues[col] = this.fks[col];
+                        object fkValue = this.fks[col];
+                        if (fkValue == null) continue;
+
+                        // Use SetProperty (which routes to SetValue) instead of
+                        // SetColumn(..., false). SetColumn always calls MarkFieldAsModified
+                        // unconditionally, which flips an Unchanged entity to Modified even
+                        // when the FK value already matches what is in currentValues.
+                        //
+                        // SetValue compares the incoming value against the existing one and
+                        // only calls MarkFieldAsModified when it truly changed. This keeps
+                        // the fix's intent — Added entities whose FK column is still null
+                        // will be marked Modified so the FK reaches the INSERT — without
+                        // the side effect on Unchanged entities whose FK already matches.
+                        entity.SetProperty(col, fkValue);
                     }
                 }
 
@@ -1067,6 +1080,31 @@ namespace EntitySpaces.Core
                         foreach (esEntity entity in this.entities)
                         {
                             entity.rowError = null;
+
+                            // [FIX] Apply the collection-level foreign keys before PreSave.
+                            //
+                            // Same rationale as Save(esSqlAccessType, bool) — covers the
+                            // parent-initiated pattern where the parent was saved before the
+                            // children were added to the collection. Without this, the FK reaches
+                            // the SQL parameters via the collection's fks dictionary (set by the
+                            // parent's navigation getter) but is not written to the child's
+                            // CurrentValues, so the bulk-insert DataTable ends up with a NULL FK.
+                            //
+                            // Mirrors the fix applied to Save(). Only applies to Added entities
+                            // whose FK column is still null; explicit assignments are preserved.
+                            if (this.fks != null && this.fks.Count > 0 && entity.es.RowState == esDataRowState.Added)
+                            {
+                                foreach (string column in this.fks.Keys)
+                                {
+                                    object fkValue = this.fks[column];
+                                    if (fkValue == null) continue;
+
+                                    if (entity.GetColumn(column) == null)
+                                    {
+                                        entity.SetColumn(column, fkValue, false);
+                                    }
+                                }
+                            }
 
                             entity.PrepareSpecialFields();
 
