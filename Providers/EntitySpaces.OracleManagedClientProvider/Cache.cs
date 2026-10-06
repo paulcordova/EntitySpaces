@@ -25,7 +25,12 @@ namespace EntitySpaces.OracleManagedClientProvider
             // GetOrAdd evaluates if the key exists; if not, it safely executes the internal function.
             return parameterCache.GetOrAdd(dataID, id =>
             {
-                Dictionary<string, OracleParameter> types = new Dictionary<string, OracleParameter>();
+                // Oracle folds unquoted identifiers to UPPERCASE, so the physical
+                // column name ("INVOICEID") diverges from the property name emitted
+                // by Studio ("Invoiceid"). An OrdinalIgnoreCase comparer lets the
+                // provider resolve either spelling through the same dictionary.
+                Dictionary<string, OracleParameter> types =
+                    new Dictionary<string, OracleParameter>(StringComparer.OrdinalIgnoreCase);
 
                 OracleParameter param1;
                 foreach (esColumnMetadata col in columns)

@@ -1275,7 +1275,13 @@ namespace EntitySpaces.OracleManagedClientProvider
                                     case ParameterDirection.Output:
                                     case ParameterDirection.InputOutput:
 
-                                        packet.CurrentValues[param.SourceColumn] = param.Value;
+                                        object mapped = param.Value;
+                                        if (param.OracleDbType == OracleDbType.Decimal &&
+                                            param.Value != null && param.Value != DBNull.Value)
+                                        {
+                                            mapped = Convert.ToDecimal(param.Value.ToString());
+                                        }
+                                        MapOutputValue(packet, request.Columns, param.SourceColumn, mapped);
                                         break;
                                 }
                             }
@@ -1406,15 +1412,14 @@ namespace EntitySpaces.OracleManagedClientProvider
                     {
                         case ParameterDirection.Output:
                         case ParameterDirection.InputOutput:
-                            if (param.OracleDbType == OracleDbType.Decimal)
+                            object mapped = param.Value;
+                            if (param.OracleDbType == OracleDbType.Decimal &&
+                                param.Value != null && param.Value != DBNull.Value)
                             {
-                                // OracleDbType.Decimal does not implement IConvertible — convert via ToString()
-                                request.EntitySavePacket.CurrentValues[param.SourceColumn] = Convert.ToDecimal(param.Value.ToString());
+                                mapped = Convert.ToDecimal(param.Value.ToString());
                             }
-                            else
-                            {
-                                request.EntitySavePacket.CurrentValues[param.SourceColumn] = param.Value;
-                            }
+                            MapOutputValue(request.EntitySavePacket, request.Columns,
+                                param.SourceColumn, mapped);
                             break;
                     }
                 }
@@ -1502,7 +1507,14 @@ namespace EntitySpaces.OracleManagedClientProvider
                                 {
                                     case ParameterDirection.Output:
                                     case ParameterDirection.InputOutput:
-                                        packet.CurrentValues[param.SourceColumn] = param.Value;
+                                        object mapped = param.Value;
+                                        if (param.OracleDbType == OracleDbType.Decimal &&
+                                            param.Value != null && param.Value != DBNull.Value)
+                                        {
+                                            mapped = Convert.ToDecimal(param.Value.ToString());
+                                        }
+                                        MapOutputValue(packet, request.Columns,
+                                            param.SourceColumn, mapped);
                                         break;
                                 }
                             }
@@ -1630,15 +1642,14 @@ namespace EntitySpaces.OracleManagedClientProvider
                         {
                             case ParameterDirection.Output:
                             case ParameterDirection.InputOutput:
-                                if (param.OracleDbType == OracleDbType.Decimal)
+                                object mapped = param.Value;
+                                if (param.OracleDbType == OracleDbType.Decimal && 
+                                    param.Value != null && param.Value != DBNull.Value)
                                 {
-                                    // 20.01.2016 791sd: Sonderbehandlung Decimal, da OracleDbType.Decimal nicht IConvertible implementiert
-                                    request.EntitySavePacket.CurrentValues[param.SourceColumn] = Convert.ToDecimal(param.Value.ToString());
+                                    mapped = Convert.ToDecimal(param.Value.ToString());
                                 }
-                                else
-                                {
-                                    request.EntitySavePacket.CurrentValues[param.SourceColumn] = param.Value;
-                                }
+                                MapOutputValue(request.EntitySavePacket, request.Columns,
+                                    param.SourceColumn, mapped); 
                                 break;
                         }
                     }
@@ -1682,5 +1693,45 @@ namespace EntitySpaces.OracleManagedClientProvider
 
             return null;
         }
-    }
+
+        // ===================================================================
+        // Resolves a column name to the matching esColumnMetadata (case-
+        // insensitive to accommodate Oracle's uppercase folding) and writes
+        // the value under BOTH the column name and the property name.
+        //
+        // Rationale: the framework writes under the property name in some
+        // code paths (ApplyPostSaveKeys → SetProperty) and reads by column
+        // name in others. Writing to both slots guarantees every reader
+        // finds the value.
+        // ===================================================================
+        static private void MapOutputValue(
+            esEntitySavePacket packet,
+            esColumnMetadataCollection columns,
+            string sourceColumn,
+            object value)
+        {
+            if (packet.CurrentValues == null) return;
+
+            // Always write under SourceColumn (the canonical column name).
+            packet.CurrentValues[sourceColumn] = value;
+
+            // Also write under the property name when it differs.
+            if (columns == null) return;
+
+            foreach (esColumnMetadata col in columns)
+            {
+                if (string.Equals(col.Name, sourceColumn, StringComparison.OrdinalIgnoreCase))
+                {
+                    if (!string.IsNullOrEmpty(col.PropertyName) &&
+                        !string.Equals(col.PropertyName, sourceColumn, StringComparison.OrdinalIgnoreCase))
+                    {
+                        packet.CurrentValues[col.PropertyName] = value;
+                    }
+                    break;
+                }
+            }
+        }
+
+
+    } // end class
 }

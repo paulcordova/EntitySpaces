@@ -59,7 +59,7 @@ namespace EntitySpaces.OracleManagedClientProvider
                     values += p.ParameterName;
                     comma = ", ";
                 }
-                else if (col.HasDefault && (modifiedColumns != null && !modifiedColumns.Contains(col.Name)))
+                else if (col.HasDefault && !IsColumnModified(packet, col))
                 {
                     p = CloneParameter(types[col.Name]);
                     p.Direction = ParameterDirection.Output;
@@ -130,26 +130,26 @@ namespace EntitySpaces.OracleManagedClientProvider
 
             sql += "INSERT INTO " + CreateFullName(request) + " ";
 
-            if (modifiedColumns != null)
+            // Iterate request.Columns (canonical metadata) rather than the raw
+            // ModifiedColumns list, so that property-name-keyed modifications
+            // coming from ApplyPostSaveKeys resolve to the correct metadata.
+            foreach (esColumnMetadata col in request.Columns)
             {
-                foreach (string colName in modifiedColumns)
-                {
-                    esColumnMetadata col = request.Columns[colName];
-                    if (col != null && !col.IsAutoIncrement)
-                    {
-                        p = types[colName];
-                        p = cmd.Parameters.Add(CloneParameter(p));
+                if (col.IsAutoIncrement) continue;
+                if (col.IsEntitySpacesConcurrency) continue;
+                if (col.HasDefault && !IsColumnModified(packet, col)) continue;
+                if (!IsColumnModified(packet, col)) continue;
 
-                        object value = packet.CurrentValues[colName];
-                        p.Value = value != null ? value : DBNull.Value;
+                p = cmd.Parameters.Add(CloneParameter(types[col.Name]));
 
-                        into += comma;
-                        into += Delimiters.ColumnOpen + colName + Delimiters.ColumnClose;
-                        values += comma;
-                        values += p.ParameterName;
-                        comma = ", ";
-                    }
-                }
+                object value = GetColumnValue(packet, col);
+                p.Value = value != null ? value : DBNull.Value;
+
+                into += comma;
+                into += Delimiters.ColumnOpen + col.Name + Delimiters.ColumnClose;
+                values += comma;
+                values += p.ParameterName;
+                comma = ", ";
             }
 
             // Collect RETURNING clause for GENERATED AS IDENTITY columns
@@ -314,21 +314,21 @@ namespace EntitySpaces.OracleManagedClientProvider
             string and = String.Empty;
             string where = string.Empty;
 
-            foreach (string colName in modifiedColumns)
+            foreach (esColumnMetadata col in request.Columns)
             {
-                esColumnMetadata col = request.Columns[colName];
+                if (col.IsInPrimaryKey) continue;
+                if (col.IsAutoIncrement) continue;
+                if (col.IsEntitySpacesConcurrency) continue;
+                if (!IsColumnModified(packet, col)) continue;
 
-                if (col != null && !col.IsInPrimaryKey && !col.IsEntitySpacesConcurrency)
-                {
-                    p = cmd.Parameters.Add(CloneParameter(types[colName]));
+                p = cmd.Parameters.Add(CloneParameter(types[col.Name]));
 
-                    object value = packet.CurrentValues[colName];
-                    p.Value = value != null ? value : DBNull.Value;
+                object value = GetColumnValue(packet, col);
+                p.Value = value != null ? value : DBNull.Value;
 
-                    sql += comma;
-                    sql += Delimiters.ColumnOpen + colName + Delimiters.ColumnClose + " = " + p.ParameterName;
-                    comma = ", ";
-                }
+                sql += comma;
+                sql += Delimiters.ColumnOpen + col.Name + Delimiters.ColumnClose + " = " + p.ParameterName;
+                comma = ", ";
             }
 
             foreach (esColumnMetadata col in request.Columns)
@@ -336,7 +336,7 @@ namespace EntitySpaces.OracleManagedClientProvider
                 if (col.IsInPrimaryKey)
                 {
                     p = CloneParameter(types[col.Name]);
-                    p.Value = packet.OriginalValues[col.Name];
+                    p.Value = GetOriginalColumnValue(packet, col);
                     cmd.Parameters.Add(p);
 
                     where += and;
@@ -367,7 +367,7 @@ namespace EntitySpaces.OracleManagedClientProvider
 
                     p = CloneParameter(types[col.Name]);
                     p.Direction = ParameterDirection.InputOutput;
-                    p.Value = packet.OriginalValues[col.Name];
+                    p.Value = GetOriginalColumnValue(packet, col);
                     cmd.Parameters.Add(p);
                     break;
                 }
@@ -423,7 +423,7 @@ namespace EntitySpaces.OracleManagedClientProvider
                 if (col.IsInPrimaryKey || col.IsEntitySpacesConcurrency)
                 {
                     OracleParameter p = CloneParameter(types[col.Name]);
-                    p.Value = packet.OriginalValues[col.Name];
+                    p.Value = GetOriginalColumnValue(packet, col);
                     cmd.Parameters.Add(p);
 
                     where += comma;
@@ -573,7 +573,7 @@ namespace EntitySpaces.OracleManagedClientProvider
                     p = types[col.Name];
                     p = CloneParameter(p);
                     p.ParameterName = p.ParameterName.Replace(":", "p");
-                    p.Value = packet.OriginalValues[col.Name];
+                    p.Value = GetOriginalColumnValue(packet, col);
                     cmd.Parameters.Add(p);
                 }
             }
@@ -594,14 +594,8 @@ namespace EntitySpaces.OracleManagedClientProvider
 
                 p.ParameterName = p.ParameterName.Replace(":", "p");
 
-                if (packet.CurrentValues.ContainsKey(col.Name))
-                {
-                    p.Value = packet.CurrentValues[col.Name];
-                }
-                else
-                {
-                    p.Value = DBNull.Value;
-                }
+                object v = GetColumnValue(packet, col);
+                p.Value = v != null ? v : DBNull.Value;
 
                 if (p.OracleDbType == OracleDbType.TimeStamp)
                 {
@@ -796,5 +790,72 @@ namespace EntitySpaces.OracleManagedClientProvider
                 }
             }
         }
-    }
+
+        // ===================================================================
+        // Tolerant column/property name resolution.
+        //
+        // Oracle folds unquoted identifiers to UPPERCASE, so the physical
+        // column name ("INVOICEID") diverges from the EntitySpaces property
+        // name ("Invoiceid") emitted by Studio. The framework writes under
+        // BOTH keys depending on the code path:
+        //   - Typed property setter  -> ColumnNames.X    ("INVOICEID")
+        //   - ApplyPostSaveKeys      -> PropertyNames.X  ("Invoiceid")
+        // Both must be recognized.
+        // ===================================================================
+
+        static private bool IsColumnModified(esEntitySavePacket packet, esColumnMetadata col)
+        {
+            if (packet.ModifiedColumns == null) return false;
+
+            foreach (string m in packet.ModifiedColumns)
+            {
+                if (string.Equals(m, col.Name, StringComparison.OrdinalIgnoreCase)) return true;
+                if (!string.IsNullOrEmpty(col.PropertyName) &&
+                    string.Equals(m, col.PropertyName, StringComparison.OrdinalIgnoreCase)) return true;
+            }
+            return false;
+        }
+
+        static private object GetColumnValue(esEntitySavePacket packet, esColumnMetadata col)
+        {
+            if (packet.CurrentValues == null) return null;
+
+            object byColumn = null;
+            if (packet.CurrentValues.ContainsKey(col.Name))
+                byColumn = packet.CurrentValues[col.Name];
+
+            if (byColumn != null && byColumn != DBNull.Value) return byColumn;
+
+            if (!string.IsNullOrEmpty(col.PropertyName) &&
+                packet.CurrentValues.ContainsKey(col.PropertyName))
+            {
+                object byProperty = packet.CurrentValues[col.PropertyName];
+                if (byProperty != null && byProperty != DBNull.Value) return byProperty;
+            }
+
+            return byColumn;
+        }
+
+        static private object GetOriginalColumnValue(esEntitySavePacket packet, esColumnMetadata col)
+        {
+            if (packet.OriginalValues == null) return null;
+
+            object byColumn = null;
+            if (packet.OriginalValues.ContainsKey(col.Name))
+                byColumn = packet.OriginalValues[col.Name];
+
+            if (byColumn != null && byColumn != DBNull.Value) return byColumn;
+
+            if (!string.IsNullOrEmpty(col.PropertyName) &&
+                packet.OriginalValues.ContainsKey(col.PropertyName))
+            {
+                object byProperty = packet.OriginalValues[col.PropertyName];
+                if (byProperty != null && byProperty != DBNull.Value) return byProperty;
+            }
+
+            return byColumn;
+        }
+
+
+    } // end class
 }
