@@ -470,8 +470,14 @@ namespace EntitySpaces.OracleManagedClientProvider
             {
                 if (col.IsComputed || col.IsAutoIncrement || col.IsEntitySpacesConcurrency)
                 {
-                    p = cmd.Parameters["p" + (col.Name).Replace(" ", String.Empty)];
-                    p.Direction = ParameterDirection.Output;
+                    // PopulateStoredProcParameters derives the parameter name from
+                    // ':' + col.PropertyName, then replaces ':' with 'p'. Look it up
+                    // by the same key so Oracle's UPPERCASE folding doesn't cause a
+                    // case-sensitive miss.
+                    p = cmd.Parameters["p" + (col.PropertyName).Replace(" ", String.Empty)];
+
+                    if (p != null)
+                        p.Direction = ParameterDirection.Output;
                 }
             }
 
@@ -528,8 +534,10 @@ namespace EntitySpaces.OracleManagedClientProvider
             {
                 if (col.IsComputed || col.IsEntitySpacesConcurrency)
                 {
-                    p = cmd.Parameters["p" + (col.Name).Replace(" ", String.Empty)];
-                    p.Direction = ParameterDirection.InputOutput;
+                    p = cmd.Parameters["p" + (col.PropertyName).Replace(" ", String.Empty)];
+
+                    if (p != null)
+                        p.Direction = ParameterDirection.InputOutput;
                 }
             }
 

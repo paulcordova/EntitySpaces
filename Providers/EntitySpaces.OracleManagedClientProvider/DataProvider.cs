@@ -1401,7 +1401,7 @@ namespace EntitySpaces.OracleManagedClientProvider
                 }
 
                 esTransactionScope.DeEnlist(cmd);
-                cmd.Dispose();
+
             }
 
             if (request.EntitySavePacket.RowState != esDataRowState.Deleted && cmd.Parameters != null)
@@ -1424,6 +1424,13 @@ namespace EntitySpaces.OracleManagedClientProvider
                     }
                 }
             }
+
+            // Dispose AFTER reading Output / InputOutput values — the mapping
+            // above needs the live parameter collection. Calling Dispose here
+            // (rather than in the finally block) keeps the "rollback on error"
+            // behavior intact while making the parameter values reachable.
+            cmd.Dispose();
+
 
             return null;
         }
