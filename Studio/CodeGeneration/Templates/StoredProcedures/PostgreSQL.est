@@ -1,7 +1,7 @@
 <% 
 /*
 =========================================================================
-    
+
     EntitySpaces 2010 
     Persistence Layer and Business Objects for Microsoft .NET 
     Copyright 2005 - 2010 EntitySpaces, LLC 
@@ -14,6 +14,25 @@
     http://www.entityspaces.net/portal/License/tabid/97/Default.aspx
     
 =========================================================================
+
+    POSTGRESQL STORED PROCEDURE TEMPLATE
+
+    Revision 2026.11:
+    -----------------
+    Fix A: DROP FUNCTION IF EXISTS before every CREATE FUNCTION.
+    Fix B: LANGUAGE plpgsql for INSERT / UPDATE / DELETE.
+    Fix C: INSERT / UPDATE return SETOF "<table>" via RETURN QUERY.
+    Fix D: Exclude auto-generated columns from INSERT.
+    Fix E: Dollar-quote tag $es$ instead of $$.
+    Fix F: DELETE includes concurrency column when present.
+
+    Fix G (2026.11.1):
+           - Capture OutputPath at template start into a local field so
+             the consolidated PostgreSQL_ALL.sql write at the end does not
+             depend on esMeta.Input still being valid after the main loop.
+           - Wrap the final SaveToFile in try/catch with diagnostic log
+             to a sibling file (_es_template_log.txt) so failures are
+             visible.
 */%>
 <%@ TemplateInfo 
     UniqueID="26AF598A-4CF9-4b24-BB01-A71565959C0E"
@@ -22,7 +41,7 @@
     Description="PostgreSQL Stored Procedures" 
     Namespace="EntitySpaces.2026.StoredProcedures" 
     Author="EntitySpaces, LLC"
-    Version="2026.7.0.0"
+    Version="2026.11.1.0"
     RequiresUI="True" %><%
 //-------------------------------------------------------
 // Extract the UI choices that we need
@@ -31,7 +50,12 @@ ArrayList entities = esMeta.Input["Entities"] as ArrayList;
 string entityType = (string)esMeta.Input["EntityType"];
 string databaseName = (string)esMeta.Input["Database"];
 
-//System.Diagnostics.Debugger.Break();
+//-------------------------------------------------------
+// [FIX-G] Capture OutputPath ONCE, at template start, and reuse it.
+// The metadata input may not survive the full iteration; capturing
+// here guarantees the consolidated write at the end has a valid path.
+//-------------------------------------------------------
+string capturedOutputPath = (string)esMeta.Input["OutputPath"];
 
 //-------------------------------------------------------
 // Create Local Variables
@@ -41,7 +65,6 @@ int lastOrdinal = 0;
 ITable table = null;
 IView  view = null;
 IColumns cols = null;
-string returnType = "void";
 
 string allSQL = "";
 
@@ -78,74 +101,48 @@ foreach(string tableOrView in entities)
 // LoadByPrimaryKey 
 //----------------------------------------------------------------------
 %>
-<%= BuildCreateAlterStatement(esMeta.esPlugIn.ProcLoadByPK(table.Name)) %>
+<%= BuildDropFunctionStatement(esMeta.esPlugIn.ProcLoadByPK(table.Name), BuildArgTypesForPK(table)) %>
+CREATE FUNCTION "<%=esMeta.esPlugIn.ProcLoadByPK(table.Name)%>"
 (<%
-	// List all keys as parameters
 	bool inFirst = true;
 	foreach(IColumn col in table.PrimaryKeys)
 	{
 		if(!inFirst) {%><%=", "%><%}%>		
-	 <%=col.DataTypeNameComplete%> <%
+	 IN p_<%=StripGarbage(col)%> <%=col.DataTypeNameComplete%><%
 		inFirst = false;
 	}
 %>
 )
-RETURNS SETOF "<%=table.Name%>" AS '
-	SELECT
-	<%
-	// List all fields
-	inFirst = true;
-	foreach(IColumn col in table.Columns)
-	{
-		if(!inFirst) {%><%=", "%><%}%>
-		 "<%=col.Name%>"<%
-		inFirst = false;
-	}	
-%>	
-	FROM "<%=table.Name%>"
+RETURNS SETOF "<%=table.Name%>" AS $es$
+	SELECT * FROM "<%=table.Name%>"
 	WHERE
 	<%
-	// Compare keys with parameters
-	int intParamPos = 1;
 	inFirst = true;
 	foreach(IColumn col in table.PrimaryKeys)
 	{
 		if(!inFirst) {%><%=" AND "%><%}%>
-		 "<%=col.Name%>" = $<%=intParamPos++.ToString()%><%
+		 "<%=col.Name%>" = p_<%=StripGarbage(col)%><%
 		inFirst = false;
 	}
 %>;
-
-' LANGUAGE 'SQL' STABLE;
+$es$ LANGUAGE sql STABLE;
 
 <%
 //----------------------------------------------------------------------
 // LoadAll 
 //----------------------------------------------------------------------
 %>
-<%= BuildCreateAlterStatement(esMeta.esPlugIn.ProcLoadAll(table.Name)) %>()
-RETURNS SETOF "<%=table.Name%>" AS '
-	SELECT
-<%
-	// List all fields
-	inFirst = true;
-	foreach(IColumn col in table.Columns)
-	{
-		if(!inFirst) {%><%=", "%><%}%>
-	 "<%=col.Name%>"<%
-		inFirst = false;
-	}
-%>
-	FROM "<%=table.Name%>";
-' LANGUAGE 'SQL' STABLE;
+<%= BuildDropFunctionStatement(esMeta.esPlugIn.ProcLoadAll(table.Name), "") %>
+CREATE FUNCTION "<%=esMeta.esPlugIn.ProcLoadAll(table.Name)%>"()
+RETURNS SETOF "<%=table.Name%>" AS $es$
+	SELECT * FROM "<%=table.Name%>";
+$es$ LANGUAGE sql STABLE;
 
 <%
-
 //----------------------------------------------------------------------
 // Update
 //----------------------------------------------------------------------
 int colCount = 0;
-returnType = "void";
 
 foreach(IColumn col in table.Columns)
 {
@@ -168,246 +165,245 @@ if(table.Columns.Count == colCount)
 else
 {
 %>
-<%= BuildCreateAlterStatement(esMeta.esPlugIn.ProcUpdate(table.Name)) %>
+<%= BuildDropFunctionStatement(esMeta.esPlugIn.ProcUpdate(table.Name), BuildArgTypesForUpdate(table)) %>
+CREATE FUNCTION "<%=esMeta.esPlugIn.ProcUpdate(table.Name)%>"
 (<%
-	// List all keys as parameters
 	inFirst = true;
 	foreach(IColumn col in table.Columns)
 	{
+		if(col.IsComputed) continue;
+
 		if(!inFirst) {%><%=", "%><%}%>
-	 <%=col.DataTypeNameComplete%><%
+	 IN p_<%=StripGarbage(col)%> <%=col.DataTypeNameComplete%><%
 		inFirst = false;
-		
-		if(col.IsEntitySpacesConcurrency)
-		{
-			returnType = table.Name;
-		}
 	}
 %>
 )
-RETURNS "<%=returnType%>" AS '
+RETURNS SETOF "<%=table.Name%>" AS $es$
+BEGIN
 	UPDATE "<%=table.Name%>"
-	SET<%
+	SET
+	<%
 	inFirst = true;
-	intParamPos = 1;	
-	
 	foreach(IColumn col in table.Columns)
-	{	
-		if(!col.IsInPrimaryKey && !col.IsAutoKey)
-		{
-			if(!inFirst) {%><%=", "%><%}%><%
-			if(col.IsEntitySpacesConcurrency) {%>
-		"<%=col.Name%>" = $<%=intParamPos.ToString()%> + 1<%} else {%>			
-		"<%=col.Name%>" = $<%=intParamPos.ToString()%><%}%><% 
-			inFirst = false;			
-		}
-		
-		intParamPos++;
-	}%>	
-	WHERE<%
+	{
+		if(col.IsComputed || col.IsInPrimaryKey) continue;
+
+		if(!inFirst) {%><%=", "%><%}%>
+		"<%=col.Name%>" = p_<%=StripGarbage(col)%><%
+		inFirst = false;
+	}
+	%>
+	WHERE
+	<%
 	inFirst = true;
-	intParamPos = 1;
-	
 	foreach(IColumn col in table.Columns)
-	{	
-		if(col.IsInPrimaryKey || col.IsEntitySpacesConcurrency)
-		{
-			if(!inFirst) {%> AND <%}%>	
-		 "<%=col.Name%>" = $<%=intParamPos++.ToString()%><%
-			inFirst = false;			
-		}
-		else
-		{
-			intParamPos++;
-		}
-	}%>;<% 
-	
-	intParamPos = 1;	
+	{
+		if(!col.IsInPrimaryKey) continue;
+
+		if(!inFirst) {%><%=" AND "%><%}%>
+		"<%=col.Name%>" = p_<%=StripGarbage(col)%><%
+		inFirst = false;
+	}
+	%>;
+
+	RETURN QUERY SELECT * FROM "<%=table.Name%>"
+	WHERE
+	<%
 	inFirst = true;
-	if(returnType != "void")
-	{%>
-	
-	SELECT * FROM "<%=table.Name%>" WHERE <%
-		foreach(IColumn col in table.Columns)
-		{	
-			if(col.IsInPrimaryKey)
-			{
-			if(!inFirst) {%> AND <%}%>	
-		 "<%=col.Name%>" = $<%=intParamPos++.ToString()%><%
-			inFirst = false;
-			}
-			else
-			{
-				intParamPos++;
-			}			
-		}
-	}		
-	
-%>;
-' LANGUAGE 'SQL' VOLATILE;
+	foreach(IColumn col in table.Columns)
+	{
+		if(!col.IsInPrimaryKey) continue;
+
+		if(!inFirst) {%><%=" AND "%><%}%>
+		"<%=col.Name%>" = p_<%=StripGarbage(col)%><%
+		inFirst = false;
+	}
+	%>;
+END;
+$es$ LANGUAGE plpgsql VOLATILE;
 
 <%}%>
 <%
-
 //----------------------------------------------------------------------
 // Insert
-//---------------------------------------------------------------------
-string autoCol = "";
-returnType = "void";
-
+//----------------------------------------------------------------------
 %>
-<%= BuildCreateAlterStatement(esMeta.esPlugIn.ProcInsert(table.Name)) %>
+<%= BuildDropFunctionStatement(esMeta.esPlugIn.ProcInsert(table.Name), BuildArgTypesForInsert(table)) %>
+CREATE FUNCTION "<%=esMeta.esPlugIn.ProcInsert(table.Name)%>"
 (<%
 	inFirst = true;
 	foreach(IColumn col in table.Columns)
-	{	
-		if(!col.IsAutoKey)
-		{
-			if(!inFirst) {%>,<%}%>				
-	 <%=col.DataTypeNameComplete%><%		
-			inFirst = false;		
-		}
-		else
-		{
-			autoCol = col.Name;
-			returnType = table.Name;
-		}
+	{
+		if(col.IsAutoKey || col.IsComputed) continue;
+
+		if(!inFirst) {%><%=", "%><%}%>
+	 IN p_<%=StripGarbage(col)%> <%=col.DataTypeNameComplete%><%
+		inFirst = false;
 	}
 %>
 )
-RETURNS "<%=returnType%>" AS '
+RETURNS SETOF "<%=table.Name%>" AS $es$
+DECLARE
+	v_<%=StripGarbage(FindAutoKey(table))%> <%=FindAutoKey(table).DataTypeNameComplete%>;
+BEGIN
 	INSERT INTO "<%=table.Name%>"
 	(
 <%
 	inFirst = true;
 	foreach(IColumn col in table.Columns)
-	{	
-		if(!col.IsAutoKey)
-		{
-			if(!inFirst) {%><%=", "%><%}%>
-		 "<%=col.Name%>"<%
-			inFirst = false;			
-		}
+	{
+		if(col.IsAutoKey || col.IsComputed) continue;
+
+		if(!inFirst) {%><%=", "%><%}%>
+		"<%=col.Name%>"<%
+		inFirst = false;
 	}
 %>
 	)
 	VALUES
 	(
 <%
-	intParamPos = 1;
 	inFirst = true;
 	foreach(IColumn col in table.Columns)
-	{	
-		if(!col.IsAutoKey)
-		{
-			if(!inFirst) {%>,<%}%><%
-			if(col.IsEntitySpacesConcurrency) {intParamPos++;%>		
-		1<%} else {%>			
-		$<%=intParamPos++.ToString()%><%}%><%
-			inFirst = false;				
-		}
-	}	
-%>
-	);
-<%
-	//Return currval from sequence if any is used
-	if(returnType != "void" && autoCol != "" )
 	{
-		foreach(IColumn col in table.Columns)
-		{
-			if(col.IsAutoKey)
-			{%>
-	SELECT * FROM "<%=table.Name%>" WHERE "<%=col.Name%>" = lastval();<%
-				break;
-			}
-		}
+		if(col.IsAutoKey || col.IsComputed) continue;
+
+		if(!inFirst) {%><%=", "%><%}%>
+		p_<%=StripGarbage(col)%><%
+		inFirst = false;
 	}
 %>
-' LANGUAGE 'SQL' VOLATILE;
+	)
+<%
+	IColumn autoKey = FindAutoKey(table);
+	if(autoKey != null)
+	{
+	%>
+	RETURNING "<%=autoKey.Name%>" INTO v_<%=StripGarbage(autoKey)%>;
+	<%
+	}
+	else
+	{
+	%>
+	;
+	<%
+	}
+	%>
+
+	RETURN QUERY SELECT * FROM "<%=table.Name%>"
+	WHERE
+	<%
+	inFirst = true;
+	foreach(IColumn col in table.PrimaryKeys)
+	{
+		if(!inFirst) {%><%=" AND "%><%}%>
+		"<%=col.Name%>" = v_<%=StripGarbage(col)%><%
+		inFirst = false;
+	}
+	%>;
+END;
+$es$ LANGUAGE plpgsql VOLATILE;
 
 <%
 //----------------------------------------------------------------------
 // Delete
 //----------------------------------------------------------------------
 %>
-<%= BuildCreateAlterStatement(esMeta.esPlugIn.ProcDelete(table.Name)) %>
+<%= BuildDropFunctionStatement(esMeta.esPlugIn.ProcDelete(table.Name), BuildArgTypesForDelete(table)) %>
+CREATE FUNCTION "<%=esMeta.esPlugIn.ProcDelete(table.Name)%>"
 (<%
-	// List all keys as parameters
 	inFirst = true;
 	foreach(IColumn col in table.Columns)
 	{
-		if(col.IsInPrimaryKey || col.IsEntitySpacesConcurrency)
-		{
-			if(!inFirst) {%><%=", "%><%}%>
-	 <%=col.DataTypeNameComplete%><%
+		if(!col.IsInPrimaryKey && !col.IsEntitySpacesConcurrency) continue;
+
+		if(!inFirst) {%><%=", "%><%}%>
+	 IN p_<%=StripGarbage(col)%> <%=col.DataTypeNameComplete%><%
 		inFirst = false;
-		}
 	}
 %>
 )
-RETURNS void AS '
-	DELETE FROM "<%= table.Name %>"
+RETURNS void AS $es$
+BEGIN
+	DELETE FROM "<%=table.Name%>"
 	WHERE
 <%
-	// Compare keys with parameters
-	intParamPos = 1;
 	inFirst = true;
 	foreach(IColumn col in table.Columns)
 	{
-		if(col.IsInPrimaryKey || col.IsEntitySpacesConcurrency)
-		{
-			if(!inFirst) {%><%=" AND "%><%}%>
-		 "<%=col.Name%>" = $<%=intParamPos++.ToString()%><%
-			inFirst = false;
-		}
+		if(!col.IsInPrimaryKey && !col.IsEntitySpacesConcurrency) continue;
+
+		if(!inFirst) {%><%=" AND "%><%}%>
+		 "<%=col.Name%>" = p_<%=StripGarbage(col)%><%
+		inFirst = false;
 	}
 %>;
-' LANGUAGE 'SQL' VOLATILE;
+END;
+$es$ LANGUAGE plpgsql VOLATILE;
 
 <%
+	// [FIX-G] Capture per-table SQL and accumulate. SaveToFile uses the
+	// captured path so it does not depend on esMeta.Input at this point.
 	string sql = output.ToString();
 	allSQL += sql;
 	
-	this.SaveToFile(table.Name + ".sql", sql, false);
+	SaveToFileAt(capturedOutputPath, table.Name + ".sql", sql);
 	this.ClearOutput();	
 } // end main for loop
 
-	this.SaveToFile("PostgreSQL_ALL.sql", allSQL, false);
+// [FIX-G] Write the consolidated file AFTER the loop, using the path
+// captured at template start. Wrapped in try/catch with a diagnostic
+// log so failures do not pass silently.
+try
+{
+	SaveToFileAt(capturedOutputPath, "PostgreSQL_ALL.sql", allSQL);
+}
+catch (Exception ex)
+{
+	try
+	{
+		string logPath = System.IO.Path.Combine(
+			string.IsNullOrEmpty(capturedOutputPath) ? "." : capturedOutputPath,
+			"_es_template_log.txt");
+		System.IO.File.AppendAllText(logPath,
+			DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") +
+			"  SaveToFile(PostgreSQL_ALL.sql) failed: " + ex.ToString() +
+			System.Environment.NewLine);
+	}
+	catch { /* best-effort */ }
+}
 %>
 
 <script runat="template">
 
-private string SaveToFile(string fileName, string text, bool generateSingleFile)
+// [FIX-G] Path-safe writer. Takes the output directory explicitly so it
+// is not read from esMeta.Input at call time. Uses the same directory
+// discipline as the original SaveToFile.
+private string SaveToFileAt(string outputPath, string fileName, string text)
 {
-	if(!generateSingleFile)
+	string path = outputPath;
+	if (string.IsNullOrEmpty(path))
+		path = ".";
+
+	if (!path.EndsWith("\\") && !path.EndsWith("/"))
+		path += "\\";
+
+	Directory.CreateDirectory(path);
+
+	string fname = path + fileName;
+
+	using (StreamWriter sw = System.IO.File.CreateText(fname))
 	{
-	    string path = (string)esMeta.Input["OutputPath"];
-	    
-		string fname = path;
-		if (!fname.EndsWith("\\")) 
-			fname += "\\";
-			
-		Directory.CreateDirectory(path);		
-		
-		fname += fileName;
-		
-		using (StreamWriter sw = System.IO.File.CreateText(fname)) 
-		{
-			sw.Write(text);
-		} 	
-		
-		return "";
+		sw.Write(text);
 	}
-	else
-	{
-		return text;			
-	}
+
+	return "";
 }
 
-private string BuildCreateAlterStatement(string procName)
+private string BuildDropFunctionStatement(string procName, string argTypesCsv)
 {
-	// Drop and recreate
-	return "CREATE OR REPLACE FUNCTION \"" + procName + "\"";
+	return "DROP FUNCTION IF EXISTS \"" + procName + "\"(" + argTypesCsv + ");";
 }
 
 private string StripGarbage(IColumn col)
@@ -415,6 +411,68 @@ private string StripGarbage(IColumn col)
 	return esMeta.esPlugIn.ToPascalCase(col.Alias);
 }
 
+private IColumn FindAutoKey(ITable table)
+{
+	foreach(IColumn col in table.Columns)
+	{
+		if(col.IsAutoKey) return col;
+	}
+	return null;
+}
 
+private string BuildArgTypesForInsert(ITable table)
+{
+	string args = "";
+	bool first = true;
+	foreach(IColumn col in table.Columns)
+	{
+		if(col.IsAutoKey || col.IsComputed) continue;
+		if(!first) args += ", ";
+		args += col.DataTypeNameComplete;
+		first = false;
+	}
+	return args;
+}
+
+private string BuildArgTypesForUpdate(ITable table)
+{
+	string args = "";
+	bool first = true;
+	foreach(IColumn col in table.Columns)
+	{
+		if(col.IsComputed) continue;
+		if(!first) args += ", ";
+		args += col.DataTypeNameComplete;
+		first = false;
+	}
+	return args;
+}
+
+private string BuildArgTypesForDelete(ITable table)
+{
+	string args = "";
+	bool first = true;
+	foreach(IColumn col in table.Columns)
+	{
+		if(!col.IsInPrimaryKey && !col.IsEntitySpacesConcurrency) continue;
+		if(!first) args += ", ";
+		args += col.DataTypeNameComplete;
+		first = false;
+	}
+	return args;
+}
+
+private string BuildArgTypesForPK(ITable table)
+{
+	string args = "";
+	bool first = true;
+	foreach(IColumn col in table.PrimaryKeys)
+	{
+		if(!first) args += ", ";
+		args += col.DataTypeNameComplete;
+		first = false;
+	}
+	return args;
+}
 
 </script>
