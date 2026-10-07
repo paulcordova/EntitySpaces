@@ -536,118 +536,154 @@ namespace EntitySpaces.Npgsql2Provider
             return cmd;
         }
 
+        // ===================================================================
+        // Builds a SELECT * FROM "proc_insert"(:args) command for the
+        // StoredProcedure INSERT path.
+        //
+        // [FIX-BUG-14] PostgreSQL functions are invoked via SELECT * FROM
+        // "func"(:args), not via CommandType.StoredProcedure (which Npgsql
+        // translates to CALL, valid only for PROCEDURES). The function
+        // RETURNS SETOF "<table>", so the resulting rowset carries the
+        // inserted row and is read back with ExecuteReader.
+        //
+        // Args are positional in the same order the template iterates the
+        // columns (all non-auto, non-computed columns).
+        // ===================================================================
         static public NpgsqlCommand BuildStoredProcInsertCommand(esDataRequest request, esEntitySavePacket packet)
         {
             Dictionary<string, NpgsqlParameter> types = Cache.GetParameters(request);
 
             NpgsqlCommand cmd = new NpgsqlCommand();
             if (request.CommandTimeout != null) cmd.CommandTimeout = request.CommandTimeout.Value;
+            cmd.CommandType = CommandType.Text;
 
-            cmd.CommandType = CommandType.StoredProcedure;
-            cmd.CommandText = Delimiters.StoredProcNameOpen + request.ProviderMetadata.spInsert + Delimiters.StoredProcNameClose;
+            var sb = new System.Text.StringBuilder();
+            sb.Append("SELECT * FROM ")
+              .Append(Delimiters.StoredProcNameOpen)
+              .Append(request.ProviderMetadata.spInsert)
+              .Append(Delimiters.StoredProcNameClose)
+              .Append("(");
 
-            PopulateStoredProcParameters(cmd, request, packet);
-
+            bool first = true;
             foreach (esColumnMetadata col in request.Columns)
             {
-                if (col.HasDefault && col.Default.ToLower().Contains("newid"))
-                {
-                    NpgsqlParameter p = types[col.Name];
-                    p = cmd.Parameters[p.ParameterName];
-                    p.Direction = ParameterDirection.InputOutput;
-                }
-                else if (col.IsComputed || col.IsAutoIncrement)
-                {
-                    NpgsqlParameter p = types[col.Name];
-                    p = cmd.Parameters[p.ParameterName];
-                    p.Direction = ParameterDirection.Output;
-                }
+                if (col.IsAutoIncrement || col.IsComputed) continue;
+
+                // Skip special columns — the SP signature does not include them
+                if (request.Columns.IsSpecialColumn(col)) continue;
+
+                NpgsqlParameter p = CloneParameter(types[col.Name]);
+                object value = GetColumnValue(packet, col);
+                p.Value = value ?? (object)DBNull.Value;
+                p.Direction = ParameterDirection.Input;
+                cmd.Parameters.Add(p);
+
+                if (!first) sb.Append(", ");
+                sb.Append(p.ParameterName);
+                first = false;
             }
 
+            sb.Append(")");
+            cmd.CommandText = sb.ToString();
             return cmd;
         }
 
+        // ===================================================================
+        // [FIX-BUG-14] SELECT * FROM "proc_update"(:args) — same pattern as
+        // the INSERT path. Args include all non-computed columns (the SP
+        // expects the full row so it can UPDATE and RETURN the new state).
+        // ===================================================================
         static public NpgsqlCommand BuildStoredProcUpdateCommand(esDataRequest request, esEntitySavePacket packet)
         {
             Dictionary<string, NpgsqlParameter> types = Cache.GetParameters(request);
 
             NpgsqlCommand cmd = new NpgsqlCommand();
             if (request.CommandTimeout != null) cmd.CommandTimeout = request.CommandTimeout.Value;
+            cmd.CommandType = CommandType.Text;
 
-            cmd.CommandType = CommandType.StoredProcedure;
-            cmd.CommandText = Delimiters.StoredProcNameOpen + request.ProviderMetadata.spUpdate + Delimiters.StoredProcNameClose;
+            var sb = new System.Text.StringBuilder();
+            sb.Append("SELECT * FROM ")
+              .Append(Delimiters.StoredProcNameOpen)
+              .Append(request.ProviderMetadata.spUpdate)
+              .Append(Delimiters.StoredProcNameClose)
+              .Append("(");
 
-            PopulateStoredProcParameters(cmd, request, packet);
-
+            bool first = true;
             foreach (esColumnMetadata col in request.Columns)
             {
-                if (col.IsComputed)
-                {
-                    NpgsqlParameter p = types[col.Name];
-                    p = cmd.Parameters[p.ParameterName];
-                    p.Direction = ParameterDirection.InputOutput;
-                }
+                if (col.IsComputed) continue;
+
+                if (request.Columns.IsSpecialColumn(col)) continue;
+
+                NpgsqlParameter p = CloneParameter(types[col.Name]);
+                object value = col.IsInPrimaryKey
+                    ? GetOriginalColumnValue(packet, col)
+                    : GetColumnValue(packet, col);
+                p.Value = value ?? (object)DBNull.Value;
+                p.Direction = ParameterDirection.Input;
+                cmd.Parameters.Add(p);
+
+                if (!first) sb.Append(", ");
+                sb.Append(p.ParameterName);
+                first = false;
             }
 
+            sb.Append(")");
+            cmd.CommandText = sb.ToString();
             return cmd;
         }
 
+        // ===================================================================
+        // [FIX-BUG-14] SELECT "proc_delete"(:pk-args) — the function returns
+        // void. Only PK and concurrency columns are passed.
+        // ===================================================================
         static public NpgsqlCommand BuildStoredProcDeleteCommand(esDataRequest request, esEntitySavePacket packet)
         {
             Dictionary<string, NpgsqlParameter> types = Cache.GetParameters(request);
 
             NpgsqlCommand cmd = new NpgsqlCommand();
             if (request.CommandTimeout != null) cmd.CommandTimeout = request.CommandTimeout.Value;
+            cmd.CommandType = CommandType.Text;
 
-            cmd.CommandType = CommandType.StoredProcedure;
-            cmd.CommandText = Delimiters.StoredProcNameOpen + request.ProviderMetadata.spDelete + Delimiters.StoredProcNameClose;
+            var sb = new System.Text.StringBuilder();
+            sb.Append("SELECT ")
+              .Append(Delimiters.StoredProcNameOpen)
+              .Append(request.ProviderMetadata.spDelete)
+              .Append(Delimiters.StoredProcNameClose)
+              .Append("(");
 
-            NpgsqlParameter p;
-
+            bool first = true;
             foreach (esColumnMetadata col in request.Columns)
             {
-                if (col.IsInPrimaryKey || col.IsConcurrency || col.IsEntitySpacesConcurrency)
-                {
-                    p = CloneParameter(types[col.Name]);
+                if (!col.IsInPrimaryKey && !col.IsConcurrency && !col.IsEntitySpacesConcurrency) continue;
 
-                    // [NEW ADJUSTMENT] Tolerant original-value lookup.
-                    p.Value = GetOriginalColumnValue(packet, col);
+                NpgsqlParameter p = CloneParameter(types[col.Name]);
+                p.Value = GetOriginalColumnValue(packet, col) ?? (object)DBNull.Value;
+                p.Direction = ParameterDirection.Input;
+                cmd.Parameters.Add(p);
 
-                    cmd.Parameters.Add(p);
-                }
+                if (!first) sb.Append(", ");
+                sb.Append(p.ParameterName);
+                first = false;
             }
 
+            sb.Append(")");
+            cmd.CommandText = sb.ToString();
             return cmd;
         }
 
         static public void PopulateStoredProcParameters(NpgsqlCommand cmd, esDataRequest request, esEntitySavePacket packet)
         {
+            // [DEPRECATED-FIX-BUG-14] No longer used by the SP builders.
+            // Kept for compatibility. All parameters are Input.
             Dictionary<string, NpgsqlParameter> types = Cache.GetParameters(request);
-
-            NpgsqlParameter p;
 
             foreach (esColumnMetadata col in request.Columns)
             {
-                p = types[col.Name];
-                p = CloneParameter(p);
-
-                // [NEW ADJUSTMENT] Tolerant value lookup.
+                NpgsqlParameter p = CloneParameter(types[col.Name]);
                 object value = GetColumnValue(packet, col);
-                if (value != null)
-                {
-                    p.Value = value;
-                }
-
-                if (p.NpgsqlDbType == NpgsqlDbType.Timestamp)
-                {
-                    p.Direction = ParameterDirection.InputOutput;
-                }
-
-                if (col.IsComputed && col.CharacterMaxLength > 0)
-                {
-                    p.Size = (int)col.CharacterMaxLength;
-                }
-
+                if (value != null) p.Value = value;
+                p.Direction = ParameterDirection.Input;
                 cmd.Parameters.Add(p);
             }
         }

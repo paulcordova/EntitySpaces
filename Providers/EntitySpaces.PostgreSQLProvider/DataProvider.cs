@@ -605,11 +605,32 @@ namespace EntitySpaces.Npgsql2Provider
                 DataSet dataSet = new DataSet();
 
                 cmd = new NpgsqlCommand();
-                cmd.CommandType = CommandType.StoredProcedure;
-                cmd.CommandText = Shared.CreateFullName(request);
-
+                cmd.CommandType = CommandType.Text;                 // [FIX-BUG-14]
                 if (request.CommandTimeout != null) cmd.CommandTimeout = request.CommandTimeout.Value;
+
+                // Add parameters first so their names are available for the
+                // positional SELECT * FROM "func"(:arg1, :arg2, ...) refs.
                 if (request.Parameters != null) Shared.AddParameters(cmd, request);
+
+                var sb = new System.Text.StringBuilder();
+                sb.Append("SELECT * FROM ")
+                  .Append(Delimiters.StoredProcNameOpen)
+                  .Append(!string.IsNullOrEmpty(request.QueryText)
+                            ? request.QueryText
+                            : request.ProviderMetadata.spLoadByPrimaryKey)
+                  .Append(Delimiters.StoredProcNameClose)
+                  .Append("(");
+
+                bool first = true;
+                foreach (NpgsqlParameter p in cmd.Parameters)
+                {
+                    if (!first) sb.Append(", ");
+                    sb.Append(p.ParameterName);
+                    first = false;
+                }
+                sb.Append(")");
+
+                cmd.CommandText = sb.ToString();
 
                 NpgsqlDataAdapter da = new NpgsqlDataAdapter();
                 da.SelectCommand = cmd;
@@ -642,7 +663,6 @@ namespace EntitySpaces.Npgsql2Provider
                 }
                 finally
                 {
-                    // [REVISED] No explicit ROLLBACK.
                     esTransactionScope.DeEnlist(da.SelectCommand);
                 }
 
@@ -737,10 +757,32 @@ namespace EntitySpaces.Npgsql2Provider
                 DataTable dataTable = new DataTable(request.ProviderMetadata.Destination);
 
                 cmd = new NpgsqlCommand();
-                cmd.CommandType = CommandType.StoredProcedure;
-                cmd.CommandText = Shared.CreateFullName(request);
+                cmd.CommandType = CommandType.Text;                 // [FIX-BUG-14]
                 if (request.CommandTimeout != null) cmd.CommandTimeout = request.CommandTimeout.Value;
+
+                // Add parameters first so their names are available for the
+                // positional SELECT * FROM "func"(:arg1, :arg2, ...) refs.
                 if (request.Parameters != null) Shared.AddParameters(cmd, request);
+
+                var sb = new System.Text.StringBuilder();
+                sb.Append("SELECT * FROM ")
+                  .Append(Delimiters.StoredProcNameOpen)
+                  .Append(!string.IsNullOrEmpty(request.QueryText)
+                            ? request.QueryText
+                            : request.ProviderMetadata.spLoadByPrimaryKey)
+                  .Append(Delimiters.StoredProcNameClose)
+                  .Append("(");
+
+                bool first = true;
+                foreach (NpgsqlParameter p in cmd.Parameters)
+                {
+                    if (!first) sb.Append(", ");
+                    sb.Append(p.ParameterName);
+                    first = false;
+                }
+                sb.Append(")");
+
+                cmd.CommandText = sb.ToString();
 
                 NpgsqlDataAdapter da = new NpgsqlDataAdapter();
                 da.SelectCommand = cmd;
@@ -754,15 +796,8 @@ namespace EntitySpaces.Npgsql2Provider
                     {
                         using (esTraceArguments esTrace = new esTraceArguments(request, cmd, "LoadFromStoredProcedure", System.Environment.StackTrace))
                         {
-                            try
-                            {
-                                da.Fill(dataTable);
-                            }
-                            catch (Exception ex)
-                            {
-                                esTrace.Exception = ex.Message;
-                                throw;
-                            }
+                            try { da.Fill(dataTable); }
+                            catch (Exception ex) { esTrace.Exception = ex.Message; throw; }
                         }
                     }
                     else
@@ -773,7 +808,6 @@ namespace EntitySpaces.Npgsql2Provider
                 }
                 finally
                 {
-                    // [REVISED] No explicit ROLLBACK.
                     esTransactionScope.DeEnlist(da.SelectCommand);
                 }
 
@@ -1079,88 +1113,49 @@ namespace EntitySpaces.Npgsql2Provider
         //    }
         //}
 
+        // ===================================================================
+        // Save collection via StoredProcedure path.
+        //
+        // [FIX-BUG-14] Functions called via SELECT * FROM "func"(:args).
+        // [FIX-BUG-3]  Preprocess uses tolerant lookup so FK values written
+        //              under the property name are found when the parameter
+        //              expects them under SourceColumn.
+        // [FIX-BUG-10] ExecuteReader replaces ExecuteNonQuery for Insert/Update.
+        // ===================================================================
         static private DataTable SaveStoredProcCollection(esDataRequest request)
         {
             if (request.CollectionSavePacket == null) return null;
 
-            NpgsqlCommand cmdInsert = null;
-            NpgsqlCommand cmdUpdate = null;
-            NpgsqlCommand cmdDelete = null;
-
-            try
+            using (esTransactionScope scope = new esTransactionScope())
             {
-                using (esTransactionScope scope = new esTransactionScope())
+                foreach (esEntitySavePacket packet in request.CollectionSavePacket)
                 {
                     NpgsqlCommand cmd = null;
-                    bool exception = false;
 
-                    foreach (esEntitySavePacket packet in request.CollectionSavePacket)
+                    switch (packet.RowState)
                     {
-                        cmd = null;
-                        exception = false;
+                        case esDataRowState.Added:
+                            cmd = Shared.BuildStoredProcInsertCommand(request, packet);
+                            break;
+                        case esDataRowState.Modified:
+                            cmd = Shared.BuildStoredProcUpdateCommand(request, packet);
+                            break;
+                        case esDataRowState.Deleted:
+                            cmd = Shared.BuildStoredProcDeleteCommand(request, packet);
+                            break;
+                        case esDataRowState.Unchanged:
+                            continue;
+                    }
 
-                        #region Setup Commands
-                        switch (packet.RowState)
+                    try
+                    {
+                        esTransactionScope.Enlist(cmd, request.ConnectionString, CreateIDbConnectionDelegate);
+
+                        bool isDelete = packet.RowState == esDataRowState.Deleted;
+                        int count = 0;
+
+                        if (isDelete)
                         {
-                            case esDataRowState.Added:
-                                if (cmdInsert == null)
-                                {
-                                    cmdInsert = Shared.BuildStoredProcInsertCommand(request, packet);
-                                    esTransactionScope.Enlist(cmdInsert, request.ConnectionString, CreateIDbConnectionDelegate);
-                                }
-                                cmd = cmdInsert;
-                                break;
-                            case esDataRowState.Modified:
-                                if (cmdUpdate == null)
-                                {
-                                    cmdUpdate = Shared.BuildStoredProcUpdateCommand(request, packet);
-                                    esTransactionScope.Enlist(cmdUpdate, request.ConnectionString, CreateIDbConnectionDelegate);
-                                }
-                                cmd = cmdUpdate;
-                                break;
-                            case esDataRowState.Deleted:
-                                if (cmdDelete == null)
-                                {
-                                    cmdDelete = Shared.BuildStoredProcDeleteCommand(request, packet);
-                                    esTransactionScope.Enlist(cmdDelete, request.ConnectionString, CreateIDbConnectionDelegate);
-                                }
-                                cmd = cmdDelete;
-                                break;
-
-                            case esDataRowState.Unchanged:
-                                continue;
-                        }
-                        #endregion
-
-                        #region Preprocess Parameters
-                        if (cmd.Parameters != null)
-                        {
-                            foreach (NpgsqlParameter param in cmd.Parameters)
-                            {
-                                if (param.Direction == ParameterDirection.Output)
-                                {
-                                    param.Value = null;
-                                }
-                                else
-                                {
-                                    if (packet.CurrentValues.ContainsKey(param.SourceColumn))
-                                    {
-                                        param.Value = packet.CurrentValues[param.SourceColumn];
-                                    }
-                                    else
-                                    {
-                                        param.Value = null;
-                                    }
-                                }
-                            }
-                        }
-                        #endregion
-
-                        #region Execute Command
-                        try
-                        {
-                            int count;
-
                             #region Profiling
                             if (sTraceHandler != null)
                             {
@@ -1168,70 +1163,112 @@ namespace EntitySpaces.Npgsql2Provider
                                 {
                                     try
                                     {
-                                        count = cmd.ExecuteNonQuery();
+                                        using (var reader = cmd.ExecuteReader())
+                                        {
+                                            while (reader.NextResult()) { }
+                                        }
+                                        count = 1;
                                     }
-                                    catch (Exception ex)
-                                    {
-                                        esTrace.Exception = ex.Message;
-                                        throw;
-                                    }
+                                    catch (Exception ex) { esTrace.Exception = ex.Message; throw; }
                                 }
                             }
                             else
                             #endregion
                             {
-                                count = cmd.ExecuteNonQuery();
-                            }
-
-                            if (count < 1)
-                            {
-                                throw new esConcurrencyException("Update failed to update any records");
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            exception = true;
-                            request.FireOnError(packet, ex.Message);
-                            if (!request.ContinueUpdateOnError)
-                            {
-                                throw;
-                            }
-                        }
-                        #endregion
-
-                        #region Postprocess Parameters
-                        if (!exception && packet.RowState != esDataRowState.Deleted && cmd.Parameters != null)
-                        {
-                            foreach (NpgsqlParameter param in cmd.Parameters)
-                            {
-                                switch (param.Direction)
+                                using (var reader = cmd.ExecuteReader())
                                 {
-                                    case ParameterDirection.Output:
-                                    case ParameterDirection.InputOutput:
+                                    while (reader.NextResult()) { }
+                                }
+                                count = 1;
+                            }
+                        }
+                        else
+                        {
+                            #region Profiling
+                            if (sTraceHandler != null)
+                            {
+                                using (esTraceArguments esTrace = new esTraceArguments(request, cmd, "SaveCollectionStoredProcedure", System.Environment.StackTrace))
+                                {
+                                    try
+                                    {
+                                        using (var reader = cmd.ExecuteReader(CommandBehavior.SingleRow))
+                                        {
+                                            if (reader.Read())
+                                            {
+                                                count = 1;
 
-                                        packet.CurrentValues[param.SourceColumn] = param.Value;
-                                        break;
+                                                if (!isDelete)
+                                                {
+                                                    MapReaderRowToCurrentValues(reader, packet.CurrentValues, request.Columns);
+                                                }
+                                            }
+                                        }
+                                    }
+                                    catch (Exception ex) { esTrace.Exception = ex.Message; throw; }
+                                }
+                            }
+                            else
+                            #endregion
+                            {
+                                using (var reader = cmd.ExecuteReader(CommandBehavior.SingleRow))
+                                {
+                                    if (reader.Read())
+                                    {
+                                        count = 1;
+
+                                        if (!isDelete)
+                                        {
+                                            MapReaderRowToCurrentValues(reader, packet.CurrentValues, request.Columns);
+                                        }
+                                    }
                                 }
                             }
                         }
-                        #endregion
 
-                        // [REVISED] No per-packet ROLLBACK — see ExecuteNonQuery for rationale.
+                        if (count < 1)
+                            throw new esConcurrencyException("Update failed to update any records");
                     }
-
-                    scope.Complete();
+                    catch (NpgsqlException ex)
+                    {
+                        esConcurrencyException ce = Shared.CheckForConcurrencyException(ex);
+                        if (ce != null)
+                        {
+                            request.FireOnError(packet, ce.Message);
+                            if (!request.ContinueUpdateOnError) throw ce;
+                        }
+                        else
+                        {
+                            request.FireOnError(packet, ex.Message);
+                            if (!request.ContinueUpdateOnError) throw;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        request.FireOnError(packet, ex.Message);
+                        if (!request.ContinueUpdateOnError) throw;
+                    }
+                    finally
+                    {
+                        esTransactionScope.DeEnlist(cmd);
+                        cmd?.Dispose();
+                    }
                 }
-            }
-            finally
-            {
-                if (cmdInsert != null) esTransactionScope.DeEnlist(cmdInsert);
-                if (cmdUpdate != null) esTransactionScope.DeEnlist(cmdUpdate);
-                if (cmdDelete != null) esTransactionScope.DeEnlist(cmdDelete);
+
+                scope.Complete();
             }
 
             return null;
         }
 
+        // ===================================================================
+        // Save entity via StoredProcedure path.
+        //
+        // [FIX-BUG-14] The provider now calls the PostgreSQL function with
+        // SELECT * FROM "func"(:args) and reads the returned rowset.
+        // [FIX-BUG-2]  Output/InputOutput mapping moved before Dispose.
+        // [FIX-BUG-10] ExecuteNonQuery replaced by ExecuteReader for
+        //              Insert/Update so the rowset is captured.
+        // ===================================================================
         static private DataTable SaveStoredProcEntity(esDataRequest request)
         {
             NpgsqlCommand cmd = null;
@@ -1241,15 +1278,12 @@ namespace EntitySpaces.Npgsql2Provider
                 case esDataRowState.Added:
                     cmd = Shared.BuildStoredProcInsertCommand(request, request.EntitySavePacket);
                     break;
-
                 case esDataRowState.Modified:
                     cmd = Shared.BuildStoredProcUpdateCommand(request, request.EntitySavePacket);
                     break;
-
                 case esDataRowState.Deleted:
                     cmd = Shared.BuildStoredProcDeleteCommand(request, request.EntitySavePacket);
                     break;
-
                 case esDataRowState.Unchanged:
                     return null;
             }
@@ -1257,55 +1291,96 @@ namespace EntitySpaces.Npgsql2Provider
             try
             {
                 esTransactionScope.Enlist(cmd, request.ConnectionString, CreateIDbConnectionDelegate);
+
+                bool isDelete = request.EntitySavePacket.RowState == esDataRowState.Deleted;
                 int count = 0;
 
-                #region Profiling
-                if (sTraceHandler != null)
+                if (isDelete)
                 {
-                    using (esTraceArguments esTrace = new esTraceArguments(request, cmd, "SaveEntityStoredProcedure", System.Environment.StackTrace))
+                    // PostgreSQL functions that RETURNS void expose no consumable row
+                    // through SELECT. The DELETE executes server-side, but reader.Read()
+                    // returns false, so we cannot rely on a row count. Treat successful
+                    // execution (no exception) as count = 1.
+                    #region Profiling
+                    if (sTraceHandler != null)
                     {
-                        try
+                        using (esTraceArguments esTrace = new esTraceArguments(request, cmd, "SaveEntityStoredProcedure", System.Environment.StackTrace))
                         {
-                            count = cmd.ExecuteNonQuery();
+                            try
+                            {
+                                using (var reader = cmd.ExecuteReader())
+                                {
+                                    while (reader.NextResult()) { }
+                                }
+                                count = 1;
+                            }
+                            catch (Exception ex) { esTrace.Exception = ex.Message; throw; }
                         }
-                        catch (Exception ex)
+                    }
+                    else
+                    #endregion
+                    {
+                        using (var reader = cmd.ExecuteReader())
                         {
-                            esTrace.Exception = ex.Message;
-                            throw;
+                            while (reader.NextResult()) { }
                         }
+                        count = 1;
                     }
                 }
                 else
-                #endregion
                 {
-                    count = cmd.ExecuteNonQuery();
+                    // Insert / Update: read the returned rowset and map columns
+                    #region Profiling
+                    if (sTraceHandler != null)
+                    {
+                        using (esTraceArguments esTrace = new esTraceArguments(request, cmd, "SaveEntityStoredProcedure", System.Environment.StackTrace))
+                        {
+                            try
+                            {
+                                using (var reader = cmd.ExecuteReader(CommandBehavior.SingleRow))
+                                {
+                                    if (reader.Read())
+                                    {
+                                        count = 1;
+
+                                        // Delete returns void — nothing to map into CurrentValues.
+                                        if (!isDelete)
+                                        {
+                                            MapReaderRowToCurrentValues(reader,
+                                                request.EntitySavePacket.CurrentValues, request.Columns);
+                                        }
+                                    }
+                                }
+                            }
+                            catch (Exception ex) { esTrace.Exception = ex.Message; throw; }
+                        }
+                    }
+                    else
+                    #endregion
+                    {
+                        using (var reader = cmd.ExecuteReader(CommandBehavior.SingleRow))
+                        {
+                            if (reader.Read())
+                            {
+                                count = 1;
+
+                                if (!isDelete)
+                                {
+                                    MapReaderRowToCurrentValues(reader,
+                                        request.EntitySavePacket.CurrentValues, request.Columns);
+                                }
+                            }
+                        }
+                    }
                 }
 
                 if (count < 1)
-                {
                     throw new esConcurrencyException("Update failed to update any records");
-                }
             }
             finally
             {
-                // [REVISED] No explicit ROLLBACK.
                 esTransactionScope.DeEnlist(cmd);
-                cmd.Dispose();
-            }
-
-            if (request.EntitySavePacket.RowState != esDataRowState.Deleted && cmd.Parameters != null)
-            {
-                foreach (NpgsqlParameter param in cmd.Parameters)
-                {
-                    switch (param.Direction)
-                    {
-                        case ParameterDirection.Output:
-                        case ParameterDirection.InputOutput:
-
-                            request.EntitySavePacket.CurrentValues[param.SourceColumn] = param.Value;
-                            break;
-                    }
-                }
+                cmd?.Dispose();
             }
 
             return null;
@@ -1667,6 +1742,48 @@ namespace EntitySpaces.Npgsql2Provider
         {
             if (string.IsNullOrEmpty(key)) return string.Empty;
             return key.Replace("_", string.Empty).ToLowerInvariant();
+        }
+
+
+        // ===================================================================
+        // Maps a reader row into the entity's CurrentValues dictionary,
+        // resolving each column to its canonical DB column name and syncing
+        // the property-name slot too when they differ.
+        //
+        // [FIX-BUG-3-COMPLEMENT] Uses FindByColumnName for canonical lookup
+        // and writes both keys (Name and PropertyName) so entity getters see
+        // the value regardless of which key they read.
+        // ===================================================================
+        private static void MapReaderRowToCurrentValues(
+            NpgsqlDataReader reader,
+            esSmartDictionary currentValues,
+            esColumnMetadataCollection columns)
+        {
+            if (reader == null || currentValues == null || columns == null) return;
+
+            for (int i = 0; i < reader.FieldCount; i++)
+            {
+                string colName = reader.GetName(i);
+                object value = reader.IsDBNull(i) ? null : reader.GetValue(i);
+
+                esColumnMetadata meta = columns.FindByColumnName(colName);
+
+                if (meta != null)
+                {
+                    currentValues[meta.Name] = value;
+
+                    if (!string.IsNullOrEmpty(meta.PropertyName)
+                        && !string.Equals(meta.PropertyName, meta.Name, StringComparison.Ordinal))
+                    {
+                        currentValues[meta.PropertyName] = value;
+                    }
+                }
+                else
+                {
+                    // Column not in metadata (shouldn't happen for SP returning SETOF <table>)
+                    currentValues[colName] = value;
+                }
+            }
         }
 
 
