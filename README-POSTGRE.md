@@ -41,6 +41,7 @@ This package provides the PostgreSQL runtime only — it does not generate code.
 
   No code changes required on your side; the tolerant resolution is applied uniformly to INSERT, UPDATE, DELETE, and server-returned value mapping.
 - **Single-pass RETURNING with `CommandBehavior.SingleRow`** — the reader is closed cleanly after the first row, keeping the connection usable for the next command in the same `esTransactionScope`. Eliminates intermittent `25P02` cascades in hierarchical batches.
+- **StoredProcedure path fully functional** — the provider invokes PostgreSQL functions via `SELECT * FROM "proc_X"(:args)` and reads the returned rowset. See [StoredProcedure Path](#storedprocedure-path) below.
 - Concurrency exception detection and translation to `esConcurrencyException` (unique/PK violation, serialization failure, deadlock, lock timeout)
 - Automatic `APPLY` → `LATERAL` join translation — write `OuterApply`/`CrossApply` once, get native `LEFT JOIN LATERAL` / `JOIN LATERAL` on PostgreSQL, no code changes needed when switching providers
 - Server version auto-detection, cached per connection string — supports multiple PostgreSQL instances of different versions simultaneously
@@ -50,10 +51,12 @@ This package provides the PostgreSQL runtime only — it does not generate code.
 
 ## Fixes
 
+- **StoredProcedure save path was non-functional** — the provider used `CommandType.StoredProcedure`, which Npgsql 7/8 translates to `CALL`, valid only for PROCEDURES. PostgreSQL rejects this with SQLSTATE 42883 when the target is a FUNCTION. Migrated to `CommandType.Text` with `SELECT * FROM "func"(:args)` and reading the returned rowset. See [StoredProcedure Path](#storedprocedure-path).
 - **Special columns (`DateModified`, `AddedBy`, `ModifiedBy`) now return their own columns** — previously all three incorrectly added `DateAdded` to the `RETURNING` clause, so the actual server-side values were never propagated back to the entity. This is a copy-paste bug in the INSERT builder that affected every generated entity using server-side auditing columns.
+- **Server-side special columns no longer sent as parameters on INSERT** — the Studio-generated `ServerSideText` is the column name itself (e.g. `"DateAdded"`), which is not a valid SQL expression. The provider now excludes these columns from the INSERT and lets the DB `DEFAULT` populate them, fetching the value back via `RETURNING`.
 - **Explicit PK insert on IDENTITY columns** — when a user assigns a value to an auto-increment PK, the column is now sent as `InputOutput` and included in `RETURNING`, so the entity is marked clean after save and the explicit value is preserved.
 - **`DEFAULT` columns not explicitly assigned now correctly send `DBNull.Value` instead of `null`** — Npgsql raises a parameter exception on `null`, this is now handled automatically.
-- **Explicit `ROLLBACK` removed from error paths** — the provider no longer issues `ROLLBACK` on enlisted connections. On Npgsql 6+ / System.Transactions this could abort the *ambient* transaction, not just the current command. Transaction rollback is now delegated entirely to `esTransactionScope`, which is the correct owner. The previous defensive code was actively harmful.
+- **Explicit `ROLLBACK` removed from error paths** — the provider no longer issues `ROLLBACK` on enlisted connections. On Npgsql 6+ / `System.Transactions` this could abort the *ambient* transaction, not just the current command. Transaction rollback is now delegated entirely to `esTransactionScope`, which is the correct owner. The previous defensive code was actively harmful.
 - Type resolution corrected to use dual `udt_name` + `data_type` mapping, avoiding mismatches on custom/aliased PostgreSQL types
 
 ## ⚠️ Transaction Management
@@ -81,9 +84,7 @@ Nested `esTransactionScope` instances are supported — the inner scope votes on
 
 If you also need `System.Transactions` interop, keep in mind that EntitySpaces does not currently bridge the two mechanisms automatically.
 
-> **Connection pool behavior on error:** All save and load operations release connections safely. On error, the connection is closed by `CleanupCommand` (or by `CommandBehavior.SingleRow` when the `RETURNING` reader was opened). **No explicit `ROLLBACK` is issued** — that responsibility belongs to the transaction scope owner. This matches the pattern applied across the MySQL/MariaDB provider and avoids the class of bugs where a child insert failure would abort an otherwise recoverable transaction.
-
-> **Note:** the previous implementation issued `ROLLBACK` on enlisted connections inside `finally` blocks. Under `MySqlConnector` / ambient `esTransactionScope`, that aborted the ambient transaction, not just the current command. This was actively harmful and is no longer done.
+> **Connection pool behavior on error:** All save and load operations release connections safely. On error, the connection is closed by `CleanupCommand` (or by `CommandBehavior.SingleRow` when the `RETURNING` reader was opened). **No explicit `ROLLBACK` is issued** — that responsibility belongs to the transaction scope owner. This avoids the class of bugs where a child insert failure would abort an otherwise recoverable transaction.
 
 ## ⚠️ Hierarchical Save
 
@@ -176,6 +177,47 @@ The fixes documented in this README were originally validated against SQL Server
 - Tolerant column/property name resolution, including divergent FK names.
 - Combine() FK propagation and RowState preservation.
 - Transaction scope, rollback, and atomicity.
+- StoredProcedure path — insert, load, update, delete, collection save, optimistic concurrency.
+
+## StoredProcedure Path
+
+The provider invokes PostgreSQL functions via `SELECT * FROM "proc_X"(:args)`, not via `CommandType.StoredProcedure`. Npgsql 7/8 translates `CommandType.StoredProcedure` to `CALL`, which PostgreSQL rejects with SQLSTATE 42883 when the target is a FUNCTION. The generated procedures use `RETURNS SETOF "<table>"` and `RETURN QUERY SELECT` so the rowset carries the affected row back to the provider.
+
+### Generating the stored procedures
+
+Run the `PostgreSQL` template in EntitySpaces Studio. It produces one `<table>.sql` per table plus a consolidated `PostgreSQL_ALL.sql`. Both must be applied with a client that respects dollar-quoting (`psql`, `pgAdmin`, `DBeaver`, Npgsql direct). Script splitters that break on `;` inside `$es$ ... $es$` are not supported — they produce truncated statements and spurious `42P13` errors.
+
+### Optimistic concurrency
+
+The generated `proc_XUpdate` increments the EntitySpaces concurrency column and guards the row:
+
+```sql
+UPDATE "<table>"
+SET "col" = p_col, "Version" = p_Version + 1
+WHERE "id" = p_Id AND "Version" = p_Version;
+```
+
+A stale `Version` produces 0 affected rows; the function returns no rowset; the provider raises `esConcurrencyException`.
+
+### Special columns
+
+`DateAdded`, `DateModified`, `AddedBy`, `ModifiedBy` are excluded from INSERT and UPDATE parameter lists. Server-side columns are populated by the DB `DEFAULT`; client-side columns by the framework's own SET logic before the SP call. `RETURNING` fetches the resulting values.
+
+### Required alignment
+
+The provider's SP argument list and the function signature must match. Both are derived from the same column filters:
+
+- **INSERT**: excludes `IsAutoIncrement`, `IsComputed`, special columns.
+- **UPDATE**: excludes `IsComputed`, special columns.
+- **DELETE**: includes only PK columns.
+
+If you extend the SP template or the provider, keep both sides in sync. A signature mismatch produces `42883` at runtime.
+
+### Known limitations
+
+- The template matches special columns by hardcoded name (`DateAdded`, `DateModified`, `AddedBy`, `ModifiedBy`) and the concurrency column by heuristic name (`Version`, `RowVersion`, `VersionNumber`). The Studio metadata engine does not expose these configs to templates. Renamed special or concurrency columns require extending the template.
+- `DROP FUNCTION IF EXISTS "name"(<types>)` only matches a function whose signature matches exactly. Changing the signature between generations leaves the old overload in the database. Clean up stale overloads manually before applying a regenerated `PostgreSQL_ALL.sql`.
+- Optimistic concurrency is not enforced on DELETE. The generated `proc_XDelete` takes only PK columns; a stale version on DELETE does not produce an `esConcurrencyException`.
 
 ## Dependency Updates
 
@@ -229,4 +271,3 @@ More usage examples (joins, paging, transactions, and the full Fluent SQL API): 
 ### Generating your entity classes
 
 See **Requires EntitySpaces Studio** above.
-
