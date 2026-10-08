@@ -80,6 +80,14 @@ namespace EntitySpaces.Npgsql2Provider
             esColumnMetadataCollection cols = request.Columns;
             foreach (esColumnMetadata col in cols)
             {
+                // [FIX-BUG-22] Skip special columns BEFORE any other classification.
+                // The Studio metadata engine marks timestamp-based special columns
+                // (DateAdded / DateModified) as IsConcurrency = true. Without this
+                // guard they fall into the IsConcurrency branch below, are added as
+                // InputOutput with no Value, and Npgsql rejects the command with
+                // "Parameter ':DateAdded' cannot be null".
+                if (IsSpecialColumnSafe(request.Columns, col)) continue;
+
                 // [NEW ADJUSTMENT] Use the tolerant helpers so that property-name-keyed
                 // modifications coming from generated ApplyPostSaveKeys are recognized.
                 bool isModified = IsColumnModified(packet, col);
@@ -222,18 +230,21 @@ namespace EntitySpaces.Npgsql2Provider
             }
 
             #region Special Column Logic
+            // [FIX-BUG-19] The ProviderMetadata ServerSideText for these columns is
+            // configured as the column name itself ("DateAdded"), which is not a
+            // valid SQL expression. Concatenating it into the VALUES clause produces
+            // bareword identifiers that PostgreSQL resolves to NULL on the new row,
+            // tripping the NOT NULL constraint.
+            //
+            // The correct behaviour for a ServerSide special column with a DB-level
+            // DEFAULT is to omit it from the INSERT column list and VALUES list, and
+            // rely on the DEFAULT to populate the value. RETURNING fetches it back.
             if (cols.DateAdded != null && cols.DateAdded.IsServerSide)
             {
                 p = CloneParameter(types[cols.DateAdded.ColumnName]);
                 p.Direction = ParameterDirection.Output;
                 cmd.Parameters.Add(p);
 
-                into += comma + Delimiters.ColumnOpen + cols.DateAdded.ColumnName + Delimiters.ColumnClose;
-                values += comma + request.ProviderMetadata["DateAdded.ServerSideText"];
-                comma = ", ";
-
-                // [NEW ADJUSTMENT] Wrap the column name in delimiters for consistency
-                // with the rest of the RETURNING list.
                 returningCols.Add(Delimiters.ColumnOpen + cols.DateAdded.ColumnName + Delimiters.ColumnClose);
             }
 
@@ -243,13 +254,6 @@ namespace EntitySpaces.Npgsql2Provider
                 p.Direction = ParameterDirection.Output;
                 cmd.Parameters.Add(p);
 
-                into += comma + Delimiters.ColumnOpen + cols.DateModified.ColumnName + Delimiters.ColumnClose;
-                values += comma + request.ProviderMetadata["DateModified.ServerSideText"];
-                comma = ", ";
-
-                // [BUGFIX] Was adding cols.DateAdded.ColumnName — corrected to
-                // cols.DateModified.ColumnName. Previously DateModified was never
-                // returned and DateAdded could be duplicated in RETURNING.
                 returningCols.Add(Delimiters.ColumnOpen + cols.DateModified.ColumnName + Delimiters.ColumnClose);
             }
 
@@ -259,22 +263,11 @@ namespace EntitySpaces.Npgsql2Provider
                 p.Direction = ParameterDirection.Output;
                 cmd.Parameters.Add(p);
 
-                into += comma + Delimiters.ColumnOpen + cols.AddedBy.ColumnName + Delimiters.ColumnClose;
-                values += comma + request.ProviderMetadata["AddedBy.ServerSideText"];
-                comma = ", ";
-
-                // [BUGFIX] Was adding cols.DateAdded.ColumnName — corrected to
-                // cols.AddedBy.ColumnName.
                 returningCols.Add(Delimiters.ColumnOpen + cols.AddedBy.ColumnName + Delimiters.ColumnClose);
 
-                // [BUGFIX] Was reading cols.ModifiedBy.ColumnName — corrected to
-                // cols.AddedBy.ColumnName so the size is taken from the right column.
                 esColumnMetadata col = request.Columns[cols.AddedBy.ColumnName];
-
                 if (col.CharacterMaxLength > 0)
-                {
                     p.Size = (int)col.CharacterMaxLength;
-                }
             }
 
             if (cols.ModifiedBy != null && cols.ModifiedBy.IsServerSide)
@@ -283,20 +276,11 @@ namespace EntitySpaces.Npgsql2Provider
                 p.Direction = ParameterDirection.Output;
                 cmd.Parameters.Add(p);
 
-                into += comma + Delimiters.ColumnOpen + cols.ModifiedBy.ColumnName + Delimiters.ColumnClose;
-                values += comma + request.ProviderMetadata["ModifiedBy.ServerSideText"];
-                comma = ", ";
-
-                // [BUGFIX] Was adding cols.DateAdded.ColumnName — corrected to
-                // cols.ModifiedBy.ColumnName.
                 returningCols.Add(Delimiters.ColumnOpen + cols.ModifiedBy.ColumnName + Delimiters.ColumnClose);
 
                 esColumnMetadata col = request.Columns[cols.ModifiedBy.ColumnName];
-
                 if (col.CharacterMaxLength > 0)
-                {
                     p.Size = (int)col.CharacterMaxLength;
-                }
             }
             #endregion
 
@@ -372,6 +356,9 @@ namespace EntitySpaces.Npgsql2Provider
             esColumnMetadataCollection cols = request.Columns;
             foreach (esColumnMetadata col in cols)
             {
+                // [FIX-BUG-22] Skip special columns first — same rationale as INSERT.
+                if (IsSpecialColumnSafe(request.Columns, col)) continue;
+
                 // [NEW ADJUSTMENT] Tolerant modified-column check.
                 bool isModified = IsColumnModified(packet, col);
 
@@ -444,16 +431,23 @@ namespace EntitySpaces.Npgsql2Provider
             }
 
             #region Special Column Logic
+            // [FIX-BUG-23] A server-side special column cannot be expressed as a raw
+            // SQL fragment from ServerSideText: the Studio-generated config emits the
+            // column name itself ("DateModified"), producing
+            // SET "DateModified" = DateModified which PostgreSQL folds to lowercase
+            // and rejects with "column datemodified does not exist".
+            //
+            // The correct handling for a server-side timestamp is a DB trigger (or an
+            // application-level SetColumn before Save). This block only registers the
+            // parameter as Output and requests the value back through the trailing
+            // SELECT so the framework refreshes the entity with the current value.
             if (cols.DateModified != null && cols.DateModified.IsServerSide)
             {
                 p = CloneParameter(types[cols.DateModified.ColumnName]);
                 p.Direction = ParameterDirection.Output;
                 cmd.Parameters.Add(p);
 
-                sql += scomma + Delimiters.ColumnOpen + cols.DateModified.ColumnName + Delimiters.ColumnClose + " = " + request.ProviderMetadata["DateModified.ServerSideText"];
-                scomma = ", ";
-
-                defaults += defaultsComma + cols.DateModified.ColumnName;
+                defaults += defaultsComma + Delimiters.ColumnOpen + cols.DateModified.ColumnName + Delimiters.ColumnClose;
                 defaultsComma = ",";
             }
 
@@ -463,18 +457,12 @@ namespace EntitySpaces.Npgsql2Provider
                 p.Direction = ParameterDirection.Output;
                 cmd.Parameters.Add(p);
 
-                sql += scomma + Delimiters.ColumnOpen + cols.ModifiedBy.ColumnName + Delimiters.ColumnClose + " = " + request.ProviderMetadata["ModifiedBy.ServerSideText"];
-                scomma = ", ";
-
-                defaults += defaultsComma + cols.ModifiedBy.ColumnName;
+                defaults += defaultsComma + Delimiters.ColumnOpen + cols.ModifiedBy.ColumnName + Delimiters.ColumnClose;
                 defaultsComma = ",";
 
                 esColumnMetadata col = request.Columns[cols.ModifiedBy.ColumnName];
-
                 if (col.CharacterMaxLength > 0)
-                {
                     p.Size = (int)col.CharacterMaxLength;
-                }
             }
             #endregion
 
@@ -517,6 +505,9 @@ namespace EntitySpaces.Npgsql2Provider
             sql += " WHERE ";
             foreach (esColumnMetadata col in request.Columns)
             {
+                // [FIX-BUG-22] Skip special columns first.
+                if (IsSpecialColumnSafe(request.Columns, col)) continue;
+
                 if (col.IsInPrimaryKey || col.IsEntitySpacesConcurrency)
                 {
                     NpgsqlParameter p = types[col.Name];
@@ -568,12 +559,26 @@ namespace EntitySpaces.Npgsql2Provider
             foreach (esColumnMetadata col in request.Columns)
             {
                 if (col.IsAutoIncrement || col.IsComputed) continue;
-
-                // Skip special columns — the SP signature does not include them
-                if (request.Columns.IsSpecialColumn(col)) continue;
+                if (IsSpecialColumnSafe(request.Columns, col)) continue;
 
                 NpgsqlParameter p = CloneParameter(types[col.Name]);
-                object value = GetColumnValue(packet, col);
+
+                // [FIX-BUG-22] EntitySpaces concurrency columns start at 1 on insert.
+                // Matches the DynamicSQL path, which hardcodes the literal 1 for
+                // IsEntitySpacesConcurrency columns. The framework does not populate
+                // CurrentValues["Version"] before SaveToProvider, so without this
+                // default the parameter binds as DBNull and PostgreSQL rejects the
+                // NOT NULL insert with SQLSTATE 23502.
+                object value;
+                if (col.IsEntitySpacesConcurrency)
+                {
+                    value = 1;
+                }
+                else
+                {
+                    value = GetColumnValue(packet, col);
+                }
+
                 p.Value = value ?? (object)DBNull.Value;
                 p.Direction = ParameterDirection.Input;
                 cmd.Parameters.Add(p);
@@ -613,7 +618,7 @@ namespace EntitySpaces.Npgsql2Provider
             {
                 if (col.IsComputed) continue;
 
-                if (request.Columns.IsSpecialColumn(col)) continue;
+                if (IsSpecialColumnSafe(request.Columns, col)) continue;
 
                 NpgsqlParameter p = CloneParameter(types[col.Name]);
                 object value = col.IsInPrimaryKey
@@ -655,7 +660,10 @@ namespace EntitySpaces.Npgsql2Provider
             bool first = true;
             foreach (esColumnMetadata col in request.Columns)
             {
-                if (!col.IsInPrimaryKey && !col.IsConcurrency && !col.IsEntitySpacesConcurrency) continue;
+                // [V3-FIX] DELETE takes only PK columns. Matches the template.
+                if (!col.IsInPrimaryKey) continue;
+
+                if (IsSpecialColumnSafe(request.Columns, col)) continue;
 
                 NpgsqlParameter p = CloneParameter(types[col.Name]);
                 p.Value = GetOriginalColumnValue(packet, col) ?? (object)DBNull.Value;
@@ -670,22 +678,6 @@ namespace EntitySpaces.Npgsql2Provider
             sb.Append(")");
             cmd.CommandText = sb.ToString();
             return cmd;
-        }
-
-        static public void PopulateStoredProcParameters(NpgsqlCommand cmd, esDataRequest request, esEntitySavePacket packet)
-        {
-            // [DEPRECATED-FIX-BUG-14] No longer used by the SP builders.
-            // Kept for compatibility. All parameters are Input.
-            Dictionary<string, NpgsqlParameter> types = Cache.GetParameters(request);
-
-            foreach (esColumnMetadata col in request.Columns)
-            {
-                NpgsqlParameter p = CloneParameter(types[col.Name]);
-                object value = GetColumnValue(packet, col);
-                if (value != null) p.Value = value;
-                p.Direction = ParameterDirection.Input;
-                cmd.Parameters.Add(p);
-            }
         }
 
         static private NpgsqlParameter CloneParameter(NpgsqlParameter p)
@@ -964,6 +956,29 @@ namespace EntitySpaces.Npgsql2Provider
             }
 
             return byColumn;
+        }
+
+        // [FIX-BUG-22] Defense-in-depth: the metadata IsSpecialColumn relies on
+        // the runtime esColumnMetadataCollection.DateAdded field being populated.
+        // In some code paths (SP collection save) the flags appear unset and the
+        // check falls through, so special columns end up being sent as normal
+        // parameters — DateAdded / DateModified as null, which Npgsql rejects.
+        // This local helper matches by name to guarantee exclusion.
+        static private bool IsSpecialColumnSafe(esColumnMetadataCollection columns, esColumnMetadata col)
+        {
+            if (col == null || string.IsNullOrEmpty(col.Name)) return false;
+
+            // Try the metadata-driven check first.
+            try { if (columns.IsSpecialColumn(col)) return true; } catch { }
+
+            // Fallback: match by standard name.
+            string n = col.Name;
+            if (string.Equals(n, "DateAdded", StringComparison.OrdinalIgnoreCase)) return true;
+            if (string.Equals(n, "DateModified", StringComparison.OrdinalIgnoreCase)) return true;
+            if (string.Equals(n, "AddedBy", StringComparison.OrdinalIgnoreCase)) return true;
+            if (string.Equals(n, "ModifiedBy", StringComparison.OrdinalIgnoreCase)) return true;
+
+            return false;
         }
 
     } // end class

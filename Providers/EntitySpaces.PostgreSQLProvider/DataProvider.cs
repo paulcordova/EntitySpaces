@@ -362,10 +362,12 @@ namespace EntitySpaces.Npgsql2Provider
                 }
                 finally
                 {
-                    // [REVISED] No explicit ROLLBACK. The connection may be enlisted in
-                    // an ambient TransactionScope (test harness, ES transaction scope);
-                    // issuing ROLLBACK would abort the AMBIENT transaction, not just this
-                    // command. System.Transactions handles rollback when the scope ends.
+                    // Do NOT issue an explicit ROLLBACK here. The connection may
+                    // be enlisted in an ambient esTransactionScope; a ROLLBACK
+                    // would abort the AMBIENT transaction, not just this command.
+                    // Rollback is the scope owner's responsibility — it happens
+                    // when the scope ends without Complete(). See the
+                    // "Transaction Management" section in README-POSTGRE.md.
                     esTransactionScope.DeEnlist(cmd);
                 }
 
@@ -443,10 +445,10 @@ namespace EntitySpaces.Npgsql2Provider
             }
             catch (Exception ex)
             {
-                // [REVISED] Close the connection cleanly on error. No ROLLBACK is
-                // issued — PostgreSQL rolls back any pending transaction automatically
-                // when the connection is closed. If the connection was enlisted in an
-                // ambient scope, the scope owner handles the rollback.
+                // Close the connection cleanly on error. No ROLLBACK is issued:
+                // PostgreSQL rolls back any pending transaction automatically
+                // when the connection is closed. If the connection was enlisted
+                // in an ambient scope, the scope owner handles the rollback.
                 CleanupCommand(cmd);
                 response.Exception = ex;
             }
@@ -515,7 +517,9 @@ namespace EntitySpaces.Npgsql2Provider
                 }
                 finally
                 {
-                    // [REVISED] No explicit ROLLBACK — see ExecuteNonQuery for rationale.
+                    // Do NOT issue an explicit ROLLBACK here — see the comment
+                    // on ExecuteNonQuery for the rationale. Rollback is handled
+                    // by the transaction scope owner.
                     esTransactionScope.DeEnlist(cmd);
                 }
 
@@ -605,7 +609,7 @@ namespace EntitySpaces.Npgsql2Provider
                 DataSet dataSet = new DataSet();
 
                 cmd = new NpgsqlCommand();
-                cmd.CommandType = CommandType.Text;                 // [FIX-BUG-14]
+                cmd.CommandType = CommandType.Text;
                 if (request.CommandTimeout != null) cmd.CommandTimeout = request.CommandTimeout.Value;
 
                 // Add parameters first so their names are available for the
@@ -727,7 +731,6 @@ namespace EntitySpaces.Npgsql2Provider
                 }
                 finally
                 {
-                    // [REVISED] No explicit ROLLBACK.
                     esTransactionScope.DeEnlist(da.SelectCommand);
                 }
 
@@ -757,7 +760,7 @@ namespace EntitySpaces.Npgsql2Provider
                 DataTable dataTable = new DataTable(request.ProviderMetadata.Destination);
 
                 cmd = new NpgsqlCommand();
-                cmd.CommandType = CommandType.Text;                 // [FIX-BUG-14]
+                cmd.CommandType = CommandType.Text;
                 if (request.CommandTimeout != null) cmd.CommandTimeout = request.CommandTimeout.Value;
 
                 // Add parameters first so their names are available for the
@@ -873,7 +876,6 @@ namespace EntitySpaces.Npgsql2Provider
                 }
                 finally
                 {
-                    // [REVISED] No explicit ROLLBACK.
                     esTransactionScope.DeEnlist(da.SelectCommand);
                 }
 
@@ -976,7 +978,6 @@ namespace EntitySpaces.Npgsql2Provider
                 }
                 finally
                 {
-                    // [REVISED] No explicit ROLLBACK.
                     esTransactionScope.DeEnlist(da.SelectCommand);
                 }
 
@@ -1033,7 +1034,6 @@ namespace EntitySpaces.Npgsql2Provider
                 }
                 finally
                 {
-                    // [REVISED] No explicit ROLLBACK.
                     esTransactionScope.DeEnlist(da.SelectCommand);
                 }
 
@@ -1116,11 +1116,10 @@ namespace EntitySpaces.Npgsql2Provider
         // ===================================================================
         // Save collection via StoredProcedure path.
         //
-        // [FIX-BUG-14] Functions called via SELECT * FROM "func"(:args).
-        // [FIX-BUG-3]  Preprocess uses tolerant lookup so FK values written
-        //              under the property name are found when the parameter
-        //              expects them under SourceColumn.
-        // [FIX-BUG-10] ExecuteReader replaces ExecuteNonQuery for Insert/Update.
+        // PostgreSQL functions are invoked via SELECT * FROM "func"(:args).
+        // The provider reads the returned rowset with ExecuteReader instead
+        // of ExecuteNonQuery for INSERT and UPDATE. Delete returns void and
+        // is drained with NextResult().
         // ===================================================================
         static private DataTable SaveStoredProcCollection(esDataRequest request)
         {
@@ -1263,11 +1262,9 @@ namespace EntitySpaces.Npgsql2Provider
         // ===================================================================
         // Save entity via StoredProcedure path.
         //
-        // [FIX-BUG-14] The provider now calls the PostgreSQL function with
-        // SELECT * FROM "func"(:args) and reads the returned rowset.
-        // [FIX-BUG-2]  Output/InputOutput mapping moved before Dispose.
-        // [FIX-BUG-10] ExecuteNonQuery replaced by ExecuteReader for
-        //              Insert/Update so the rowset is captured.
+        // PostgreSQL functions are invoked via SELECT * FROM "func"(:args).
+        // INSERT / UPDATE read the returned rowset with ExecuteReader.
+        // DELETE (RETURNS void) drains the reader with NextResult().
         // ===================================================================
         static private DataTable SaveStoredProcEntity(esDataRequest request)
         {
@@ -1414,8 +1411,6 @@ namespace EntitySpaces.Npgsql2Provider
                     try
                     {
                         esTransactionScope.Enlist(cmd, request.ConnectionString, CreateIDbConnectionDelegate);
-                        // [REVISED] EnsureConnectionHealthy() removed — its ROLLBACK
-                        // branch could abort the ambient transaction.
 
                         int count = 0;
 
@@ -1470,7 +1465,8 @@ namespace EntitySpaces.Npgsql2Provider
                     }
                     finally
                     {
-                        // [REVISED] No explicit ROLLBACK — see ExecuteNonQuery for rationale.
+                        // Do NOT issue an explicit ROLLBACK here — see the
+                        // comment on ExecuteNonQuery for the rationale.
                         esTransactionScope.DeEnlist(cmd);
                         cmd?.Dispose();
                     }
@@ -1502,8 +1498,6 @@ namespace EntitySpaces.Npgsql2Provider
             try
             {
                 esTransactionScope.Enlist(cmd, request.ConnectionString, CreateIDbConnectionDelegate);
-                // [REVISED] EnsureConnectionHealthy() removed — its ROLLBACK branch
-                // could abort the ambient transaction.
 
                 int count = 0;
 
@@ -1545,7 +1539,9 @@ namespace EntitySpaces.Npgsql2Provider
             }
             finally
             {
-                // [REVISED] No explicit ROLLBACK — see ExecuteNonQuery for rationale.
+                // Do NOT issue an explicit ROLLBACK here — see the comment on
+                // ExecuteNonQuery for the rationale. Rollback is handled by
+                // the transaction scope owner.
                 esTransactionScope.DeEnlist(cmd);
                 cmd?.Dispose();
             }
@@ -1556,18 +1552,20 @@ namespace EntitySpaces.Npgsql2Provider
         // ===================================================================
         // Executes an INSERT that may carry a RETURNING clause.
         //
-        // [NEW ADJUSTMENT] Key fixes vs. the previous version:
-        //   1. Uses CommandBehavior.SingleRow so the reader closes as soon as
-        //      the first row is consumed, releasing the connection cleanly and
-        //      leaving no active reader on the enlisted connection.
-        //   2. Does NOT loop over NextResult() — a single result set is
-        //      present, and consuming it unnecessarily was the root cause of
-        //      the SQLSTATE 25P02 cascade during hierarchical saves.
-        //   3. Uses IsDBNull() before reading so NULL columns are mapped
-        //      cleanly instead of throwing.
-        //   4. Reports mapping failures through Debug.WriteLine instead of
-        //      swallowing them, so integration issues (wrong column name,
-        //      missing column in RETURNING) become visible in tests.
+        // Uses CommandBehavior.SingleRow so the reader closes as soon as the
+        // first row is consumed, releasing the connection cleanly and leaving
+        // no active reader on the enlisted connection.
+        //
+        // Does NOT loop over NextResult() — a single result set is present,
+        // and consuming it unnecessarily was the root cause of the SQLSTATE
+        // 25P02 cascade during hierarchical saves.
+        //
+        // Uses IsDBNull() before reading so NULL columns are mapped cleanly
+        // instead of throwing.
+        //
+        // Reports mapping failures through Debug.WriteLine instead of
+        // swallowing them, so integration issues (wrong column name, missing
+        // column in RETURNING) become visible in tests.
         // ===================================================================
         private static int ExecuteInsertCommand(NpgsqlCommand cmd, esEntitySavePacket packet)
         {
@@ -1578,8 +1576,8 @@ namespace EntitySpaces.Npgsql2Provider
 
             int rows = 0;
 
-            // [NEW ADJUSTMENT] SingleRow + using ensures the connection is
-            // released cleanly, avoiding the aborted-transaction cascade.
+            // SingleRow + using ensures the connection is released cleanly,
+            // avoiding the aborted-transaction cascade.
             using (var reader = cmd.ExecuteReader(CommandBehavior.SingleRow))
             {
                 if (reader.Read())
@@ -1610,8 +1608,8 @@ namespace EntitySpaces.Npgsql2Provider
                         }
                         catch (Exception ex)
                         {
-                            // [NEW ADJUSTMENT] Surface unexpected mapping failures so
-                            // they are not silently swallowed as in the previous code.
+                            // Surface unexpected mapping failures so they are not
+                            // silently swallowed as in the previous code.
                             System.Diagnostics.Debug.WriteLine(
                                 $"[EntitySpaces.Npgsql2Provider] Failed to map RETURNING column '{colName}': {ex.Message}");
                         }
@@ -1629,7 +1627,7 @@ namespace EntitySpaces.Npgsql2Provider
         // CurrentValues dictionary, and synchronizes property-name keys to
         // column-name keys.
         //
-        // [NEW ADJUSTMENT] Two responsibilities now:
+        // Two responsibilities:
         //
         //   1. Sync property → column keys. Generated ApplyPostSaveKeys calls
         //      SetProperty("OrderId", value) which stores the value under the
@@ -1733,10 +1731,10 @@ namespace EntitySpaces.Npgsql2Provider
 
 
         // ===================================================================
-        // [NEW ADJUSTMENT] Normalizes a column key so PostgreSQL snake_case
-        // names (e.g. "order_id") match EntitySpaces camelCase keys
-        // (e.g. "OrderId"). Underscores are stripped and the result is
-        // lower-cased before comparison.
+        // Normalizes a column key so PostgreSQL snake_case names
+        // (e.g. "order_id") match EntitySpaces camelCase keys (e.g.
+        // "OrderId"). Underscores are stripped and the result is lower-cased
+        // before comparison.
         // ===================================================================
         private static string NormalizeKey(string key)
         {
@@ -1750,9 +1748,9 @@ namespace EntitySpaces.Npgsql2Provider
         // resolving each column to its canonical DB column name and syncing
         // the property-name slot too when they differ.
         //
-        // [FIX-BUG-3-COMPLEMENT] Uses FindByColumnName for canonical lookup
-        // and writes both keys (Name and PropertyName) so entity getters see
-        // the value regardless of which key they read.
+        // Uses FindByColumnName for canonical lookup and writes both keys
+        // (Name and PropertyName) so entity getters see the value regardless
+        // of which key they read.
         // ===================================================================
         private static void MapReaderRowToCurrentValues(
             NpgsqlDataReader reader,

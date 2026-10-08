@@ -1,7 +1,6 @@
 <% 
 /*
 =========================================================================
-
     EntitySpaces 2010 
     Persistence Layer and Business Objects for Microsoft .NET 
     Copyright 2005 - 2010 EntitySpaces, LLC 
@@ -13,26 +12,27 @@
 
     http://www.entityspaces.net/portal/License/tabid/97/Default.aspx
     
+    Revision 2026.10.8
+    ---------------------------------------------------------------------
+    [FIX-A1] UPDATE SET clause now excludes IsSpecialColumn columns.
+             Previously the signature excluded them but the SET clause
+             included them, producing "column p_X does not exist".
+    [FIX-A2] Version increment uses IsEsConcurrency heuristic (name
+             based) because IColumn.IsEntitySpacesConcurrency is not
+             populated at template time.
+    [FIX-A3] DELETE now takes only PK columns, matching the provider
+             when it is aligned to the same rule.
+			 
+	Known limitations :
+
+	- Special columns are matched by hardcoded name (DateAdded,
+	  DateModified, AddedBy, ModifiedBy) because the Studio metadata engine
+	  does not expose the config to templates.
+	- The concurrency column is detected by name heuristic (Version,
+	  RowVersion, VersionNumber) for the same reason.
+	- DELETE takes only PK columns; optimistic concurrency is not enforced
+	  on DELETE.
 =========================================================================
-
-    POSTGRESQL STORED PROCEDURE TEMPLATE
-
-    Revision 2026.11:
-    -----------------
-    Fix A: DROP FUNCTION IF EXISTS before every CREATE FUNCTION.
-    Fix B: LANGUAGE plpgsql for INSERT / UPDATE / DELETE.
-    Fix C: INSERT / UPDATE return SETOF "<table>" via RETURN QUERY.
-    Fix D: Exclude auto-generated columns from INSERT.
-    Fix E: Dollar-quote tag $es$ instead of $$.
-    Fix F: DELETE includes concurrency column when present.
-
-    Fix G (2026.11.1):
-           - Capture OutputPath at template start into a local field so
-             the consolidated PostgreSQL_ALL.sql write at the end does not
-             depend on esMeta.Input still being valid after the main loop.
-           - Wrap the final SaveToFile in try/catch with diagnostic log
-             to a sibling file (_es_template_log.txt) so failures are
-             visible.
 */%>
 <%@ TemplateInfo 
     UniqueID="26AF598A-4CF9-4b24-BB01-A71565959C0E"
@@ -41,39 +41,22 @@
     Description="PostgreSQL Stored Procedures" 
     Namespace="EntitySpaces.2026.StoredProcedures" 
     Author="EntitySpaces, LLC"
-    Version="2026.11.1.0"
+    Version="2026.10.0.0"
     RequiresUI="True" %><%
-//-------------------------------------------------------
-// Extract the UI choices that we need
-//-------------------------------------------------------
 ArrayList entities = esMeta.Input["Entities"] as ArrayList;
 string entityType = (string)esMeta.Input["EntityType"];
 string databaseName = (string)esMeta.Input["Database"];
-
-//-------------------------------------------------------
-// [FIX-G] Capture OutputPath ONCE, at template start, and reuse it.
-// The metadata input may not survive the full iteration; capturing
-// here guarantees the consolidated write at the end has a valid path.
-//-------------------------------------------------------
 string capturedOutputPath = (string)esMeta.Input["OutputPath"];
-
-//-------------------------------------------------------
-// Create Local Variables
-//-------------------------------------------------------	
-int lastOrdinal = 0;
 
 ITable table = null;
 IView  view = null;
 IColumns cols = null;
-
 string allSQL = "";
 
 IDatabase database = esMeta.Databases[databaseName];
 
 foreach(string tableOrView in entities)
 {
-	string text = "";
-	
 	if(entityType == dbEntityType.Tables.ToString())
 	{
 		table = database.Tables[tableOrView];
@@ -83,7 +66,6 @@ foreach(string tableOrView in entities)
 	else 
 	{
 		view = database.Views[tableOrView];
-		
 		table = null;
 		cols = view.Columns;
 	}
@@ -143,7 +125,6 @@ $es$ LANGUAGE sql STABLE;
 // Update
 //----------------------------------------------------------------------
 int colCount = 0;
-
 foreach(IColumn col in table.Columns)
 {
 	if(col.IsInPrimaryKey || col.IsComputed)
@@ -154,12 +135,10 @@ foreach(IColumn col in table.Columns)
 
 if(table.Columns.Count == colCount)
 {%>
-
 	-------------------------------------------
 	-- NO UPDATE Stored Procedure Generated    
 	-- All Columns are part of the Primary key 
 	-------------------------------------------
-	
 <%		
 }
 else
@@ -172,6 +151,7 @@ CREATE FUNCTION "<%=esMeta.esPlugIn.ProcUpdate(table.Name)%>"
 	foreach(IColumn col in table.Columns)
 	{
 		if(col.IsComputed) continue;
+		if(IsSpecialColumn(table.Columns, col)) continue;    // [V3-FIX] exclude special from signature
 
 		if(!inFirst) {%><%=", "%><%}%>
 	 IN p_<%=StripGarbage(col)%> <%=col.DataTypeNameComplete%><%
@@ -180,6 +160,8 @@ CREATE FUNCTION "<%=esMeta.esPlugIn.ProcUpdate(table.Name)%>"
 %>
 )
 RETURNS SETOF "<%=table.Name%>" AS $es$
+DECLARE
+	v_rowcount integer;
 BEGIN
 	UPDATE "<%=table.Name%>"
 	SET
@@ -188,9 +170,14 @@ BEGIN
 	foreach(IColumn col in table.Columns)
 	{
 		if(col.IsComputed || col.IsInPrimaryKey) continue;
+		if(IsSpecialColumn(table.Columns, col)) continue;    // [V3-FIX] exclude special from SET
 
-		if(!inFirst) {%><%=", "%><%}%>
+		if(!inFirst) {%><%=", "%><%}%><%
+		if(IsEsConcurrency(col)) { %>
+		"<%=col.Name%>" = p_<%=StripGarbage(col)%> + 1<%     // [V3-FIX] increment concurrency
+		} else { %>
 		"<%=col.Name%>" = p_<%=StripGarbage(col)%><%
+		}
 		inFirst = false;
 	}
 	%>
@@ -200,12 +187,21 @@ BEGIN
 	foreach(IColumn col in table.Columns)
 	{
 		if(!col.IsInPrimaryKey) continue;
-
 		if(!inFirst) {%><%=" AND "%><%}%>
 		"<%=col.Name%>" = p_<%=StripGarbage(col)%><%
 		inFirst = false;
 	}
+	foreach(IColumn col in table.Columns)
+	{
+		if(!IsEsConcurrency(col)) continue;
+		%> AND "<%=col.Name%>" = p_<%=StripGarbage(col)%><%
+	}
 	%>;
+
+	GET DIAGNOSTICS v_rowcount = ROW_COUNT;
+	IF v_rowcount = 0 THEN
+		RETURN;
+	END IF;
 
 	RETURN QUERY SELECT * FROM "<%=table.Name%>"
 	WHERE
@@ -214,7 +210,6 @@ BEGIN
 	foreach(IColumn col in table.Columns)
 	{
 		if(!col.IsInPrimaryKey) continue;
-
 		if(!inFirst) {%><%=" AND "%><%}%>
 		"<%=col.Name%>" = p_<%=StripGarbage(col)%><%
 		inFirst = false;
@@ -236,7 +231,7 @@ CREATE FUNCTION "<%=esMeta.esPlugIn.ProcInsert(table.Name)%>"
 	foreach(IColumn col in table.Columns)
 	{
 		if(col.IsAutoKey || col.IsComputed) continue;
-
+		if(IsSpecialColumn(table.Columns, col)) continue;
 		if(!inFirst) {%><%=", "%><%}%>
 	 IN p_<%=StripGarbage(col)%> <%=col.DataTypeNameComplete%><%
 		inFirst = false;
@@ -254,7 +249,7 @@ BEGIN
 	foreach(IColumn col in table.Columns)
 	{
 		if(col.IsAutoKey || col.IsComputed) continue;
-
+		if(IsSpecialColumn(table.Columns, col)) continue;
 		if(!inFirst) {%><%=", "%><%}%>
 		"<%=col.Name%>"<%
 		inFirst = false;
@@ -268,7 +263,7 @@ BEGIN
 	foreach(IColumn col in table.Columns)
 	{
 		if(col.IsAutoKey || col.IsComputed) continue;
-
+		if(IsSpecialColumn(table.Columns, col)) continue;
 		if(!inFirst) {%><%=", "%><%}%>
 		p_<%=StripGarbage(col)%><%
 		inFirst = false;
@@ -307,7 +302,7 @@ $es$ LANGUAGE plpgsql VOLATILE;
 
 <%
 //----------------------------------------------------------------------
-// Delete
+// Delete — [V3-FIX] PK only.
 //----------------------------------------------------------------------
 %>
 <%= BuildDropFunctionStatement(esMeta.esPlugIn.ProcDelete(table.Name), BuildArgTypesForDelete(table)) %>
@@ -316,8 +311,7 @@ CREATE FUNCTION "<%=esMeta.esPlugIn.ProcDelete(table.Name)%>"
 	inFirst = true;
 	foreach(IColumn col in table.Columns)
 	{
-		if(!col.IsInPrimaryKey && !col.IsEntitySpacesConcurrency) continue;
-
+		if(!col.IsInPrimaryKey) continue;
 		if(!inFirst) {%><%=", "%><%}%>
 	 IN p_<%=StripGarbage(col)%> <%=col.DataTypeNameComplete%><%
 		inFirst = false;
@@ -325,6 +319,8 @@ CREATE FUNCTION "<%=esMeta.esPlugIn.ProcDelete(table.Name)%>"
 %>
 )
 RETURNS void AS $es$
+DECLARE
+	v_rowcount integer;
 BEGIN
 	DELETE FROM "<%=table.Name%>"
 	WHERE
@@ -332,72 +328,40 @@ BEGIN
 	inFirst = true;
 	foreach(IColumn col in table.Columns)
 	{
-		if(!col.IsInPrimaryKey && !col.IsEntitySpacesConcurrency) continue;
-
+		if(!col.IsInPrimaryKey) continue;
 		if(!inFirst) {%><%=" AND "%><%}%>
 		 "<%=col.Name%>" = p_<%=StripGarbage(col)%><%
 		inFirst = false;
 	}
 %>;
+
+	GET DIAGNOSTICS v_rowcount = ROW_COUNT;
+	IF v_rowcount = 0 THEN
+		RAISE EXCEPTION 'row not found';
+	END IF;
 END;
 $es$ LANGUAGE plpgsql VOLATILE;
 
 <%
-	// [FIX-G] Capture per-table SQL and accumulate. SaveToFile uses the
-	// captured path so it does not depend on esMeta.Input at this point.
 	string sql = output.ToString();
 	allSQL += sql;
-	
 	SaveToFileAt(capturedOutputPath, table.Name + ".sql", sql);
 	this.ClearOutput();	
-} // end main for loop
+}
 
-// [FIX-G] Write the consolidated file AFTER the loop, using the path
-// captured at template start. Wrapped in try/catch with a diagnostic
-// log so failures do not pass silently.
-try
-{
-	SaveToFileAt(capturedOutputPath, "PostgreSQL_ALL.sql", allSQL);
-}
-catch (Exception ex)
-{
-	try
-	{
-		string logPath = System.IO.Path.Combine(
-			string.IsNullOrEmpty(capturedOutputPath) ? "." : capturedOutputPath,
-			"_es_template_log.txt");
-		System.IO.File.AppendAllText(logPath,
-			DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") +
-			"  SaveToFile(PostgreSQL_ALL.sql) failed: " + ex.ToString() +
-			System.Environment.NewLine);
-	}
-	catch { /* best-effort */ }
-}
+try { SaveToFileAt(capturedOutputPath, "PostgreSQL_ALL.sql", allSQL); }
+catch { }
 %>
 
 <script runat="template">
 
-// [FIX-G] Path-safe writer. Takes the output directory explicitly so it
-// is not read from esMeta.Input at call time. Uses the same directory
-// discipline as the original SaveToFile.
 private string SaveToFileAt(string outputPath, string fileName, string text)
 {
 	string path = outputPath;
-	if (string.IsNullOrEmpty(path))
-		path = ".";
-
-	if (!path.EndsWith("\\") && !path.EndsWith("/"))
-		path += "\\";
-
+	if (string.IsNullOrEmpty(path)) path = ".";
+	if (!path.EndsWith("\\") && !path.EndsWith("/")) path += "\\";
 	Directory.CreateDirectory(path);
-
-	string fname = path + fileName;
-
-	using (StreamWriter sw = System.IO.File.CreateText(fname))
-	{
-		sw.Write(text);
-	}
-
+	using (StreamWriter sw = System.IO.File.CreateText(path + fileName)) sw.Write(text);
 	return "";
 }
 
@@ -420,13 +384,34 @@ private IColumn FindAutoKey(ITable table)
 	return null;
 }
 
+private bool IsSpecialColumn(IColumns cols, IColumn col)
+{
+	if (col == null || string.IsNullOrEmpty(col.Name)) return false;
+	string n = col.Name;
+	if (string.Equals(n, "DateAdded",    StringComparison.OrdinalIgnoreCase)) return true;
+	if (string.Equals(n, "DateModified", StringComparison.OrdinalIgnoreCase)) return true;
+	if (string.Equals(n, "AddedBy",      StringComparison.OrdinalIgnoreCase)) return true;
+	if (string.Equals(n, "ModifiedBy",   StringComparison.OrdinalIgnoreCase)) return true;
+	return false;
+}
+
+private bool IsEsConcurrency(IColumn col)
+{
+	if (col == null || string.IsNullOrEmpty(col.Name)) return false;
+	try { if (col.IsEntitySpacesConcurrency) return true; } catch { }
+	if (string.Equals(col.Name, "Version",       StringComparison.OrdinalIgnoreCase)) return true;
+	if (string.Equals(col.Name, "RowVersion",    StringComparison.OrdinalIgnoreCase)) return true;
+	if (string.Equals(col.Name, "VersionNumber", StringComparison.OrdinalIgnoreCase)) return true;
+	return false;
+}
+
 private string BuildArgTypesForInsert(ITable table)
 {
-	string args = "";
-	bool first = true;
+	string args = ""; bool first = true;
 	foreach(IColumn col in table.Columns)
 	{
 		if(col.IsAutoKey || col.IsComputed) continue;
+		if(IsSpecialColumn(table.Columns, col)) continue;
 		if(!first) args += ", ";
 		args += col.DataTypeNameComplete;
 		first = false;
@@ -436,11 +421,11 @@ private string BuildArgTypesForInsert(ITable table)
 
 private string BuildArgTypesForUpdate(ITable table)
 {
-	string args = "";
-	bool first = true;
+	string args = ""; bool first = true;
 	foreach(IColumn col in table.Columns)
 	{
 		if(col.IsComputed) continue;
+		if(IsSpecialColumn(table.Columns, col)) continue;
 		if(!first) args += ", ";
 		args += col.DataTypeNameComplete;
 		first = false;
@@ -450,11 +435,10 @@ private string BuildArgTypesForUpdate(ITable table)
 
 private string BuildArgTypesForDelete(ITable table)
 {
-	string args = "";
-	bool first = true;
+	string args = ""; bool first = true;
 	foreach(IColumn col in table.Columns)
 	{
-		if(!col.IsInPrimaryKey && !col.IsEntitySpacesConcurrency) continue;
+		if(!col.IsInPrimaryKey) continue;
 		if(!first) args += ", ";
 		args += col.DataTypeNameComplete;
 		first = false;
@@ -464,8 +448,7 @@ private string BuildArgTypesForDelete(ITable table)
 
 private string BuildArgTypesForPK(ITable table)
 {
-	string args = "";
-	bool first = true;
+	string args = ""; bool first = true;
 	foreach(IColumn col in table.PrimaryKeys)
 	{
 		if(!first) args += ", ";
