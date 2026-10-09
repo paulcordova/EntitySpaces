@@ -235,19 +235,6 @@ BEGIN
 	SET NOCOUNT OFF
 	DECLARE @Err int
 	
-<%	foreach(IColumn col in cols)
-	{
-		if(col.IsDateModifiedColumn && col.DateModifiedType == esSettingsDriverInfo.DateType.ServerSide)
-		{
-			seqSet += "\tSET " + "@" + col.Name + " = " + col.DateModifiedServerSideText + ";\r\n";
-		}
-		
-		if(col.IsModifiedByColumn && !col.UseModifiedByEventHandler)
-		{
-			seqSet += "\tSET " + "@" + col.Name + " = " + col.ModifiedByServerSideText + ";\r\n";		
-		}
-	}%>	
-<%=seqSet%>	
 
 	UPDATE [<%=table.Name%>]
 	SET<%
@@ -258,9 +245,21 @@ BEGIN
 	{
 		if(!col.IsInPrimaryKey && !col.IsAutoKey && !col.IsComputed)
 		{
+			// Skip immutable server-side columns — they must NOT be overwritten on UPDATE.
+			// DateAdded and AddedBy are set once at INSERT and read back via the
+			// post-UPDATE SELECT below. Emitting [DateAdded] = @DateAdded here would
+			// clobber the original value with NULL.
+			if(col.IsDateAddedColumn && col.DateAddedType == esSettingsDriverInfo.DateType.ServerSide) continue;
+			if(col.IsAddedByColumn && !col.UseAddedByEventHandler) continue;
+
 			if(!inFirst) {%><%=", "%><%}%><%
 			if(col.IsEntitySpacesConcurrency) {%>
-		[<%=col.Name%>] = [<%=col.Name%>] + 1<%} else {%>
+		[<%=col.Name%>] = [<%=col.Name%>] + 1<%}
+			else if(col.IsDateModifiedColumn && col.DateModifiedType == esSettingsDriverInfo.DateType.ServerSide) {%>
+		[<%=col.Name%>] = SYSDATETIME()<%}
+			else if(col.IsModifiedByColumn && !col.UseModifiedByEventHandler) {%>
+		[<%=col.Name%>] = SYSTEM_USER<%}
+			else {%>
 		[<%=col.Name%>] = @<%=StripGarbage(col)%><%}%><%
 			inFirst = false;
 		}
@@ -291,48 +290,44 @@ BEGIN
 			}
 		}
 	}	
-	
-	foreach(IColumn col in table.Columns)
-	{
-		if(col.IsEntitySpacesConcurrency)
-		{%>
-
-	SET @<%=StripGarbage(col)%> = @<%=StripGarbage(col)%> + 1<%
-		}
-	}
 %>
 
 	SET @Err = @@Error
 <%	
-	// Add the Logic to return computed columns if necessary 
-	blnHasComputed = false;
+	// Read-back SELECT for all server-generated columns.
+	// The special columns (DateModified, ModifiedBy) and Version are now computed
+	// server-side inside the UPDATE SET. We retrieve them in a single SELECT
+	// scoped by PK so the caller receives the post-update values.
+	// DateAdded and AddedBy are NOT read back — they are immutable and the
+	// caller already holds the correct values from the initial load or insert.
 	strWhereClause = "";
 	strWhereAnd = "";
 	strWhereFields = "";
 	strComma = "";
 
-	bool blnFirst = true;
 	foreach(IColumn col in cols)
 	{
-		if(col.IsComputed)
-		{
-			blnHasComputed = true;
-		}
-
 		if(col.IsInPrimaryKey)
 		{
 			strWhereClause += strWhereAnd + "[" + col.Name + "] = @" + StripGarbage(col);
 			strWhereAnd = " AND ";
 		}
 
-		if(col.IsComputed)
+		bool needsReadback = false;
+
+		if(col.IsDateModifiedColumn && col.DateModifiedType == esSettingsDriverInfo.DateType.ServerSide) needsReadback = true;
+		else if(col.IsModifiedByColumn && !col.UseModifiedByEventHandler) needsReadback = true;
+		else if(col.IsEntitySpacesConcurrency) needsReadback = true;
+		else if(col.IsComputed) needsReadback = true;
+
+		if(needsReadback)
 		{
-			strWhereFields += strComma + "@" + StripGarbage(col) + " = [" +  col.Name + "]";
+			strWhereFields += strComma + "@" + StripGarbage(col) + " = [" + col.Name + "]";
 			strComma = ", ";
 		}
 	}
 
-	if(blnHasComputed)
+	if(strWhereFields.Length > 0)
 	{%>
 	SELECT <%=strWhereFields%>
 	  FROM <%=schemaName%>[<%=table.Name%>]
@@ -416,30 +411,11 @@ BEGIN
 
 	SET NOCOUNT OFF
 	DECLARE @Err int
-<%	foreach(IColumn col in cols)
-	{
-		if(col.IsDateAddedColumn && col.DateAddedType == esSettingsDriverInfo.DateType.ServerSide)
-		{
-			seqSet += "\tSET " + "@" + col.Name + " = " + col.DateAddedServerSideText + ";\r\n";
-		}
-		
-		if(col.IsDateModifiedColumn && col.DateModifiedType == esSettingsDriverInfo.DateType.ServerSide)
-		{
-			seqSet += "\tSET " + "@" + col.Name + " = " + col.DateModifiedServerSideText + ";\r\n";
-		}
-		
-		if(col.IsAddedByColumn && !col.UseAddedByEventHandler)
-		{
-			seqSet += "\tSET " + "@" + col.Name + " = " + col.AddedByServerSideText + ";\r\n";		
-		}
-		
-		if(col.IsModifiedByColumn && !col.UseModifiedByEventHandler)
-		{
-			seqSet += "\tSET " + "@" + col.Name + " = " + col.ModifiedByServerSideText + ";\r\n";		
-		}		
-	}%>
-<%=seqSet%>	
-	<%if(seqCount > 0) {%><%=seqDeclare%><%}%><%
+<%
+	// (seqSet no longer emitted — the previous "SET @X = <ServerSideText>;" pattern
+	//  generated invalid T-SQL when ServerSideText was a bareword column name.
+	//  The DB DEFAULT fills these columns; they are read back via the SELECT below.)
+
 	// Generate code to initialize (if necessary) for all keys of uniqueidentifier type
 	inFirst = true;
 	foreach(IColumn col in cols)
@@ -448,7 +424,7 @@ BEGIN
 		{
 			string theDefault = col.Default.ToLower();
 		
-			if(theDefault.Contains("newid"))
+			if(theDefault.Contains("newid") && !theDefault.Contains("newsequentialid"))
 			{%>
 	IF @<%=StripGarbage(col)%> IS NULL 
 		SET @<%=StripGarbage(col)%> = NEWID()
@@ -463,69 +439,65 @@ BEGIN
 		}
 	}
 %>
+	<%if(seqCount > 0) {%><%=seqDeclare%><%}%>
 	INSERT
 	INTO [<%=table.Name%>]
 	(<%
-		// List all fields except identity (if one exists)
+		// List all fields except identity, computed, concurrency, server-side
+		// special columns, and newsequentialid columns.
+		//
+		// Server-side special columns are OMITTED so the DB DEFAULT fills them.
+		// IsEntitySpacesConcurrency is OMITTED so its DEFAULT (1) fills it.
+		// newsequentialid columns are OMITTED and captured via OUTPUT INTO @table_ids.
 		inFirst = true;
 		comma = "";
 		foreach(IColumn col in cols)
 		{
-			if(!col.IsAutoKey && !col.IsComputed)
-			{
-				string theDefault = col.Default.ToLower();
-				if(!theDefault.Contains("newsequentialid"))
-				{
-					if(!inFirst) {%><%=", "%><%}%>
+			if(col.IsAutoKey || col.IsComputed) continue;
+			if(col.IsEntitySpacesConcurrency) continue;
+			if(col.IsDateAddedColumn && col.DateAddedType == esSettingsDriverInfo.DateType.ServerSide) continue;
+			if(col.IsDateModifiedColumn && col.DateModifiedType == esSettingsDriverInfo.DateType.ServerSide) continue;
+			if(col.IsAddedByColumn && !col.UseAddedByEventHandler) continue;
+			if(col.IsModifiedByColumn && !col.UseModifiedByEventHandler) continue;
+
+			string theDefault = col.Default.ToLower();
+			if(theDefault.Contains("newsequentialid")) continue;
+
+			if(!inFirst) {%><%=", "%><%}%>
 		[<%=col.Name%>]<%
-					inFirst = false;
-				}
-			}
+			inFirst = false;
 		}
 %>
 	)
 	<%if(seqCount > 0) {%><%=seqOutput%><%}%>
 	VALUES
 	(<%
-		// List all fields except identity (if one exists)
+		// Values list mirrors the column list exactly.
 		inFirst = true;
 		comma = "";
 		foreach(IColumn col in cols)
 		{
-			if(!col.IsAutoKey && !col.IsComputed)
-			{
-				string theDefault = col.Default.ToLower();
-				if(!theDefault.Contains("newsequentialid"))
-				{
-					if(!inFirst) {%><%=", "%><%}
-					if(col.IsEntitySpacesConcurrency) {%>
-		1<% } else {%>
-		@<%=StripGarbage(col)%><%}%><%
-					inFirst = false;
-				}
-			}
+			if(col.IsAutoKey || col.IsComputed) continue;
+			if(col.IsEntitySpacesConcurrency) continue;
+			if(col.IsDateAddedColumn && col.DateAddedType == esSettingsDriverInfo.DateType.ServerSide) continue;
+			if(col.IsDateModifiedColumn && col.DateModifiedType == esSettingsDriverInfo.DateType.ServerSide) continue;
+			if(col.IsAddedByColumn && !col.UseAddedByEventHandler) continue;
+			if(col.IsModifiedByColumn && !col.UseModifiedByEventHandler) continue;
+
+			string theDefault = col.Default.ToLower();
+			if(theDefault.Contains("newsequentialid")) continue;
+
+			if(!inFirst) {%><%=", "%><%}%>
+		@<%=StripGarbage(col)%><%
+			inFirst = false;
 		}
 %>
 	)
-<%	foreach(IColumn col in table.Columns)
-	{
-		if(col.IsEntitySpacesConcurrency)
-		{%>
-
-	SET @<%=StripGarbage(col)%> = 1<%
-		}
-	}%>
 
 	SET @Err = @@Error
 
 <%
-	// Add the Logic to return computed columns if necessary 
-	blnHasComputed = false;
-	strWhereClause = "";
-	strWhereAnd = "";
-	strWhereFields = "";
-	strComma = "";
-
+	// SCOPE_IDENTITY for the auto-increment key
 	inFirst = true;
 	foreach(IColumn col in cols)
 	{
@@ -534,37 +506,48 @@ BEGIN
 			%>		
 	SELECT @<%=StripGarbage(col)%> = SCOPE_IDENTITY()<%
 		}
+	}
 
-		if(col.IsComputed)
-		{
-			blnHasComputed = true;
-		}
+	// Read-back SELECT for all server-generated columns.
+	// Replaces the old "SET @X = <ServerSideText>;" pattern and the previous
+	// computed-only read-back. Includes:
+	//   - DateAdded / DateModified when server-side
+	//   - AddedBy / ModifiedBy when !UseEventHandler (server-side)
+	//   - IsEntitySpacesConcurrency (Version)
+	//   - Computed columns
+	// The SELECT is scoped by PK, using @Id from SCOPE_IDENTITY() for identity
+	// tables or the caller-supplied value for user-supplied PKs.
+	blnHasComputed = false;
+	strWhereClause = "";
+	strWhereAnd = "";
+	strWhereFields = "";
+	strComma = "";
 
+	foreach(IColumn col in cols)
+	{
 		if(col.IsInPrimaryKey)
 		{
 			strWhereClause += strWhereAnd + "[" + col.Name + "] = @" + StripGarbage(col);
 			strWhereAnd = " AND ";
 		}
 
-		if(col.IsComputed)
+		bool needsReadback = false;
+
+		if(col.IsDateAddedColumn && col.DateAddedType == esSettingsDriverInfo.DateType.ServerSide) needsReadback = true;
+		else if(col.IsDateModifiedColumn && col.DateModifiedType == esSettingsDriverInfo.DateType.ServerSide) needsReadback = true;
+		else if(col.IsAddedByColumn && !col.UseAddedByEventHandler) needsReadback = true;
+		else if(col.IsModifiedByColumn && !col.UseModifiedByEventHandler) needsReadback = true;
+		else if(col.IsEntitySpacesConcurrency) needsReadback = true;
+		else if(col.IsComputed) needsReadback = true;
+
+		if(needsReadback)
 		{
-			strWhereFields += strComma + "@" + StripGarbage(col) + " = [" +  col.Name + "]";
-			strComma =  ", ";
-		}
-		
-		if(col.DataTypeNameComplete.ToLower() == "uniqueidentifier")
-		{
-			string theDefault = col.Default.ToLower();
-		
-			if(theDefault.Contains("newsequentialid"))
-			{
-				strWhereFields += strWhereFields + strComma + "@" + StripGarbage(col) + " = [" +  col.Name + "]";
-				strComma =  ", "; 		
-			}
+			strWhereFields += strComma + "@" + StripGarbage(col) + " = [" + col.Name + "]";
+			strComma = ", ";
 		}
 	}
 
-	if(blnHasComputed)
+	if(strWhereFields.Length > 0)
 	{%>
 	SELECT <%=strWhereFields%>
 	  FROM <%=schemaName%>[<%=table.Name%>]
