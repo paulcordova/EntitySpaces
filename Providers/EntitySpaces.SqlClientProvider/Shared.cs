@@ -59,6 +59,14 @@ namespace EntitySpaces.SqlClientProvider
             string outputComma = string.Empty;
             bool hasOutputCols = false;
 
+            // === FIX #7a ===
+            // Tracks column names already added to @output_vals to prevent
+            // duplicates between the HasDefault/AutoIncrement/Concurrency loop
+            // and the Special Column Logic block (which would emit
+            // "The variable name '@X' has already been declared").
+            var processedOutputCols = new HashSet<string>();
+            // === END FIX #7a ===
+
             Dictionary<string, SqlParameter> types = Cache.GetParameters(request);
 
             SqlCommand cmd = new SqlCommand();
@@ -132,6 +140,7 @@ namespace EntitySpaces.SqlClientProvider
                             outputSelect += outputComma + p.ParameterName + " = " + Delimiters.ColumnOpen + colName + Delimiters.ColumnClose;
                             outputComma = ", ";
                             hasOutputCols = true;
+                            processedOutputCols.Add(colName);    // === FIX #7a ===
 
                             clone = CloneParameter(p);
                             clone.Direction = ParameterDirection.Output;
@@ -159,6 +168,7 @@ namespace EntitySpaces.SqlClientProvider
                         outputSelect += outputComma + p.ParameterName + " = " + Delimiters.ColumnOpen + colName + Delimiters.ColumnClose;
                         outputComma = ", ";
                         hasOutputCols = true;
+                        processedOutputCols.Add(colName);    // === FIX #7a ===
 
                         clone = CloneParameter(p);
                         clone.Direction = ParameterDirection.Output;
@@ -175,6 +185,7 @@ namespace EntitySpaces.SqlClientProvider
                         outputSelect += outputComma + p.ParameterName + " = " + Delimiters.ColumnOpen + colName + Delimiters.ColumnClose;
                         outputComma = ", ";
                         hasOutputCols = true;
+                        processedOutputCols.Add(colName);    // === FIX #7a ===
 
                         clone = CloneParameter(p);
                         clone.Direction = ParameterDirection.Output;
@@ -192,6 +203,7 @@ namespace EntitySpaces.SqlClientProvider
                         outputSelect += outputComma + p.ParameterName + " = " + Delimiters.ColumnOpen + colName + Delimiters.ColumnClose;
                         outputComma = ", ";
                         hasOutputCols = true;
+                        processedOutputCols.Add(colName);    // === FIX #7a ===
 
                         clone = CloneParameter(p);
                         clone.Direction = ParameterDirection.Output;
@@ -205,13 +217,30 @@ namespace EntitySpaces.SqlClientProvider
             esColumnMetadataCollection cols = request.Columns;
 
             #region Special Column Logic (DateAdded, DateModified, AddedBy, ModifiedBy)
-            if (cols.DateAdded != null && cols.DateAdded.IsServerSide)
-            {
-                p = CloneParameter(types[cols.DateAdded.ColumnName]);
-                sql += " SET " + p.ParameterName + " = " + request.ProviderMetadata["DateAdded.ServerSideText"] + ";";
-                CreateInsertSQLSnippet(cols.DateAdded.ColumnName, p, ref into, ref values, ref comma);
 
+            // === FIX #7a ===
+            // The previous implementation emitted "SET @X = <ServerSideText>;" where
+            // ServerSideText is a bareword (e.g. "DateAdded"). SQL Server rejects that
+            // with "Invalid column name" because there is no FROM context. It also
+            // called CreateInsertSQLSnippet which put the column in the INSERT list
+            // with a NULL parameter, violating NOT NULL on columns that have a DEFAULT.
+            //
+            // The correct pattern: let the DB DEFAULT fill the column, then read it
+            // back via OUTPUT INSERTED. If the column was already processed by the
+            // HasDefault branch above, skip it here to avoid the duplicate-parameter
+            // error.
+            //
+            // Applies to SQL Server. Other providers (Oracle, PostgreSQL) may follow
+            // the same pattern after their own ports.
+            // === END FIX #7a ===
+
+            if (cols.DateAdded != null && cols.DateAdded.IsServerSide
+                && !processedOutputCols.Contains(cols.DateAdded.ColumnName))
+            {
                 string colName = cols.DateAdded.ColumnName;
+                p = CloneParameter(types[colName]);
+                p.Direction = ParameterDirection.Output;
+
                 string sqlType = GetSqlTypeForOutput(cols.FindByColumnName(colName));
                 outputDeclare += outputComma + colName + " " + sqlType;
                 outputCols += outputComma + "INSERTED." + Delimiters.ColumnOpen + colName + Delimiters.ColumnClose;
@@ -219,18 +248,18 @@ namespace EntitySpaces.SqlClientProvider
                 outputSelect += outputComma + p.ParameterName + " = " + Delimiters.ColumnOpen + colName + Delimiters.ColumnClose;
                 outputComma = ", ";
                 hasOutputCols = true;
+                processedOutputCols.Add(colName);
 
-                p.Direction = ParameterDirection.Output;
                 cmd.Parameters.Add(p);
             }
 
-            if (cols.DateModified != null && cols.DateModified.IsServerSide)
+            if (cols.DateModified != null && cols.DateModified.IsServerSide
+                && !processedOutputCols.Contains(cols.DateModified.ColumnName))
             {
-                p = CloneParameter(types[cols.DateModified.ColumnName]);
-                sql += " SET " + p.ParameterName + " = " + request.ProviderMetadata["DateModified.ServerSideText"] + ";";
-                CreateInsertSQLSnippet(cols.DateModified.ColumnName, p, ref into, ref values, ref comma);
-
                 string colName = cols.DateModified.ColumnName;
+                p = CloneParameter(types[colName]);
+                p.Direction = ParameterDirection.Output;
+
                 string sqlType = GetSqlTypeForOutput(cols.FindByColumnName(colName));
                 outputDeclare += outputComma + colName + " " + sqlType;
                 outputCols += outputComma + "INSERTED." + Delimiters.ColumnOpen + colName + Delimiters.ColumnClose;
@@ -238,19 +267,19 @@ namespace EntitySpaces.SqlClientProvider
                 outputSelect += outputComma + p.ParameterName + " = " + Delimiters.ColumnOpen + colName + Delimiters.ColumnClose;
                 outputComma = ", ";
                 hasOutputCols = true;
+                processedOutputCols.Add(colName);
 
-                p.Direction = ParameterDirection.Output;
                 cmd.Parameters.Add(p);
             }
 
-            if (cols.AddedBy != null && cols.AddedBy.IsServerSide)
+            if (cols.AddedBy != null && cols.AddedBy.IsServerSide
+                && !processedOutputCols.Contains(cols.AddedBy.ColumnName))
             {
-                p = CloneParameter(types[cols.AddedBy.ColumnName]);
-                p.Size = (int)cols.FindByColumnName(cols.AddedBy.ColumnName).CharacterMaxLength;
-                sql += " SET " + p.ParameterName + " = " + request.ProviderMetadata["AddedBy.ServerSideText"] + ";";
-                CreateInsertSQLSnippet(cols.AddedBy.ColumnName, p, ref into, ref values, ref comma);
-
                 string colName = cols.AddedBy.ColumnName;
+                p = CloneParameter(types[colName]);
+                p.Direction = ParameterDirection.Output;
+                p.Size = (int)cols.FindByColumnName(colName).CharacterMaxLength;
+
                 string sqlType = GetSqlTypeForOutput(cols.FindByColumnName(colName));
                 outputDeclare += outputComma + colName + " " + sqlType;
                 outputCols += outputComma + "INSERTED." + Delimiters.ColumnOpen + colName + Delimiters.ColumnClose;
@@ -258,19 +287,19 @@ namespace EntitySpaces.SqlClientProvider
                 outputSelect += outputComma + p.ParameterName + " = " + Delimiters.ColumnOpen + colName + Delimiters.ColumnClose;
                 outputComma = ", ";
                 hasOutputCols = true;
+                processedOutputCols.Add(colName);
 
-                p.Direction = ParameterDirection.Output;
                 cmd.Parameters.Add(p);
             }
 
-            if (cols.ModifiedBy != null && cols.ModifiedBy.IsServerSide)
+            if (cols.ModifiedBy != null && cols.ModifiedBy.IsServerSide
+                && !processedOutputCols.Contains(cols.ModifiedBy.ColumnName))
             {
-                p = CloneParameter(types[cols.ModifiedBy.ColumnName]);
-                p.Size = (int)cols.FindByColumnName(cols.ModifiedBy.ColumnName).CharacterMaxLength;
-                sql += " SET " + p.ParameterName + " = " + request.ProviderMetadata["ModifiedBy.ServerSideText"] + ";";
-                CreateInsertSQLSnippet(cols.ModifiedBy.ColumnName, p, ref into, ref values, ref comma);
-
                 string colName = cols.ModifiedBy.ColumnName;
+                p = CloneParameter(types[colName]);
+                p.Direction = ParameterDirection.Output;
+                p.Size = (int)cols.FindByColumnName(colName).CharacterMaxLength;
+
                 string sqlType = GetSqlTypeForOutput(cols.FindByColumnName(colName));
                 outputDeclare += outputComma + colName + " " + sqlType;
                 outputCols += outputComma + "INSERTED." + Delimiters.ColumnOpen + colName + Delimiters.ColumnClose;
@@ -278,10 +307,11 @@ namespace EntitySpaces.SqlClientProvider
                 outputSelect += outputComma + p.ParameterName + " = " + Delimiters.ColumnOpen + colName + Delimiters.ColumnClose;
                 outputComma = ", ";
                 hasOutputCols = true;
+                processedOutputCols.Add(colName);
 
-                p.Direction = ParameterDirection.Output;
                 cmd.Parameters.Add(p);
             }
+
             #endregion
 
             string fullName = CreateFullName(request);
@@ -355,6 +385,82 @@ namespace EntitySpaces.SqlClientProvider
                 default:                      return "sql_variant";
             }
         }
+
+        /// <summary>
+        /// Resolves the ServerSideText value from the generated BO into a valid
+        /// T-SQL expression.
+        ///
+        /// The Studio generator writes the bare column name (e.g. "DateModified")
+        /// into ProviderMetadata["X.ServerSideText"], which is NOT a valid T-SQL
+        /// expression when used in "SET @p = &lt;ServerSideText&gt;;" because there is
+        /// no FROM context. SQL Server rejects it with Msg 207 "Invalid column name".
+        ///
+        /// Resolution order:
+        ///   1. If ServerSideText already looks like a real expression (contains
+        ///      parens, quotes, or a @param), use it as-is.
+        ///   2. If the column has a DEFAULT in metadata (e.g. "(sysdatetime())"),
+        ///      use it (stripping the outer parens SQL Server adds).
+        ///   3. Otherwise, fall back to well-known special-column semantics:
+        ///        - DateAdded / DateModified → SYSDATETIME()
+        ///        - AddedBy  / ModifiedBy    → SYSTEM_USER
+        ///
+        /// Returns null if no valid expression can be produced. Callers must skip
+        /// emitting the SET statement when null is returned.
+        /// </summary>
+        private static string ResolveServerSideExpression(string serverSideText, esColumnMetadata col)
+        {
+            if (string.IsNullOrWhiteSpace(serverSideText) && col == null) return null;
+
+            string trimmed = (serverSideText ?? string.Empty).Trim();
+
+            // Already a real expression — use as-is.
+            if (trimmed.Contains("(") || trimmed.Contains("'") || trimmed.Contains("@")
+                || trimmed.StartsWith("CURRENT_", StringComparison.OrdinalIgnoreCase))
+            {
+                return trimmed;
+            }
+
+            // Bareword: prefer the column's DEFAULT expression from metadata.
+            if (col != null && col.HasDefault && !string.IsNullOrEmpty(col.Default))
+            {
+                string def = col.Default.Trim();
+
+                // SQL Server wraps defaults in outer parens: "(sysdatetime())" → "sysdatetime()"
+                while (def.Length >= 2 && def[0] == '(' && def[def.Length - 1] == ')')
+                {
+                    int depth = 0;
+                    bool balanced = true;
+                    for (int i = 0; i < def.Length; i++)
+                    {
+                        if (def[i] == '(') depth++;
+                        else if (def[i] == ')') depth--;
+                        if (depth == 0 && i < def.Length - 1) { balanced = false; break; }
+                    }
+                    if (!balanced) break;
+                    def = def.Substring(1, def.Length - 2).Trim();
+                }
+
+                if (def.Length > 0) return def;
+            }
+
+            // Fallback by well-known column semantics.
+            if (col != null)
+            {
+                string name = col.Name ?? string.Empty;
+
+                if (name.Equals("DateAdded", StringComparison.OrdinalIgnoreCase) ||
+                    name.Equals("DateModified", StringComparison.OrdinalIgnoreCase))
+                    return "SYSDATETIME()";
+
+                if (name.Equals("AddedBy", StringComparison.OrdinalIgnoreCase) ||
+                    name.Equals("ModifiedBy", StringComparison.OrdinalIgnoreCase))
+                    return "SYSTEM_USER";
+            }
+
+            // Nothing usable — caller must skip.
+            return null;
+        }
+
 
         static private void CreateInsertSQLSnippet(string colName, SqlParameter p, ref string into, ref string values, ref string comma)
         {
@@ -490,7 +596,19 @@ namespace EntitySpaces.SqlClientProvider
                 sql += Delimiters.ColumnOpen + cols.DateModified.ColumnName + Delimiters.ColumnClose + " = " + p.ParameterName;
                 comma = ", ";
 
-                set += " SET " + p.ParameterName + " = " + request.ProviderMetadata["DateModified.ServerSideText"] + ";";
+                // === FIX #7b ===
+                // ProviderMetadata["DateModified.ServerSideText"] is a bareword
+                // ("DateModified") in the generated BO. Resolve it to a real T-SQL
+                // expression before emitting the SET statement.
+                string expr = ResolveServerSideExpression(
+                    request.ProviderMetadata["DateModified.ServerSideText"],
+                    cols.FindByColumnName(cols.DateModified.ColumnName));
+
+                if (!string.IsNullOrEmpty(expr))
+                {
+                    set += " SET " + p.ParameterName + " = " + expr + ";";
+                }
+                // === END FIX #7b ===
             }
 
             if (cols.ModifiedBy != null && cols.ModifiedBy.IsServerSide)
@@ -504,7 +622,16 @@ namespace EntitySpaces.SqlClientProvider
                 sql += Delimiters.ColumnOpen + cols.ModifiedBy.ColumnName + Delimiters.ColumnClose + " = " + p.ParameterName;
                 comma = ", ";
 
-                set += " SET " + p.ParameterName + " = " + request.ProviderMetadata["ModifiedBy.ServerSideText"] + ";";
+                // === FIX #7b ===
+                string expr = ResolveServerSideExpression(
+                    request.ProviderMetadata["ModifiedBy.ServerSideText"],
+                    cols.FindByColumnName(cols.ModifiedBy.ColumnName));
+
+                if (!string.IsNullOrEmpty(expr))
+                {
+                    set += " SET " + p.ParameterName + " = " + expr + ";";
+                }
+                // === END FIX #7b ===
             }
 
             sql = set + sql + " WHERE (" + where + ")";
