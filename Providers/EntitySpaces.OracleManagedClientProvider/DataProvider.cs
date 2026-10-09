@@ -1310,51 +1310,8 @@ namespace EntitySpaces.OracleManagedClientProvider
                                 {
                                     case ParameterDirection.Output:
                                     case ParameterDirection.InputOutput:
-                                        object mapped = param.Value;
-
-                                        // ODP.NET returns native Oracle types for OUT parameters that
-                                        // don't implement IConvertible. Convert them to their CLR
-                                        // equivalents before writing to CurrentValues so the entity's
-                                        // typed getters (GetSystemDecimal, GetSystemDateTime, ...) work.
-                                        //
-                                        // OracleDecimal  → decimal  (NUMBER, FLOAT)
-                                        // OracleTimeStamp → DateTime (TIMESTAMP, TIMESTAMP WITH TIME ZONE)
-                                        // OracleDate     → DateTime (DATE)
-                                        // OracleString   → string   (VARCHAR2, NVARCHAR2, CHAR)
-                                        //
-                                        // The check is by type name rather than `is` because the ODP.NET
-                                        // types are not available at compile time on every target framework
-                                        // the provider supports.
-                                        if (mapped != null && mapped != DBNull.Value)
-                                        {
-                                            string typeName = mapped.GetType().FullName;
-                                            switch (typeName)
-                                            {
-                                                case "Oracle.ManagedDataAccess.Types.OracleDecimal":
-                                                    mapped = Convert.ToDecimal(mapped.ToString());
-                                                    break;
-
-                                                case "Oracle.ManagedDataAccess.Types.OracleTimeStamp":
-                                                case "Oracle.ManagedDataAccess.Types.OracleTimeStampTZ":
-                                                case "Oracle.ManagedDataAccess.Types.OracleTimeStampLTZ":
-                                                case "Oracle.ManagedDataAccess.Types.OracleDate":
-                                                    mapped = Convert.ToDateTime(mapped.ToString());
-                                                    break;
-
-                                                case "Oracle.ManagedDataAccess.Types.OracleString":
-                                                    mapped = mapped.ToString();
-                                                    break;
-
-                                                case "Oracle.ManagedDataAccess.Types.OracleBinaryFloat":
-                                                    mapped = Convert.ToSingle(mapped.ToString());
-                                                    break;
-
-                                                case "Oracle.ManagedDataAccess.Types.OracleBinaryDouble":
-                                                    mapped = Convert.ToDouble(mapped.ToString());
-                                                    break;
-                                            }
-                                        }
-                                        MapOutputValue(packet, request.Columns, param.SourceColumn, mapped);
+                                        MapOutputValue(packet, request.Columns,
+                                            param.SourceColumn, param.Value);
                                         break;
                                 }
                             }
@@ -1485,52 +1442,8 @@ namespace EntitySpaces.OracleManagedClientProvider
                     {
                         case ParameterDirection.Output:
                         case ParameterDirection.InputOutput:
-                            object mapped = param.Value;
-
-                            // ODP.NET returns native Oracle types for OUT parameters that
-                            // don't implement IConvertible. Convert them to their CLR
-                            // equivalents before writing to CurrentValues so the entity's
-                            // typed getters (GetSystemDecimal, GetSystemDateTime, ...) work.
-                            //
-                            // OracleDecimal  → decimal  (NUMBER, FLOAT)
-                            // OracleTimeStamp → DateTime (TIMESTAMP, TIMESTAMP WITH TIME ZONE)
-                            // OracleDate     → DateTime (DATE)
-                            // OracleString   → string   (VARCHAR2, NVARCHAR2, CHAR)
-                            //
-                            // The check is by type name rather than `is` because the ODP.NET
-                            // types are not available at compile time on every target framework
-                            // the provider supports.
-                            if (mapped != null && mapped != DBNull.Value)
-                            {
-                                string typeName = mapped.GetType().FullName;
-                                switch (typeName)
-                                {
-                                    case "Oracle.ManagedDataAccess.Types.OracleDecimal":
-                                        mapped = Convert.ToDecimal(mapped.ToString());
-                                        break;
-
-                                    case "Oracle.ManagedDataAccess.Types.OracleTimeStamp":
-                                    case "Oracle.ManagedDataAccess.Types.OracleTimeStampTZ":
-                                    case "Oracle.ManagedDataAccess.Types.OracleTimeStampLTZ":
-                                    case "Oracle.ManagedDataAccess.Types.OracleDate":
-                                        mapped = Convert.ToDateTime(mapped.ToString());
-                                        break;
-
-                                    case "Oracle.ManagedDataAccess.Types.OracleString":
-                                        mapped = mapped.ToString();
-                                        break;
-
-                                    case "Oracle.ManagedDataAccess.Types.OracleBinaryFloat":
-                                        mapped = Convert.ToSingle(mapped.ToString());
-                                        break;
-
-                                    case "Oracle.ManagedDataAccess.Types.OracleBinaryDouble":
-                                        mapped = Convert.ToDouble(mapped.ToString());
-                                        break;
-                                }
-                            }
                             MapOutputValue(request.EntitySavePacket, request.Columns,
-                                param.SourceColumn, mapped);
+                                param.SourceColumn, param.Value);
                             break;
                     }
                 }
@@ -1625,14 +1538,8 @@ namespace EntitySpaces.OracleManagedClientProvider
                                 {
                                     case ParameterDirection.Output:
                                     case ParameterDirection.InputOutput:
-                                        object mapped = param.Value;
-                                        if (param.OracleDbType == OracleDbType.Decimal &&
-                                            param.Value != null && param.Value != DBNull.Value)
-                                        {
-                                            mapped = Convert.ToDecimal(param.Value.ToString());
-                                        }
                                         MapOutputValue(packet, request.Columns,
-                                            param.SourceColumn, mapped);
+                                            param.SourceColumn, param.Value);
                                         break;
                                 }
                             }
@@ -1760,14 +1667,8 @@ namespace EntitySpaces.OracleManagedClientProvider
                         {
                             case ParameterDirection.Output:
                             case ParameterDirection.InputOutput:
-                                object mapped = param.Value;
-                                if (param.OracleDbType == OracleDbType.Decimal && 
-                                    param.Value != null && param.Value != DBNull.Value)
-                                {
-                                    mapped = Convert.ToDecimal(param.Value.ToString());
-                                }
                                 MapOutputValue(request.EntitySavePacket, request.Columns,
-                                    param.SourceColumn, mapped); 
+                                    param.SourceColumn, param.Value);
                                 break;
                         }
                     }
@@ -1822,6 +1723,23 @@ namespace EntitySpaces.OracleManagedClientProvider
         // name in others. Writing to both slots guarantees every reader
         // finds the value.
         // ===================================================================
+        // ===================================================================
+        // Resolves a column name to the matching esColumnMetadata (case-
+        // insensitive to accommodate Oracle's uppercase folding) and writes
+        // the value under BOTH the column name and the property name.
+        //
+        // Rationale: the framework writes under the property name in some
+        // code paths (ApplyPostSaveKeys → SetProperty) and reads by column
+        // name in others. Writing to both slots guarantees every reader
+        // finds the value.
+        //
+        // Converts ODP.NET native types (OracleDecimal, OracleTimeStamp,
+        // OracleDate, OracleString, ...) to their CLR equivalents before
+        // storing. OUT parameters from PL/SQL blocks arrive as native types
+        // that do not implement IConvertible, so the entity's typed getters
+        // (GetSystemDateTime, GetSystemDecimal, ...) would throw
+        // InvalidCastException on the raw value.
+        // ===================================================================
         static private void MapOutputValue(
             esEntitySavePacket packet,
             esColumnMetadataCollection columns,
@@ -1829,6 +1747,10 @@ namespace EntitySpaces.OracleManagedClientProvider
             object value)
         {
             if (packet.CurrentValues == null) return;
+
+            // Normalize ODP.NET native types to CLR types so downstream
+            // Convert.ToXxx calls in the entity getters work.
+            value = ConvertOracleNativeValue(value);
 
             // Always write under SourceColumn (the canonical column name).
             packet.CurrentValues[sourceColumn] = value;
@@ -1847,6 +1769,48 @@ namespace EntitySpaces.OracleManagedClientProvider
                     }
                     break;
                 }
+            }
+        }
+
+        // ===================================================================
+        // Converts an ODP.NET native type to its CLR equivalent.
+        //
+        // ODP.NET OUT parameters expose their values as Oracle-native types
+        // (OracleDecimal, OracleTimeStamp, OracleDate, OracleString, ...)
+        // that do NOT implement IConvertible. Calling Convert.ToDateTime or
+        // Convert.ToDecimal on them throws InvalidCastException. Converting
+        // here, once, keeps the entity getters agnostic of the driver.
+        //
+        // The type check is by full type name (not `is`) because the ODP.NET
+        // types are not available at compile time on every target framework
+        // the provider supports.
+        // ===================================================================
+        static private object ConvertOracleNativeValue(object value)
+        {
+            if (value == null || value == DBNull.Value) return value;
+
+            switch (value.GetType().FullName)
+            {
+                case "Oracle.ManagedDataAccess.Types.OracleDecimal":
+                    return Convert.ToDecimal(value.ToString());
+
+                case "Oracle.ManagedDataAccess.Types.OracleTimeStamp":
+                case "Oracle.ManagedDataAccess.Types.OracleTimeStampTZ":
+                case "Oracle.ManagedDataAccess.Types.OracleTimeStampLTZ":
+                case "Oracle.ManagedDataAccess.Types.OracleDate":
+                    return Convert.ToDateTime(value.ToString());
+
+                case "Oracle.ManagedDataAccess.Types.OracleString":
+                    return value.ToString();
+
+                case "Oracle.ManagedDataAccess.Types.OracleBinaryFloat":
+                    return Convert.ToSingle(value.ToString());
+
+                case "Oracle.ManagedDataAccess.Types.OracleBinaryDouble":
+                    return Convert.ToDouble(value.ToString());
+
+                default:
+                    return value;
             }
         }
 
