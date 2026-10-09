@@ -251,6 +251,11 @@ CREATE OR REPLACE PROCEDURE <%=SchemaPrefix(table)%>"<%=esMeta.esPlugIn.ProcUpda
 	inFirst = true;
 	foreach(IColumn col in cols)
 	{
+		// Fix F: special columns are not part of the UPDATE signature.
+		// DateAdded and AddedBy never change; DateModified and ModifiedBy
+		// are handled server-side in the SET clause below.
+		if(IsSpecialColumn(col)) continue;
+	
 		if(!inFirst) {%><%=", "%><%}%><%
 		inFirst = false;
 		
@@ -281,7 +286,9 @@ BEGIN
 	inFirst = true;
 	foreach(IColumn col in cols)
 	{
-		if(!col.IsAutoKey && !col.IsComputed)
+		// Skip auto, computed, and special columns. Special columns are
+		// emitted explicitly below so DateModified gets SYSTIMESTAMP.
+		if(!col.IsAutoKey && !col.IsComputed && !IsSpecialColumn(col))
 		{
 			if(!inFirst) {%><%=", "%><%}%><%
 			inFirst = false;
@@ -295,6 +302,15 @@ BEGIN
 		"<%=col.Name%>" = p<%=StripGarbage(col)%><%				
 			}
 		}
+	}
+	// Fix F: DateModified is refreshed server-side on every UPDATE.
+	// ModifiedBy is left as-is: the client never populates it (ServerSide
+	// with UseEventHandler = false), so touching it would write NULL.
+	if(HasSpecialColumn(cols, "DateModified"))
+	{
+		if(!inFirst) {%><%=", "%><%}%>
+		"DateModified" = SYSTIMESTAMP<%
+		inFirst = false;
 	}
 %>
 	WHERE<%
@@ -345,6 +361,12 @@ CREATE OR REPLACE PROCEDURE <%=SchemaPrefix(table)%>"<%=esMeta.esPlugIn.ProcInse
 		{
 			dir = " OUT ";
 		}
+		// Fix F: special columns are returned to the client via RETURNING,
+		// not accepted as IN. The DB fills them (DEFAULT SYSTIMESTAMP).
+		if(IsSpecialColumn(col))
+		{
+			dir = " OUT ";
+		}
 		%>
 	p<%=StripGarbage(col) + dir + "\"" + table.Name + "\".\"" + col.Name + "\"%type"%><%		
 		
@@ -385,7 +407,7 @@ BEGIN
 		foreach(IColumn col in cols)
 		{
 			bool isIdentity = col.IsAutoKey && string.IsNullOrEmpty(col.AutoKeyText);
-			if(!col.IsComputed && !isIdentity)
+			if(!col.IsComputed && !isIdentity && !IsSpecialColumn(col))
 			{
 				if(!inFirst) {%><%=", "%><%}%>
 		"<%=col.Name%>"<%
@@ -401,7 +423,7 @@ BEGIN
 		foreach(IColumn col in cols)
 		{
 			bool isIdentity = col.IsAutoKey && string.IsNullOrEmpty(col.AutoKeyText);
-			if(!col.IsComputed && !isIdentity)
+			if(!col.IsComputed && !isIdentity && !IsSpecialColumn(col))
 			{
 				if(!inFirst) {%><%=", "%><%}%>
 		p<%=StripGarbage(col)%><%
@@ -410,30 +432,29 @@ BEGIN
 		}
 %>	
 	)<%
-	// Fix D: emit RETURNING ... INTO for IDENTITY columns so the
-	// value assigned by Oracle is passed back through the OUT parameter.
-	//
-	// Note: no intermediate collection is used here because the .est
-	// template compiler does not expose System.Collections.Generic by
-	// default. Two passes over cols with a boolean flag achieve the same
-	// result.
-	bool hasIdentity = false;
+	// Fix F: RETURNING returns identity columns AND special columns
+	// (DateAdded, DateModified, AddedBy, ModifiedBy). All of them are
+	// populated server-side and must reach the OUT parameters that the
+	// provider reads back into CurrentValues.
+	bool hasReturning = false;
 	foreach(IColumn col in cols)
 	{
-		if(col.IsAutoKey && string.IsNullOrEmpty(col.AutoKeyText))
+		bool isIdentity = col.IsAutoKey && string.IsNullOrEmpty(col.AutoKeyText);
+		if(isIdentity || IsSpecialColumn(col))
 		{
-			hasIdentity = true;
+			hasReturning = true;
 			break;
 		}
 	}
-	if(hasIdentity)
+	if(hasReturning)
 	{
 		%>
 	RETURNING <%
 		inFirst = true;
 		foreach(IColumn col in cols)
 		{
-			if(col.IsAutoKey && string.IsNullOrEmpty(col.AutoKeyText))
+			bool isIdentity = col.IsAutoKey && string.IsNullOrEmpty(col.AutoKeyText);
+			if(isIdentity || IsSpecialColumn(col))
 			{
 				if(!inFirst) {%><%=", "%><%}%>"<%=col.Name%>"<%
 				inFirst = false;
@@ -443,7 +464,8 @@ BEGIN
 		inFirst = true;
 		foreach(IColumn col in cols)
 		{
-			if(col.IsAutoKey && string.IsNullOrEmpty(col.AutoKeyText))
+			bool isIdentity = col.IsAutoKey && string.IsNullOrEmpty(col.AutoKeyText);
+			if(isIdentity || IsSpecialColumn(col))
 			{
 				if(!inFirst) {%><%=", "%><%}%>p<%=StripGarbage(col)%><%
 				inFirst = false;
@@ -574,6 +596,31 @@ private IColumn FindColumnByName(IColumns cols, string name)
 			return col;
 	}
 	return null;
+}
+
+// Detects the four EntitySpaces special columns by name. The provider
+// receives them from the client only as placeholders; the DB fills them
+// via DEFAULT or trigger. The SP must not receive them as IN parameters.
+private bool IsSpecialColumn(IColumn col)
+{
+    if (col == null || string.IsNullOrEmpty(col.Name)) return false;
+    string n = col.Name.ToLowerInvariant();
+    return n == "dateadded" || n == "datemodified" || n == "addedby" || n == "modifiedby";
+}
+
+// Checks whether the columns collection contains a special column by name.
+// Used in the UPDATE block to know whether to emit `"DateModified" = SYSTIMESTAMP`.
+private bool HasSpecialColumn(IColumns cols, string name)
+{
+    if (cols == null) return false;
+    string want = name.ToLowerInvariant();
+    foreach (IColumn c in cols)
+    {
+        if (c != null && !string.IsNullOrEmpty(c.Name) &&
+            c.Name.ToLowerInvariant() == want)
+            return true;
+    }
+    return false;
 }
 
 </script>
