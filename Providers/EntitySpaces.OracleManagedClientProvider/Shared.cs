@@ -81,13 +81,23 @@ namespace EntitySpaces.OracleManagedClientProvider
             esColumnMetadataCollection cols = request.Columns;
 
             #region Special Column Logic
+            // Server-side special columns are filled by the DB (DEFAULT SYSTIMESTAMP
+            // or trigger). Two things must change from the previous behavior:
+            //
+            //   1. Do NOT concatenate the ServerSideText value into the PL/SQL block.
+            //      The value is the bareword "DateAdded", which Oracle rejects with
+            //      PLS-00201 "identifier must be declared".
+            //
+            //   2. Do NOT include the column in the INSERT column list. The DB
+            //      DEFAULT populates it; including it with a NULL placeholder produces
+            //      ORA-01400 on the NOT NULL column.
+            //
+            // The value is retrieved via the RETURNING clause added below, and the
+            // parameter is marked Output so the framework writes it back to
+            // CurrentValues.
             if (cols.DateAdded != null && cols.DateAdded.IsServerSide)
             {
                 p = CloneParameter(types[cols.DateAdded.ColumnName]);
-                sql += p.ParameterName + " := " + request.ProviderMetadata["DateAdded.ServerSideText"] + ";";
-
-                CreateInsertSQLSnippet(cols.DateAdded.ColumnName, p, ref into, ref values, ref comma);
-
                 p.Direction = ParameterDirection.Output;
                 cmd.Parameters.Add(p);
             }
@@ -95,10 +105,6 @@ namespace EntitySpaces.OracleManagedClientProvider
             if (cols.DateModified != null && cols.DateModified.IsServerSide)
             {
                 p = CloneParameter(types[cols.DateModified.ColumnName]);
-                sql += p.ParameterName + " := " + request.ProviderMetadata["DateModified.ServerSideText"] + ";";
-
-                CreateInsertSQLSnippet(cols.DateModified.ColumnName, p, ref into, ref values, ref comma);
-
                 p.Direction = ParameterDirection.Output;
                 cmd.Parameters.Add(p);
             }
@@ -107,10 +113,6 @@ namespace EntitySpaces.OracleManagedClientProvider
             {
                 p = CloneParameter(types[cols.AddedBy.ColumnName]);
                 p.Size = (int)cols.FindByColumnName(cols.AddedBy.ColumnName).CharacterMaxLength;
-                sql += p.ParameterName + " := " + request.ProviderMetadata["AddedBy.ServerSideText"] + ";";
-
-                CreateInsertSQLSnippet(cols.AddedBy.ColumnName, p, ref into, ref values, ref comma);
-
                 p.Direction = ParameterDirection.Output;
                 cmd.Parameters.Add(p);
             }
@@ -119,10 +121,6 @@ namespace EntitySpaces.OracleManagedClientProvider
             {
                 p = CloneParameter(types[cols.ModifiedBy.ColumnName]);
                 p.Size = (int)cols.FindByColumnName(cols.ModifiedBy.ColumnName).CharacterMaxLength;
-                sql += p.ParameterName + " := " + request.ProviderMetadata["ModifiedBy.ServerSideText"] + ";";
-
-                CreateInsertSQLSnippet(cols.ModifiedBy.ColumnName, p, ref into, ref values, ref comma);
-
                 p.Direction = ParameterDirection.Output;
                 cmd.Parameters.Add(p);
             }
@@ -165,6 +163,37 @@ namespace EntitySpaces.OracleManagedClientProvider
                     returningParams += returningComma + rp.ParameterName;
                     returningComma = ", ";
                 }
+            }
+
+            // Special columns also need to be pulled back through RETURNING so
+            // the DB-assigned values reach the entity's CurrentValues.
+            if (cols.DateAdded != null && cols.DateAdded.IsServerSide)
+            {
+                OracleParameter rp = cmd.Parameters[types[cols.DateAdded.ColumnName].ParameterName];
+                returningCols += returningComma + Delimiters.ColumnOpen + cols.DateAdded.ColumnName + Delimiters.ColumnClose;
+                returningParams += returningComma + rp.ParameterName;
+                returningComma = ", ";
+            }
+            if (cols.DateModified != null && cols.DateModified.IsServerSide)
+            {
+                OracleParameter rp = cmd.Parameters[types[cols.DateModified.ColumnName].ParameterName];
+                returningCols += returningComma + Delimiters.ColumnOpen + cols.DateModified.ColumnName + Delimiters.ColumnClose;
+                returningParams += returningComma + rp.ParameterName;
+                returningComma = ", ";
+            }
+            if (cols.AddedBy != null && cols.AddedBy.IsServerSide)
+            {
+                OracleParameter rp = cmd.Parameters[types[cols.AddedBy.ColumnName].ParameterName];
+                returningCols += returningComma + Delimiters.ColumnOpen + cols.AddedBy.ColumnName + Delimiters.ColumnClose;
+                returningParams += returningComma + rp.ParameterName;
+                returningComma = ", ";
+            }
+            if (cols.ModifiedBy != null && cols.ModifiedBy.IsServerSide)
+            {
+                OracleParameter rp = cmd.Parameters[types[cols.ModifiedBy.ColumnName].ParameterName];
+                returningCols += returningComma + Delimiters.ColumnOpen + cols.ModifiedBy.ColumnName + Delimiters.ColumnClose;
+                returningParams += returningComma + rp.ParameterName;
+                returningComma = ", ";
             }
 
             if (into.Length != 0)
@@ -282,13 +311,16 @@ namespace EntitySpaces.OracleManagedClientProvider
 
             esColumnMetadataCollection cols = request.Columns;
 
+            // Server-side special columns are refreshed by the DB (trigger or
+            // DEFAULT). Do NOT concatenate the ServerSideText value — it is a
+            // bareword that Oracle rejects with PLS-00201. The parameter is
+            // registered as Output so a future RETURNING-based readback could
+            // consume it; today there is no explicit SET for it.
             if (cols.DateModified != null && cols.DateModified.IsServerSide)
             {
                 p = CloneParameter(types[cols.DateModified.ColumnName]);
                 p.Direction = ParameterDirection.Output;
                 cmd.Parameters.Add(p);
-
-                sql += p.ParameterName + " := " + request.ProviderMetadata["DateModified.ServerSideText"] + "; ";
             }
 
             if (cols.ModifiedBy != null && cols.ModifiedBy.IsServerSide)
@@ -297,8 +329,6 @@ namespace EntitySpaces.OracleManagedClientProvider
                 p.Size = (int)cols.FindByColumnName(cols.ModifiedBy.ColumnName).CharacterMaxLength;
                 p.Direction = ParameterDirection.Output;
                 cmd.Parameters.Add(p);
-
-                sql += p.ParameterName + " := " + request.ProviderMetadata["ModifiedBy.ServerSideText"] + "; ";
             }
 
 
@@ -466,50 +496,47 @@ namespace EntitySpaces.OracleManagedClientProvider
             esColumnMetadataCollection cols = request.Columns;
             OracleParameter p = null;
 
-            foreach (esColumnMetadata col in request.Columns)
+            // Iterate the parameter collection directly and match each parameter
+            // back to its column metadata via SourceColumn. Cache.GetParameters sets
+            // SourceColumn deterministically, so this lookup always resolves. The
+            // previous approach used cmd.Parameters["p" + col.PropertyName], which
+            // silently returned null for some parameters — notably the concurrency
+            // column "Version" — leaving them as Input and causing the SP to receive
+            // NULL where it expected the current version.
+            foreach (OracleParameter existing in cmd.Parameters)
             {
-                if (col.IsComputed || col.IsAutoIncrement || col.IsEntitySpacesConcurrency)
-                {
-                    // PopulateStoredProcParameters derives the parameter name from
-                    // ':' + col.PropertyName, then replaces ':' with 'p'. Look it up
-                    // by the same key so Oracle's UPPERCASE folding doesn't cause a
-                    // case-sensitive miss.
-                    p = cmd.Parameters["p" + (col.PropertyName).Replace(" ", String.Empty)];
+                esColumnMetadata col = request.Columns.FindByColumnName(existing.SourceColumn);
 
-                    if (p != null)
-                        p.Direction = ParameterDirection.Output;
+                if (col == null) continue;
+
+                bool flipToOutput =
+                    col.IsComputed ||
+                    col.IsAutoIncrement ||
+                    col.IsEntitySpacesConcurrency ||
+                    IsSpecialColumn(request.Columns, col);
+
+                if (flipToOutput)
+                {
+                    existing.Direction = ParameterDirection.Output;
                 }
             }
 
-            if (cols.DateAdded != null && cols.DateAdded.IsServerSide)
-            {
-                p = cmd.Parameters[types[cols.DateAdded.ColumnName].ParameterName];
-                p = cmd.Parameters[p.ParameterName];
-                p.Direction = ParameterDirection.Output;
-            }
-
-            if (cols.DateModified != null && cols.DateModified.IsServerSide)
-            {
-                p = cmd.Parameters[types[cols.DateModified.ColumnName].ParameterName];
-                p = cmd.Parameters[p.ParameterName];
-                p.Direction = ParameterDirection.Output;
-            }
-
-            if (cols.AddedBy != null && cols.AddedBy.IsServerSide)
-            {
-                p = cmd.Parameters[types[cols.AddedBy.ColumnName].ParameterName];
-                p.Size = (int)cols.FindByColumnName(cols.AddedBy.ColumnName).CharacterMaxLength;
-                p = cmd.Parameters[p.ParameterName];
-                p.Direction = ParameterDirection.Output;
-            }
-
-            if (cols.ModifiedBy != null && cols.ModifiedBy.IsServerSide)
-            {
-                p = cmd.Parameters[types[cols.ModifiedBy.ColumnName].ParameterName];
-                p.Size = (int)cols.FindByColumnName(cols.ModifiedBy.ColumnName).CharacterMaxLength;
-                p = cmd.Parameters[p.ParameterName];
-                p.Direction = ParameterDirection.Output;
-            }
+            // Special-column handling is intentionally omitted from the SP path.
+            //
+            // The Oracle 12c+ template emits the SP parameters for DateAdded,
+            // DateModified, AddedBy and ModifiedBy as IN (never OUT), because the
+            // physical columns are filled by the DB DEFAULT (SYSTIMESTAMP) or a
+            // server-side trigger. There is nothing for the provider to read back.
+            //
+            // The previous code attempted to look up these parameters by
+            // `types[colName].ParameterName`, which returns the cached name
+            // (":DateAdded") rather than the name registered by
+            // PopulateStoredProcParameters ("pDateAdded"). The lookup returned null
+            // and the subsequent `p.ParameterName` access threw NullReferenceException
+            // before the SP was even invoked.
+            //
+            // PopulateStoredProcParameters already adds the parameters with the
+            // correct key and direction; nothing else is needed here.
 
             return cmd;
         }
@@ -530,32 +557,32 @@ namespace EntitySpaces.OracleManagedClientProvider
             esColumnMetadataCollection cols = request.Columns;
             OracleParameter p = null;
 
-            foreach (esColumnMetadata col in request.Columns)
+            // Pass 1 — remove special columns. The UPDATE SP no longer declares
+            // parameters for DateAdded, DateModified, AddedBy or ModifiedBy.
+            // Iterate backwards so removing an item does not disturb the loop.
+            for (int i = cmd.Parameters.Count - 1; i >= 0; i--)
             {
-                if (col.IsComputed || col.IsEntitySpacesConcurrency)
+                OracleParameter existing = (OracleParameter)cmd.Parameters[i];
+                esColumnMetadata col = request.Columns.FindByColumnName(existing.SourceColumn);
+                if (col != null && IsSpecialColumn(request.Columns, col))
                 {
-                    p = cmd.Parameters["p" + (col.PropertyName).Replace(" ", String.Empty)];
-
-                    if (p != null)
-                        p.Direction = ParameterDirection.InputOutput;
+                    cmd.Parameters.RemoveAt(i);
                 }
             }
 
-            if (cols.DateModified != null && cols.DateModified.IsServerSide)
+            // Pass 2 — mark computed and concurrency columns as InputOutput. The
+            // SP declares them as "IN OUT" so the framework can read the new
+            // version back after the UPDATE. Same SourceColumn-based lookup as
+            // the Insert builder to avoid the string-indexer miss on "pVersion".
+            foreach (OracleParameter existing in cmd.Parameters)
             {
-                p = cmd.Parameters[types[cols.DateModified.ColumnName].ParameterName];
-                p = cmd.Parameters[p.ParameterName];
-                p.Value = DBNull.Value;  // ODP.NET requires DBNull.Value, not null
-                p.Direction = ParameterDirection.Output;
-            }
+                esColumnMetadata col = request.Columns.FindByColumnName(existing.SourceColumn);
+                if (col == null) continue;
 
-            if (cols.ModifiedBy != null && cols.ModifiedBy.IsServerSide)
-            {
-                p = cmd.Parameters[types[cols.ModifiedBy.ColumnName].ParameterName];
-                p.Size = (int)cols.FindByColumnName(cols.ModifiedBy.ColumnName).CharacterMaxLength;
-                p = cmd.Parameters[p.ParameterName];
-                p.Value = DBNull.Value;  // ODP.NET requires DBNull.Value, not null
-                p.Direction = ParameterDirection.Output;
+                if (col.IsComputed || col.IsEntitySpacesConcurrency)
+                {
+                    existing.Direction = ParameterDirection.InputOutput;
+                }
             }
 
             return cmd;
@@ -605,10 +632,19 @@ namespace EntitySpaces.OracleManagedClientProvider
                 object v = GetColumnValue(packet, col);
                 p.Value = v != null ? v : DBNull.Value;
 
-                if (p.OracleDbType == OracleDbType.TimeStamp)
-                {
-                    p.Direction = ParameterDirection.InputOutput;
-                }
+                // Direction is decided by the caller. The previous heuristic
+                // (TimeStamp → InputOutput) assumed an Oracle 11g trigger-based
+                // flow where special columns were written back through the SP.
+                // Oracle 12c+ fills them via DEFAULT SYSTIMESTAMP and the template
+                // declares them IN, so binding them as InputOutput produces
+                // PLS-00306 "wrong number or types of arguments".
+                //
+                // Callers override the direction explicitly:
+                //   - BuildStoredProcInsertCommand / BuildStoredProcUpdateCommand
+                //     flip IsComputed / IsAutoIncrement / IsEntitySpacesConcurrency
+                //     columns to Output (or InputOutput for concurrency).
+                //   - Everything else stays Input.
+
                 cmd.Parameters.Add(p);
             }
         }
@@ -862,6 +898,26 @@ namespace EntitySpaces.OracleManagedClientProvider
             }
 
             return byColumn;
+        }
+
+        // Fix F: matches the four EntitySpaces special columns by name.
+        // The metadata's IsSpecialColumn helper exists but relies on
+        // runtime state (cols.DateAdded, cols.DateModified, etc.) being
+        // populated, which is not guaranteed in every save path. A
+        // name-based check is deterministic.
+        static private bool IsSpecialColumn(esColumnMetadataCollection columns, esColumnMetadata col)
+        {
+            if (col == null || string.IsNullOrEmpty(col.Name)) return false;
+
+            // Prefer the metadata-driven check when available.
+            try { if (columns != null && columns.IsSpecialColumn(col)) return true; }
+            catch { /* fall through to name match */ }
+
+            string n = col.Name.ToLowerInvariant();
+            return n == "dateadded"
+                || n == "datemodified"
+                || n == "addedby"
+                || n == "modifiedby";
         }
 
 
