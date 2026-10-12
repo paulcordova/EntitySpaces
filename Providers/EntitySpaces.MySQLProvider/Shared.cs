@@ -154,44 +154,38 @@ namespace EntitySpaces.MySQLProvider
             }
 
             #region Special Columns
-            // [FIX] Each block adds ITS OWN column to RETURNING-equivalent SELECT (MySQL: to Defaults).
-            // Preserved from existing code — no copy-paste bugs in MySQL version.
-            if (cols.DateAdded != null && cols.DateAdded.IsServerSide)
+            // [FIX Bug #7 — MySQL] Special columns are NOT added to the INSERT
+            // column list nor to VALUES. Their metadata only holds the bareword
+            // column name ("dateAdded"), not a valid SQL expression. Putting the
+            // bareword in VALUES makes MySQL fail with "Unknown column
+            // 'dateAdded' in 'field list'". The correct behavior is to let the
+            // DDL DEFAULT (CURRENT_TIMESTAMP(6), etc.) fill them, then read them
+            // back through the "Defaults" property bag that OnRowUpdated consumes.
+            //
+            // We register them in `defaults` so the SELECT read-back happens.
+            // Condition is IsEnabled rather than IsServerSide: the latter is
+            // unreliable across drivers in this codebase and both the BO template
+            // and the driver agree on IsEnabled.
+            if (cols.DateAdded != null && cols.DateAdded.IsEnabled)
             {
-                into += comma + Delimiters.ColumnOpen + cols.DateAdded.ColumnName + Delimiters.ColumnClose;
-                values += comma + request.ProviderMetadata["DateAdded.ServerSideText"];
-                comma = ", ";
-
                 defaults += defaultComma + Delimiters.ColumnOpen + cols.DateAdded.ColumnName + Delimiters.ColumnClose;
                 defaultComma = ",";
             }
 
-            if (cols.DateModified != null && cols.DateModified.IsServerSide)
+            if (cols.DateModified != null && cols.DateModified.IsEnabled)
             {
-                into += comma + Delimiters.ColumnOpen + cols.DateModified.ColumnName + Delimiters.ColumnClose;
-                values += comma + request.ProviderMetadata["DateModified.ServerSideText"];
-                comma = ", ";
-
                 defaults += defaultComma + Delimiters.ColumnOpen + cols.DateModified.ColumnName + Delimiters.ColumnClose;
                 defaultComma = ",";
             }
 
-            if (cols.AddedBy != null && cols.AddedBy.IsServerSide)
+            if (cols.AddedBy != null && cols.AddedBy.IsEnabled)
             {
-                into += comma + Delimiters.ColumnOpen + cols.AddedBy.ColumnName + Delimiters.ColumnClose;
-                values += comma + request.ProviderMetadata["AddedBy.ServerSideText"];
-                comma = ", ";
-
                 defaults += defaultComma + Delimiters.ColumnOpen + cols.AddedBy.ColumnName + Delimiters.ColumnClose;
                 defaultComma = ",";
             }
 
-            if (cols.ModifiedBy != null && cols.ModifiedBy.IsServerSide)
+            if (cols.ModifiedBy != null && cols.ModifiedBy.IsEnabled)
             {
-                into += comma + Delimiters.ColumnOpen + cols.ModifiedBy.ColumnName + Delimiters.ColumnClose;
-                values += comma + request.ProviderMetadata["ModifiedBy.ServerSideText"];
-                comma = ", ";
-
                 defaults += defaultComma + Delimiters.ColumnOpen + cols.ModifiedBy.ColumnName + Delimiters.ColumnClose;
                 defaultComma = ",";
             }
@@ -279,8 +273,11 @@ namespace EntitySpaces.MySQLProvider
                     props["EntitySpacesConcurrency"] = col.Name;
 
                     p = CloneParameter(types[col.Name]);
-                    p.SourceVersion = DataRowVersion.Original;
-                    p.Direction = ParameterDirection.InputOutput;
+                    // [FIX MySQL] Text commands only accept ParameterDirection.Input.
+                    // The version bump happens server-side in the SET clause
+                    // (version = version + 1). The in-memory bump is done in
+                    // OnRowUpdated via packet.CurrentValues[colName] = value + 1.
+                    p.Direction = ParameterDirection.Input;
                     cmd.Parameters.Add(p);
 
                     sql += scomma;
@@ -637,6 +634,13 @@ namespace EntitySpaces.MySQLProvider
 
                     // Lock wait timeout — transaction waited too long to acquire a row lock
                     case 1205:
+                        ce = new esConcurrencyException(ex.Message, ex);
+                        ce.Source = ex.Source;
+                        break;
+
+                    // SIGNAL SQLSTATE '45000' — used by our SP templates for
+                    // optimistic-concurrency violations (stale version on UPDATE/DELETE).
+                    case 1644:
                         ce = new esConcurrencyException(ex.Message, ex);
                         ce.Source = ex.Source;
                         break;
