@@ -1153,122 +1153,93 @@ namespace EntitySpaces.MySQLProvider
 
         static private DataTable SaveStoredProcCollection(esDataRequest request)
         {
-            bool needToInsert = false;
-            bool needToUpdate = false;
-            bool needToDelete = false;
-
-            Dictionary<DataRow, esEntitySavePacket> rowMapping = null;
-
-            if (request.ContinueUpdateOnError)
-            {
-                rowMapping = new Dictionary<DataRow, esEntitySavePacket>();
-            }
-
-            //================================================
-            // Create the DataTable ...
-            //================================================
             DataTable dataTable = CreateDataTable(request);
 
-            foreach (esEntitySavePacket packet in request.CollectionSavePacket)
+            using (esTransactionScope scope = new esTransactionScope())
+            using (MySqlDataAdapter da = new MySqlDataAdapter())
             {
-                DataRow row = dataTable.NewRow();
+                da.AcceptChangesDuringUpdate = false;
+                da.ContinueUpdateOnError = request.ContinueUpdateOnError;
 
-                switch (request.EntitySavePacket.RowState)
+                foreach (esEntitySavePacket packet in request.CollectionSavePacket)
                 {
-                    case esDataRowState.Added:
-                        SetModifiedValues(request, packet, row);
-                        dataTable.Rows.Add(row);
-                        if (request.ContinueUpdateOnError) rowMapping[row] = packet;
-                        break;
+                    if (packet.RowState != esDataRowState.Added &&
+                        packet.RowState != esDataRowState.Modified &&
+                        packet.RowState != esDataRowState.Deleted)
+                        continue;
 
-                    case esDataRowState.Modified:
-                        SetOriginalValues(request, packet, row, false);
-                        SetModifiedValues(request, packet, row);
-                        dataTable.Rows.Add(row);
-                        row.AcceptChanges();
-                        row.SetModified();
-                        if (request.ContinueUpdateOnError) rowMapping[row] = packet;
-                        break;
-
-                    case esDataRowState.Deleted:
-                        SetOriginalValues(request, packet, row, true);
-                        dataTable.Rows.Add(row);
-                        row.AcceptChanges();
-                        row.Delete();
-                        if (request.ContinueUpdateOnError) rowMapping[row] = packet;
-                        break;
-                }
-            }
-
-            if (Shared.HasUpdates(dataTable.Rows, out needToInsert, out needToUpdate, out needToDelete))
-            {
-                using (MySqlDataAdapter da = new MySqlDataAdapter())
-                {
-                    da.AcceptChangesDuringUpdate = false;
+                    DataRow row = dataTable.NewRow();
+                    dataTable.Rows.Add(row);
 
                     MySqlCommand cmd = null;
 
-                    if (needToInsert) da.InsertCommand = cmd = Shared.BuildStoredProcInsertCommand(request);
-                    if (needToUpdate) da.UpdateCommand = cmd = Shared.BuildStoredProcUpdateCommand(request);
-                    if (needToDelete) da.DeleteCommand = cmd = Shared.BuildStoredProcDeleteCommand(request);
-
-                    using (esTransactionScope scope = new esTransactionScope())
+                    // [FIX B.1] Iterate by packet.RowState, not request.EntitySavePacket.RowState.
+                    switch (packet.RowState)
                     {
-                        if (needToInsert) esTransactionScope.Enlist(da.InsertCommand, request.ConnectionString, CreateIDbConnectionDelegate);
-                        if (needToUpdate) esTransactionScope.Enlist(da.UpdateCommand, request.ConnectionString, CreateIDbConnectionDelegate);
-                        if (needToDelete) esTransactionScope.Enlist(da.DeleteCommand, request.ConnectionString, CreateIDbConnectionDelegate);
+                        case esDataRowState.Added:
+                            cmd = da.InsertCommand = Shared.BuildStoredProcInsertCommand(request);
+                            SetModifiedValues(request, packet, row);
+                            break;
 
-                        try
+                        case esDataRowState.Modified:
+                            cmd = da.UpdateCommand = Shared.BuildStoredProcUpdateCommand(request);
+                            SetOriginalValues(request, packet, row, false);
+                            SetModifiedValues(request, packet, row);
+                            row.AcceptChanges();
+                            row.SetModified();
+                            break;
+
+                        case esDataRowState.Deleted:
+                            cmd = da.DeleteCommand = Shared.BuildStoredProcDeleteCommand(request);
+                            SetOriginalValues(request, packet, row, true);
+                            row.AcceptChanges();
+                            row.Delete();
+                            break;
+                    }
+
+                    DataRow[] singleRow = new DataRow[1];
+                    singleRow[0] = row;
+
+                    esTransactionScope.Enlist(cmd, request.ConnectionString, CreateIDbConnectionDelegate);
+                    try
+                    {
+                        da.Update(singleRow);
+                    }
+                    finally
+                    {
+                        esTransactionScope.DeEnlist(cmd);
+                    }
+
+                    // [FIX B.2] Capture OUTPUT/InputOutput params per packet.
+                    // The SP returns pId / pVersion / pDateAdded / pDateModified as OUT.
+                    // Without this loop, only the last row's outputs survive in the
+                    // shared cmd object, and every previous entity's Id stays null.
+                    if (packet.RowState != esDataRowState.Deleted && cmd.Parameters != null)
+                    {
+                        foreach (MySqlParameter param in cmd.Parameters)
                         {
-                            #region Profiling
-                            if (sTraceHandler != null)
+                            switch (param.Direction)
                             {
-                                using (esTraceArguments esTrace = new esTraceArguments(request, cmd, "SaveCollectionStoredProcedure", System.Environment.StackTrace))
-                                {
-                                    try
-                                    {
-                                        da.Update(dataTable);
-                                    }
-                                    catch (Exception ex)
-                                    {
-                                        esTrace.Exception = ex.Message;
-                                        throw;
-                                    }
-                                }
-                            }
-                            else
-                            #endregion
-                            {
-                                da.Update(dataTable);
-                            }
-
-                            // [C2 FIX — complement] Sync keys for each saved packet.
-                            foreach (esEntitySavePacket pkt in request.CollectionSavePacket)
-                            {
-                                if (pkt.CurrentValues != null)
-                                    SyncColumnAndPropertyKeys(pkt, request.Columns);
+                                case ParameterDirection.Output:
+                                case ParameterDirection.InputOutput:
+                                    if (!string.IsNullOrEmpty(param.SourceColumn))
+                                        packet.CurrentValues[param.SourceColumn] = param.Value;
+                                    break;
                             }
                         }
-                        finally
-                        {
-                            if (needToInsert) esTransactionScope.DeEnlist(da.InsertCommand);
-                            if (needToUpdate) esTransactionScope.DeEnlist(da.UpdateCommand);
-                            if (needToDelete) esTransactionScope.DeEnlist(da.DeleteCommand);
-                        }
-
-                        scope.Complete();
                     }
-                }
 
-                if (request.ContinueUpdateOnError && dataTable.HasErrors)
-                {
-                    DataRow[] errors = dataTable.GetErrors();
+                    SyncColumnAndPropertyKeys(packet, request.Columns);
 
-                    foreach (DataRow rowWithError in errors)
+                    if (row.HasErrors)
                     {
-                        request.FireOnError(rowMapping[rowWithError], rowWithError.RowError);
+                        request.FireOnError(packet, row.RowError);
                     }
+
+                    dataTable.Rows.Clear();
                 }
+
+                scope.Complete();
             }
 
             return request.Table;
@@ -2057,22 +2028,35 @@ namespace EntitySpaces.MySQLProvider
                     object o = e.Row[colName];
                     if (o != null && o != DBNull.Value)
                     {
-                        foreach (MySqlParameter p in e.Command.Parameters)
+                        object bumped = null;
+                        switch (Type.GetTypeCode(o.GetType()))
                         {
-                            if (string.Equals(p.SourceColumn, colName, StringComparison.OrdinalIgnoreCase))
+                            case TypeCode.Int16: bumped = ((System.Int16)o) + 1; break;
+                            case TypeCode.Int32: bumped = ((System.Int32)o) + 1; break;
+                            case TypeCode.Int64: bumped = ((System.Int64)o) + 1; break;
+                            case TypeCode.UInt16: bumped = ((System.UInt16)o) + 1; break;
+                            case TypeCode.UInt32: bumped = ((System.UInt32)o) + 1; break;
+                            case TypeCode.UInt64: bumped = ((System.UInt64)o) + 1; break;
+                        }
+
+                        // [FIX MySQL] The UPDATE bumps Version server-side. The
+                        // `?Version` parameter only travels in the WHERE clause and is
+                        // Direction.Input, so it returns nothing to the client. The
+                        // in-memory entity must reflect the new version here.
+                        if (bumped != null)
+                        {
+                            e.Row[colName] = bumped;
+
+                            if (packet.CurrentValues != null)
                             {
-                                object v = null;
-                                switch (Type.GetTypeCode(o.GetType()))
+                                packet.CurrentValues[colName] = bumped;
+
+                                esColumnMetadata meta = request?.Columns?.FindByColumnName(colName);
+                                if (meta != null && !string.IsNullOrEmpty(meta.PropertyName)
+                                    && !string.Equals(meta.PropertyName, colName, StringComparison.Ordinal))
                                 {
-                                    case TypeCode.Int16: v = ((System.Int16)o) + 1; break;
-                                    case TypeCode.Int32: v = ((System.Int32)o) + 1; break;
-                                    case TypeCode.Int64: v = ((System.Int64)o) + 1; break;
-                                    case TypeCode.UInt16: v = ((System.UInt16)o) + 1; break;
-                                    case TypeCode.UInt32: v = ((System.UInt32)o) + 1; break;
-                                    case TypeCode.UInt64: v = ((System.UInt64)o) + 1; break;
+                                    packet.CurrentValues[meta.PropertyName] = bumped;
                                 }
-                                p.Value = v;
-                                break;
                             }
                         }
                     }
