@@ -14,7 +14,48 @@
     http://www.entityspaces.net/portal/License/tabid/97/Default.aspx
     
 =========================================================================
-*/%>
+
+    MySQL / MariaDB STORED PROCEDURE TEMPLATE
+
+    Revision 2026.10:
+    -----------------
+    Fix A: SP Insert excludes special + concurrency columns from the
+           INSERT column list. The DDL DEFAULT fills dateAdded,
+           dateModified (CURRENT_TIMESTAMP(6)) and version (1).
+
+    Fix B: SP Insert returns those columns via SELECT ... INTO after
+           LAST_INSERT_ID(), so the provider reads them back into
+           CurrentValues through the OUT parameters.
+
+    Fix C: SP Update declares pDateAdded / pDateModified / pVersion as
+           INOUT and returns them via SELECT ... INTO.
+
+    Fix D: SP Update SET clause refreshes dateModified with
+           CURRENT_TIMESTAMP(6) and bumps version server-side.
+           dateAdded is skipped — it must never be overwritten.
+
+    Fix E: SP Update / Delete add "AND `version` = pVersion" to the
+           WHERE clause for optimistic concurrency. ROW_COUNT() = 0
+           raises SIGNAL SQLSTATE '45000', which the provider maps to
+           esConcurrencyException via Shared.CheckForConcurrencyException.
+
+    Fix F: SP Delete accepts pVersion as an IN parameter (the provider
+           already sends it because IsEntitySpacesConcurrency is set).
+
+    Fix G: No USE statement is emitted. The script is meant to be applied
+           against whichever database the deployment target resolves at
+           runtime (CLI -D flag, Workbench active schema, migration
+           framework, etc.). Including USE would pin the script to a
+           development database name.
+
+    Dependency: requires the MySqlColumn.IsEntitySpacesConcurrency
+                override in the MetadataEngine.MySql driver. Studio's
+                Custom Fields -> Concurrency config is applied to BO
+                generation but not always to SP generation, so the base
+                flag comes through as false in this template. The driver
+                override adds a name-based fallback ("version").
+*/
+%>
 <%@ TemplateInfo 
     UniqueID="8F1DCABB-8B14-428c-8D32-0BF463611BB3"
 	UserInterfaceID="977DCCF4-5529-406e-A392-CEB0267AD416"
@@ -22,7 +63,7 @@
     Description="MySQL Stored Procedures" 
     Namespace="EntitySpaces.2026.StoredProcedures" 
     Author="EntitySpaces, LLC"
-    Version="2026.7.0.0"
+    Version="2026.10.0.0"
     RequiresUI="True" %><%
 //-------------------------------------------------------
 // Extract the UI choices that we need
@@ -32,20 +73,11 @@ string entityType          = (string)esMeta.Input["EntityType"];
 string databaseName        = (string)esMeta.Input["Database"];
 bool useSqlSecurityInvoker = (bool)esMeta.Input["UseSqlSecurityInvoker"];
 
-//System.Diagnostics.Debugger.Break();
-
 //-------------------------------------------------------
 // Create Local Variables
 //-------------------------------------------------------	
 bool inFirst = true;
 string delimiter = "`";
-
-bool blnHasComputed = false;
-string strWhereClause = "";
-string strWhereAnd = "";
-string strWhereFields = "";
-string strComma = "";
-
 string allSQL = "";
 
 //-------------------------------------------------------
@@ -77,16 +109,20 @@ foreach(string tableOrView in entities)
 		continue;
 	} 	
 
+	bool hasConcurrency = false;
+	foreach(IColumn col in cols)
+	{
+		if(col.IsEntitySpacesConcurrency) { hasConcurrency = true; break; }
+	}
+
 //----------------------------------------------------------------------
 // LoadByPrimaryKey 
 //----------------------------------------------------------------------
 %>DELIMITER //
-USE <%=delimiter %><%=database.Name %><%=delimiter %>//
 
 /* LoadByPrimaryKey */
 <%=BuildCreateAlterStatement(esMeta.esPlugIn.ProcLoadByPK(table.Name)) %>
 (<%
-	// List all keys as parameters
 	inFirst = true;
 	foreach(IColumn col in table.PrimaryKeys)
 	{
@@ -97,16 +133,11 @@ USE <%=delimiter %><%=database.Name %><%=delimiter %>//
 %>
 )
 <%
-	if(useSqlSecurityInvoker)
-	{
-		%>
-		SQL SECURITY INVOKER<%
-	}
+	if(useSqlSecurityInvoker) { %>	SQL SECURITY INVOKER<% }
 %>
 BEGIN
 
 	SELECT<%
-	// List all fields
 	inFirst = true;
 	foreach(IColumn col in cols)
 	{
@@ -118,7 +149,6 @@ BEGIN
 	FROM <%=delimiter%><%=table.Name%><%=delimiter%>
 	WHERE
 	(<%
-	// Compare keys with parameters
 	inFirst = true;
 	foreach(IColumn col in table.PrimaryKeys)
 	{
@@ -140,16 +170,11 @@ END//
 <%=BuildCreateAlterStatement(esMeta.esPlugIn.ProcLoadAll(table.Name)) %>
 ()
 <%
-	if(useSqlSecurityInvoker)
-	{
-		%>
-		SQL SECURITY INVOKER<%
-	}
+	if(useSqlSecurityInvoker) { %>	SQL SECURITY INVOKER<% }
 %>
 BEGIN
 
 	SELECT<%
-	// List all fields
 	inFirst = true;
 	foreach(IColumn col in cols)
 	{
@@ -167,13 +192,9 @@ END//
 // Update
 //----------------------------------------------------------------------
 int colCount = 0;
-
 foreach(IColumn col in cols)
 {
-	if(col.IsInPrimaryKey || col.IsComputed)
-	{
-		colCount += 1;
-	}
+	if(col.IsInPrimaryKey || col.IsComputed) colCount += 1;
 }
 
 if (cols.Count == colCount)
@@ -188,7 +209,6 @@ if (cols.Count == colCount)
 /* Update */
 <%=BuildCreateAlterStatement(esMeta.esPlugIn.ProcUpdate(table.Name))%>
 (<%
-	// List all keys as parameters
 	inFirst = true;
 	foreach(IColumn col in cols)
 	{
@@ -200,33 +220,30 @@ if (cols.Count == colCount)
 %>
 )
 <%
-	if(useSqlSecurityInvoker)
-	{
-		%>
-		SQL SECURITY INVOKER<%
-	}
+	if(useSqlSecurityInvoker) { %>	SQL SECURITY INVOKER<% }
 %>
 BEGIN
 
 	UPDATE <%=delimiter%><%=table.Name %><%=delimiter%>
 	SET<%
-	// List all fields
 	inFirst = true;
 	foreach(IColumn col in cols)
 	{
-		if(!col.IsInPrimaryKey && !col.IsAutoKey && !col.IsComputed)
-		{
-			if(!inFirst) {%><%=", "%><%}%><%
-			if(col.IsEntitySpacesConcurrency) {%>
-		<%=delimiter%><%=col.Name%><%=delimiter%> = <%=delimiter%><%=col.Name%><%=delimiter%> + 1<%} else {%>			
+		if(col.IsInPrimaryKey || col.IsAutoKey || col.IsComputed) continue;
+		if(IsImmutableServerColumn(col)) continue;
+
+		if(!inFirst) {%><%=", "%><%}%><%
+		if(col.IsEntitySpacesConcurrency) {%>
+		<%=delimiter%><%=col.Name%><%=delimiter%> = <%=delimiter%><%=col.Name%><%=delimiter%> + 1<%}
+		else if(IsDateModifiedServerColumn(col)) {%>
+		<%=delimiter%><%=col.Name%><%=delimiter%> = CURRENT_TIMESTAMP(6)<%}
+		else {%>
 		<%=delimiter%><%=col.Name%><%=delimiter%> = p<%=StripGarbage(col)%><%}%><%
-			inFirst = false;
-		}
+		inFirst = false;
 	}
 %>
 	WHERE
 	(<%
-	// Compare keys with parameters
 	inFirst = true;
 	foreach(IColumn col in table.PrimaryKeys)
 	{
@@ -237,55 +254,26 @@ BEGIN
 	
 	foreach(IColumn col in table.Columns)
 	{
-		if(col.IsConcurrency || col.IsEntitySpacesConcurrency)
+		if(col.IsEntitySpacesConcurrency)
 		{
 			if(!inFirst) {%><%=" AND "%><%}%>
 		<%=delimiter%><%=col.Name%><%=delimiter%> = p<%=StripGarbage(col)%><%
 		}
-	}%>
+	}
+%>
 	);
-<%	foreach(IColumn col in table.Columns)
-	{
-		if(col.IsEntitySpacesConcurrency)
-		{%>
-	SET p<%=StripGarbage(col)%> = p<%=StripGarbage(col)%> + 1;<%
-		}
-	}
-	
-	// Add the Logic to return computed columns if necessary 
-	blnHasComputed = false;
-	strWhereClause = "";
-	strWhereAnd = "";
-	strWhereFields = "";
-	strComma = "";
-
-	inFirst = true;
-	foreach(IColumn col in cols)
-	{
-		if(col.IsComputed)
-		{
-			blnHasComputed = true;
-		}
-
-		if(col.IsInPrimaryKey)
-		{
-			strWhereClause += strWhereAnd + delimiter + col.Name + delimiter + " = p" + StripGarbage(col);
-			strWhereAnd = " AND ";
-		}
-
-		if(col.IsComputed)
-		{
-			strWhereFields += strComma + " p" + StripGarbage(col) + " = " + delimiter + col.Name + delimiter;
-			strComma =  ", "; 
-		}
-	}
-
-	if(blnHasComputed)
+<%
+	if(hasConcurrency)
 	{%>
-		    SELECT <%=strWhereFields%>
-			  FROM <%=delimiter%><%=table.Name%><%=delimiter%>
-			 WHERE (<%=strWhereClause%>);
-  <%}%>	
+
+	IF ROW_COUNT() = 0 THEN
+		SIGNAL SQLSTATE '45000'
+			SET MESSAGE_TEXT = 'esConcurrencyException: stale version on update';
+	END IF;
+<%
+	}
+%>
+	<%=BuildReadbackSelect(cols, delimiter, table.Name)%>
 END//
 
 <%} // END UPDATE%> 
@@ -298,7 +286,6 @@ END//
 /* Insert */
 <%=BuildCreateAlterStatement(esMeta.esPlugIn.ProcInsert(table.Name))%>
 (<%
-	// List all keys as parameters
 	inFirst = true;
 	foreach(IColumn col in cols)
 	{
@@ -310,55 +297,36 @@ END//
 %>
 )
 <%
-	if(useSqlSecurityInvoker)
-	{
-		%>
-		SQL SECURITY INVOKER<%
-	}
+	if(useSqlSecurityInvoker) { %>	SQL SECURITY INVOKER<% }
 %>
 BEGIN
 	INSERT
 	INTO <%=delimiter%><%=table.Name%><%=delimiter%>
 	(<%
-		// List all fields except identity (if one exists)
 		inFirst = true;
 		foreach(IColumn col in cols)
 		{
-			if(!col.IsAutoKey && !col.IsComputed)
-			{
-				if(!inFirst) {%><%=", "%><%}%>
+			if(IsExcludedFromInsert(col)) continue;
+			
+			if(!inFirst) {%><%=", "%><%}%>
 		<%=delimiter%><%=col.Name%><%=delimiter%><%
-				inFirst = false;
-			}
+			inFirst = false;
 		}
 %>
 	)
 	VALUES
 	(<%
-		// List all fields except identity (if one exists)
 		inFirst = true;
 		foreach(IColumn col in cols)
 		{
-			if(!col.IsAutoKey && !col.IsComputed)
-			{
-				if(!inFirst) {%><%=", "%><%}%><%
-				if(col.IsEntitySpacesConcurrency) {%>
-		1<%} else {%>	
-		p<%=StripGarbage(col)%><%}%><%
-				inFirst = false;
-			}
+			if(IsExcludedFromInsert(col)) continue;
+			
+			if(!inFirst) {%><%=", "%><%}%>p<%=StripGarbage(col)%><%
+			inFirst = false;
 		}
 %>
 	);
 <%
-	// Add the Logic to return computed columns if necessary 
-	blnHasComputed = false;
-	strWhereClause = "";
-	strWhereAnd = "";
-	strWhereFields = "";
-	strComma = "";
-
-	inFirst = true;
 	foreach(IColumn col in cols)
 	{
 		if(col.IsAutoKey)
@@ -366,31 +334,9 @@ BEGIN
 			%>
 	SET p<%=StripGarbage(col)%> = LAST_INSERT_ID();<%
 		}
-		
-		if(col.IsEntitySpacesConcurrency)
-		{
-			%>
-	SET p<%=StripGarbage(col)%> = 1;<%
-		}
-		if(col.IsComputed)
-		{
-			blnHasComputed = true;
-		}
-
-		if(col.IsComputed)
-		{
-			strWhereFields += strComma + "p" + StripGarbage(col) + " = " + delimiter + col.Name + delimiter;
-			strComma =  ", ";
-		}
 	}
-
-	if(blnHasComputed)
-	{%>
-		    SELECT <%=strWhereFields%>
-			  FROM <%=delimiter%><%=table.Name%><%=delimiter%>
-			 WHERE (<%=strWhereClause%>);
-  <%}%>	
-
+%>
+	<%=BuildReadbackSelect(cols, delimiter, table.Name)%>
 END//
 
 <%
@@ -401,7 +347,6 @@ END//
 /* Delete */
 <%=BuildCreateAlterStatement(esMeta.esPlugIn.ProcDelete(table.Name))%>
 (<%
-	// List all keys as parameters
 	inFirst = true;
 	foreach(IColumn col in table.Columns)
 	{
@@ -415,30 +360,36 @@ END//
 %>
 )
 <%
-	if(useSqlSecurityInvoker)
-	{
-		%>
-		SQL SECURITY INVOKER<%
-	}
+	if(useSqlSecurityInvoker) { %>	SQL SECURITY INVOKER<% }
 %>
 BEGIN
 	DELETE
 	FROM <%=delimiter%><%=table.Name%><%=delimiter%>
 	WHERE
 	(<%
-	// Compare keys with parameters
 	inFirst = true;
 	foreach(IColumn col in table.Columns)
 	{
 		if(col.IsInPrimaryKey || col.IsEntitySpacesConcurrency)
 		{
-		if(!inFirst) {%><%=" AND "%><%}%>
+			if(!inFirst) {%><%=" AND "%><%}%>
 		<%=delimiter%><%=col.Name%><%=delimiter%> = p<%=StripGarbage(col)%><%
-		inFirst = false;
+			inFirst = false;
 		}
 	}
 %>
 	);
+<%
+	if(hasConcurrency)
+	{%>
+
+	IF ROW_COUNT() = 0 THEN
+		SIGNAL SQLSTATE '45000'
+			SET MESSAGE_TEXT = 'esConcurrencyException: stale version on delete';
+	END IF;
+<%
+	}
+%>
 END//
 
 DELIMITER ;
@@ -456,13 +407,12 @@ DELIMITER ;
 
 <script runat="template">
 
-
 private string SaveToFile(string fileName, string text, bool generateSingleFile)
 {
 	if(!generateSingleFile)
 	{
-	    string path = (string)esMeta.Input["OutputPath"];
-	    
+		string path = (string)esMeta.Input["OutputPath"];
+		
 		string fname = path;
 		if (!fname.EndsWith("\\")) 
 			fname += "\\";
@@ -486,15 +436,14 @@ private string SaveToFile(string fileName, string text, bool generateSingleFile)
 
 private string BuildCreateAlterStatement(string procName)
 {
-	string delimiter = "`";
+	string d = "`";
 	
 	string sql = "";
 	
-	// Drop and recreate
 	sql += "DROP PROCEDURE IF EXISTS ";
-	sql += delimiter + procName + delimiter + "//" + "\r\n\r\n";
+	sql += d + procName + d + "//" + "\r\n\r\n";
 
-	sql += "CREATE PROCEDURE " + delimiter + procName + delimiter;
+	sql += "CREATE PROCEDURE " + d + procName + d;
 
 	return sql; 
 }
@@ -502,6 +451,64 @@ private string BuildCreateAlterStatement(string procName)
 private string StripGarbage(EntitySpaces.MetadataEngine.IColumn col)
 {
 	return esMeta.esPlugIn.ToPascalCase(col.Alias);
+}
+
+// Columns excluded from INSERT: auto-increment, computed (dateAdded,
+// dateModified in MySQL), and concurrency (version). The DDL DEFAULT
+// fills them; the SP reads them back via SELECT INTO.
+private bool IsExcludedFromInsert(IColumn col)
+{
+	if(col == null) return false;
+	return col.IsAutoKey || col.IsComputed || col.IsEntitySpacesConcurrency;
+}
+
+// dateAdded is immutable on UPDATE. Never emit it in SET.
+private bool IsImmutableServerColumn(IColumn col)
+{
+	if(col == null || string.IsNullOrEmpty(col.Name)) return false;
+	return col.Name.ToLowerInvariant() == "dateadded";
+}
+
+// dateModified refreshes server-side on UPDATE with CURRENT_TIMESTAMP(6).
+private bool IsDateModifiedServerColumn(IColumn col)
+{
+	if(col == null || string.IsNullOrEmpty(col.Name)) return false;
+	return col.Name.ToLowerInvariant() == "datemodified";
+}
+
+// Builds the "SELECT ... INTO pX, pY ... WHERE pk = pPk;" read-back used by
+// both the INSERT and the UPDATE stored procedures. Returns an empty string
+// if there are no computed or concurrency columns to read back.
+private string BuildReadbackSelect(IColumns cols, string d, string tableName)
+{
+	string colsList = "";
+	string intoList = "";
+	string whereClause = "";
+	string comma = "";
+	string and = "";
+
+	foreach(IColumn col in cols)
+	{
+		if(col.IsInPrimaryKey)
+		{
+			whereClause += and + d + col.Name + d + " = p" + StripGarbage(col);
+			and = " AND ";
+		}
+
+		if(col.IsComputed || col.IsEntitySpacesConcurrency)
+		{
+			colsList += comma + d + col.Name + d;
+			intoList += comma + "p" + StripGarbage(col);
+			comma = ", ";
+		}
+	}
+
+	if(colsList.Length == 0) return "";
+
+	return "SELECT " + colsList + "\r\n"
+	     + "  INTO " + intoList + "\r\n"
+	     + "  FROM " + d + tableName + d + "\r\n"
+	     + " WHERE (" + whereClause + ");\r\n";
 }
 
 </script>
