@@ -472,9 +472,16 @@ namespace EntitySpaces.Npgsql2Provider
                 sql += " AND " + conncur;
             }
 
+            // PostgreSQL requires RETURNING for values coming back from the server
+            // when the command carries Output / InputOutput parameters. Emitting a
+            // second SELECT statement after a semicolon triggers
+            // "Commands with multiple queries cannot have out parameters" in Npgsql.
+            // RETURNING keeps the whole operation as a single statement, and the
+            // existing ExecuteInsertCommand + MapOutputParameters path already knows
+            // how to read columns back from the returned row.
             if (defaults.Length > 0)
             {
-                sql += "; SELECT " + defaults + " FROM " + CreateFullName(request) + " WHERE (" + where + ")";
+                sql += " RETURNING " + defaults;
             }
 
             cmd.CommandText = sql;
@@ -660,8 +667,11 @@ namespace EntitySpaces.Npgsql2Provider
             bool first = true;
             foreach (esColumnMetadata col in request.Columns)
             {
-                // [V3-FIX] DELETE takes only PK columns. Matches the template.
-                if (!col.IsInPrimaryKey) continue;
+                // DELETE takes PK columns + the EntitySpaces concurrency column.
+                // The template signature includes both (see BuildArgTypesForDelete)
+                // and the WHERE clause filters by both. Omitting the concurrency
+                // column here makes PostgreSQL resolve to a non-existent overload.
+                if (!col.IsInPrimaryKey && !col.IsEntitySpacesConcurrency) continue;
 
                 if (IsSpecialColumnSafe(request.Columns, col)) continue;
 
@@ -798,6 +808,18 @@ namespace EntitySpaces.Npgsql2Provider
                 case "40P01": // deadlock_detected
                 case "55P03": // lock_not_available
                     ce = new esConcurrencyException(ex.Message, ex);
+                    break;
+
+                // PL/pgSQL RAISE EXCEPTION (default code). Our SP template uses it
+                // for the DELETE concurrency guard. Match on the message prefix so
+                // unrelated RAISE sites added later do not get misclassified.
+                case "P0001":
+                    if (ex.Message != null &&
+                        ex.Message.IndexOf("esConcurrencyException",
+                            StringComparison.OrdinalIgnoreCase) >= 0)
+                    {
+                        ce = new esConcurrencyException(ex.Message, ex);
+                    }
                     break;
             }
 
