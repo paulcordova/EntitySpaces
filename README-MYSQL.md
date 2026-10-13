@@ -29,8 +29,19 @@ This package provides the MySQL / MariaDB runtime only — it does not generate 
 - Get it from the repo: [EntitySpaces.Studio](https://github.com/paulcordova/EntitySpaces/tree/master/EntitySpaces.Studio)
 - Download the **most recent** `.zip` — avoid any file tagged `-deprecated`, that build is kept for reference only.
 - Connect to your database under Settings → Connection, then run the Generated and Custom class templates.
+- If you plan to use the Stored Procedure save path (`esSqlAccessType.StoredProcedure`), configure the **Custom Fields** tabs before generating the procedures. The names entered there must match the physical column names in your database — see the Stored Procedure Support section below for the full setup checklist.
 
 ## New Features
+
+- **Stored Procedure generation with optimistic concurrency** — the generated `Insert` / `Update` / `Delete` procedures carry the same concurrency contract as the dynamic SQL path:
+
+  - **Insert** takes `pVersion` as an `OUT` parameter, excludes `dateAdded` / `dateModified` / `version` from the `INSERT` column list (the DDL `DEFAULT` fills them), and returns the generated values back to the entity via `SELECT ... INTO` after `LAST_INSERT_ID()`.
+
+  - **Update** declares `pDateAdded` / `pDateModified` / `pVersion` as `INOUT`, bumps `version` server-side with `SET version = version + 1`, refreshes `dateModified` with `CURRENT_TIMESTAMP(6)`, and adds `AND version = pVersion` to the `WHERE` clause. When zero rows match, the procedure raises `SIGNAL SQLSTATE '45000'` so the application receives an `esConcurrencyException` instead of a silent no-op.
+
+  - **Delete** accepts `pVersion` and appends it to the `WHERE` clause, with the same concurrency signal on zero rows.
+
+  The generated scripts are also free of `USE` statements — the schema is resolved at deployment time by the target (CLI `-D`, Workbench active schema, migration tool connection string) rather than hardcoded at generation time.
 
 - **Tolerant column/property name resolution** — the provider accepts both the database column name and the generated property name when deciding whether a column is part of an INSERT/UPDATE/DELETE and when mapping server-returned values back to the entity. This covers:
   - Lowercase column names (`invoiceid` column ↔ `Invoiceid` property) — the common MySQL/MariaDB convention in Northwind-derived schemas.
@@ -109,6 +120,8 @@ Nested `esTransactionScope` instances are supported — the inner scope votes on
 
 > **Connection pool behavior on error:** All save and load operations release connections safely. On error, the connection is closed by `CleanupCommand` (or by `CommandBehavior.CloseConnection` when a reader was opened). **No explicit `ROLLBACK` is issued** — that responsibility belongs to the transaction scope owner. This matches the pattern applied across the PostgreSQL provider and avoids the class of bugs where a child insert failure would abort an otherwise recoverable transaction.
 
+> The same rules apply to the Stored Procedure save path. Concurrency signals raised inside a procedure (`SIGNAL SQLSTATE '45000'`) surface as `esConcurrencyException` and participate in the ambient `esTransactionScope` exactly like a dynamic-SQL concurrency failure.
+
 > **Note:** the previous implementation issued `ROLLBACK` on enlisted connections inside `finally` blocks. Under `MySqlConnector` / ambient `esTransactionScope`, that aborted the ambient transaction, not just the current command. This was actively harmful and is no longer done.
 
 ## ⚠️ Hierarchical Save
@@ -164,7 +177,6 @@ For single-entity saves without hierarchy, no scope is created; the operation is
 
 An explicit `esTransactionScope` around a hierarchical save is optional but recommended when multiple independent entities must succeed or fail together — the framework's internal scope joins the ambient one transparently via `Required` semantics.
 
-
 ### Non-identity parent PKs
 
 FK propagation from parent to child works identically for auto-increment PKs and user-supplied PKs:
@@ -195,7 +207,7 @@ target.Save();   // FK is written and persisted
 
 ### Cross-provider parity
 
-The fixes documented in this README were originally validated against SQL Server, then ported to PostgreSQL, and now to MySQL/MariaDB without provider-specific changes. The following behaviours are validated against MySQL 8.0.28 and MariaDB 10.11:
+The fixes documented in this README were originally validated against SQL Server, then ported to PostgreSQL, and now to MySQL/MariaDB without provider-specific changes. Stored Procedure generation with full concurrency support (Insert/Update/Delete) is also validated against MySQL 8.0.28 and MariaDB 10.11, and behaves identically to the SQL Server and Oracle procedures. The following behaviours are validated against MySQL 8.0.28 and MariaDB 10.11:
 
 - Hierarchical save for auto-increment, user-supplied, and explicit-value PKs.
 - FK propagation across all six save patterns (including `BulkInsert`).
@@ -203,6 +215,59 @@ The fixes documented in this README were originally validated against SQL Server
 - `Combine()` FK propagation and `RowState` preservation.
 - Transaction scope, rollback, and atomicity — including CHECK-constraint-triggered rollback of an in-flight hierarchy.
 - Implicit transaction created by `esEntity.Save()` on the `NeedsTransactionDuringSave()` path.
+
+## Stored Procedure Support
+
+The provider ships with a Stored Procedure template for MySQL / MariaDB that generates the full CRUD surface (`LoadByPrimaryKey`, `LoadAll`, `Insert`, `Update`, `Delete`) with the same behavior the dynamic SQL path already provides — including optimistic concurrency and server-side special columns (`dateAdded`, `dateModified`, `version`).
+
+### What you get
+
+- **Full optimistic concurrency** on `Update` and `Delete`: a stale `version` raises `esConcurrencyException` instead of silently updating or deleting nothing.
+- **Server-side timestamps**: `dateAdded` is set by the DDL default and never overwritten by the application. `dateModified` is refreshed on every `Update`.
+- **`version` handling**: initialized to `1` on insert, incremented server-side on every successful update.
+- **Explicit PK inserts**: assigning a value to an `AUTO_INCREMENT` column sends it as an input parameter; MySQL uses the explicit value and the entity is marked clean afterward.
+
+### Studio setup — Custom Fields
+
+Before generating the Stored Procedures, configure the Custom Fields tab in EntitySpaces Studio so the generator recognizes the special columns. **The names must match the physical column names in the database exactly**, including case:
+
+| Tab | Field | MySQL example |
+|---|---|---|
+| Dates → Date Added | Enable Date Added | `dateAdded` |
+| Dates → Date Modified | Enable Date Modified | `dateModified` |
+| UserID's → Added By | Enable Added By | `addedBy` |
+| UserID's → Modified By | Enable Modified By | `modifiedBy` |
+| Concurrency | Concurrency Column | `version` |
+
+On Windows MySQL and all MariaDB platforms, casing is forgiving. On Linux MySQL (default `lower_case_table_names=0`), casing matters — `DateAdded` will not match a column defined as `dateadded`.
+
+The concurrency column convention used by the shipped template is `version` (case-insensitive). If your schema uses a different name, either update the Custom Fields entry or extend the driver-level fallback (see the Provider Internals section of the main repository documentation).
+
+### Applying the generated script
+
+The template emits a self-contained script (`MySQL_ALL.sql`) with the following properties:
+
+- **No `USE` statement.** The script applies against whichever database the connection resolves at runtime:
+  - CLI: `mysql -h host -u user -p -D mydb < MySQL_ALL.sql`
+  - Workbench: open the connection, set the active schema, execute the script
+  - Migration frameworks (Flyway, Liquibase, dbmate, etc.): pass the target DB in the connection string
+- **`DELIMITER //` blocks.** The script uses the alternate delimiter so that procedure bodies containing internal semicolons are parsed correctly by the client. If you execute the script through a driver API (`MySqlCommand.ExecuteNonQuery()`) rather than a MySQL client, split the script at each `//` boundary — the server itself does not recognize `DELIMITER` (it is a client directive).
+
+### Save path selection
+
+The provider selects between the two save strategies per call. Set it explicitly on the entity, the collection, or the connection:
+
+```csharp
+// Per call
+employee.Save(esSqlAccessType.StoredProcedure);
+employee.Save(esSqlAccessType.DynamicSQL);
+
+// Per collection
+customers.es.Connection.SqlAccessType = esSqlAccessType.StoredProcedure;
+customers.Save();
+```
+
+Both paths are fully supported and tested. The dynamic SQL path is the default for new connections; the SP path is typically chosen when database-side auditing, privilege restrictions, or query plan pinning call for stored procedures.
 
 ## MySQL / MariaDB APPLY Support
 
@@ -269,6 +334,7 @@ The provider translates MySQL and MariaDB-specific error codes into `esConcurren
 | `1062` | Duplicate entry — PK or unique key violation | `esConcurrencyException` |
 | `1205` | Lock wait timeout exceeded | `esConcurrencyException` |
 | `1213` | Deadlock detected | `esConcurrencyException` |
+| `1644` | `SIGNAL SQLSTATE '45000'` raised by a generated procedure (stale `version`) | `esConcurrencyException` |
 
 ```csharp
 try
@@ -281,6 +347,8 @@ catch (esConcurrencyException ex)
     Console.WriteLine(ex.Message);
 }
 ```
+
+The `1644` entry only fires when the application uses the Stored Procedure save path (`esSqlAccessType.StoredProcedure`). Applications on the dynamic SQL path (`DynamicSQL`) rely on the row-count-zero detection that MySQL naturally raises for an `UPDATE ... WHERE version = ?` with no match.
 
 ## Case Sensitivity
 
@@ -368,4 +436,3 @@ More usage examples (joins, paging, transactions, and the full Fluent SQL API): 
 ### Generating your entity classes
 
 See **Requires EntitySpaces Studio** above.
-
