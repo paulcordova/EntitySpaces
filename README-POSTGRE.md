@@ -42,6 +42,8 @@ This package provides the PostgreSQL runtime only — it does not generate code.
   No code changes required on your side; the tolerant resolution is applied uniformly to INSERT, UPDATE, DELETE, and server-returned value mapping.
 - **Single-pass RETURNING with `CommandBehavior.SingleRow`** — the reader is closed cleanly after the first row, keeping the connection usable for the next command in the same `esTransactionScope`. Eliminates intermittent `25P02` cascades in hierarchical batches.
 - **StoredProcedure path fully functional** — the provider invokes PostgreSQL functions via `SELECT * FROM "proc_X"(:args)` and reads the returned rowset. See [StoredProcedure Path](#storedprocedure-path) below.
+- **`DELETE` enforces optimistic concurrency** — the generated `proc_<table>Delete` now includes the concurrency column in its signature and `WHERE` clause. A stale `Version` triggers `RAISE EXCEPTION ... USING ERRCODE = 'P0001'`; the provider's `CheckForConcurrencyException` maps `P0001` (with the `esConcurrencyException` message prefix) to `esConcurrencyException`. Same behaviour as MySQL, SQL Server, and Oracle.
+- **`UPDATE` uses `RETURNING` instead of a second `SELECT`** — the dynamic SQL UPDATE path now emits `UPDATE ... SET ... WHERE ... RETURNING ...` as a single statement. Npgsql rejects multiple queries combined with `Output`/`InputOutput` parameters ("Commands with multiple queries cannot have out parameters"), so the previous shape broke the dynamic update path on entities with server-side special columns. The Insert path already used RETURNING; this makes Update consistent.
 - Concurrency exception detection and translation to `esConcurrencyException` (unique/PK violation, serialization failure, deadlock, lock timeout)
 - Automatic `APPLY` → `LATERAL` join translation — write `OuterApply`/`CrossApply` once, get native `LEFT JOIN LATERAL` / `JOIN LATERAL` on PostgreSQL, no code changes needed when switching providers
 - Server version auto-detection, cached per connection string — supports multiple PostgreSQL instances of different versions simultaneously
@@ -58,6 +60,8 @@ This package provides the PostgreSQL runtime only — it does not generate code.
 - **`DEFAULT` columns not explicitly assigned now correctly send `DBNull.Value` instead of `null`** — Npgsql raises a parameter exception on `null`, this is now handled automatically.
 - **Explicit `ROLLBACK` removed from error paths** — the provider no longer issues `ROLLBACK` on enlisted connections. On Npgsql 6+ / `System.Transactions` this could abort the *ambient* transaction, not just the current command. Transaction rollback is now delegated entirely to `esTransactionScope`, which is the correct owner. The previous defensive code was actively harmful.
 - Type resolution corrected to use dual `udt_name` + `data_type` mapping, avoiding mismatches on custom/aliased PostgreSQL types
+- **Dynamic UPDATE failed on entities with server-side special columns** — `BuildDynamicUpdateCommand` appended a second statement after a semicolon to read the server-generated columns back (`UPDATE ...; SELECT "DateModified", "Version" FROM ...`). Npgsql raises `NotSupportedException: Commands with multiple queries cannot have out parameters` when the command carries `Output` / `InputOutput` parameters — which it does, for `DateModified`, `ModifiedBy`, and `Version`. Replaced the `; SELECT ...` suffix with ` RETURNING ...`. The existing `ExecuteInsertCommand` / `MapOutputParameters` path already knew how to read columns back from a returned row, so no other change was required.
+- **`DELETE` on stale `Version` was silently dropping the row** — the generated `proc_XDelete` function accepted only PK columns, so the `WHERE` clause never matched on `Version` and a stale in-memory copy could delete a row updated by another session. Fixed at three levels: the SP template includes the concurrency column in the function signature and `WHERE` clause, the provider's `BuildStoredProcDeleteCommand` sends it as an argument, and the exception translator maps `P0001` to `esConcurrencyException`. The same fix pattern was previously applied to MySQL.
 
 ## ⚠️ Transaction Management
 
@@ -178,10 +182,14 @@ The fixes documented in this README were originally validated against SQL Server
 - Combine() FK propagation and RowState preservation.
 - Transaction scope, rollback, and atomicity.
 - StoredProcedure path — insert, load, update, delete, collection save, optimistic concurrency.
-
+- Optimistic concurrency enforced on both `UPDATE` and `DELETE` through the SP template.
+- Dynamic SQL path uses single-statement `RETURNING` for server-generated columns.
+  
+The SP suite is validated at 27 green tests on two consecutive runs against PostgreSQL 13 and PostgreSQL 17, with no provider-specific behaviour differences.
+  
 ## StoredProcedure Path
 
-The provider invokes PostgreSQL functions via `SELECT * FROM "proc_X"(:args)`, not via `CommandType.StoredProcedure`. Npgsql 7/8 translates `CommandType.StoredProcedure` to `CALL`, which PostgreSQL rejects with SQLSTATE 42883 when the target is a FUNCTION. The generated procedures use `RETURNS SETOF "<table>"` and `RETURN QUERY SELECT` so the rowset carries the affected row back to the provider.
+The provider invokes PostgreSQL functions via `SELECT * FROM "proc_X"(:args)`, not via `CommandType.StoredProcedure`. Npgsql 7/8 translates `CommandType.StoredProcedure` to `CALL`, which PostgreSQL rejects with SQLSTATE 42883 when the target is a FUNCTION. The generated procedures use `RETURNS SETOF "<table>"` and `RETURN QUERY SELECT` (except `Delete`, which returns void) so the rowset carries the affected row back to the provider.
 
 ### Generating the stored procedures
 
@@ -189,7 +197,9 @@ Run the `PostgreSQL` template in EntitySpaces Studio. It produces one `<table>.s
 
 ### Optimistic concurrency
 
-The generated `proc_XUpdate` increments the EntitySpaces concurrency column and guards the row:
+Both `proc_XUpdate` and `proc_XDelete` enforce the EntitySpaces concurrency column:
+
+**Update** increments and guards the row:
 
 ```sql
 UPDATE "<table>"
@@ -198,6 +208,21 @@ WHERE "id" = p_Id AND "Version" = p_Version;
 ```
 
 A stale `Version` produces 0 affected rows; the function returns no rowset; the provider raises `esConcurrencyException`.
+
+**Delete** guards the row:
+
+```sql
+DELETE FROM "<table>"
+WHERE "id" = p_Id AND "Version" = p_Version;
+
+GET DIAGNOSTICS v_rowcount = ROW_COUNT;
+IF v_rowcount = 0 THEN
+    RAISE EXCEPTION 'esConcurrencyException: stale version on delete'
+        USING ERRCODE = 'P0001';
+END IF;
+```
+
+The provider translates `P0001` (matched by message prefix so unrelated `RAISE` sites are not misclassified) to `esConcurrencyException`. A stale `Version` on DELETE surfaces the same exception type as on UPDATE.
 
 ### Special columns
 
@@ -209,15 +234,21 @@ The provider's SP argument list and the function signature must match. Both are 
 
 - **INSERT**: excludes `IsAutoIncrement`, `IsComputed`, special columns.
 - **UPDATE**: excludes `IsComputed`, special columns.
-- **DELETE**: includes only PK columns.
+- **DELETE**: includes PK columns plus the EntitySpaces concurrency column.
 
 If you extend the SP template or the provider, keep both sides in sync. A signature mismatch produces `42883` at runtime.
 
 ### Known limitations
 
 - The template matches special columns by hardcoded name (`DateAdded`, `DateModified`, `AddedBy`, `ModifiedBy`) and the concurrency column by heuristic name (`Version`, `RowVersion`, `VersionNumber`). The Studio metadata engine does not expose these configs to templates. Renamed special or concurrency columns require extending the template.
-- `DROP FUNCTION IF EXISTS "name"(<types>)` only matches a function whose signature matches exactly. Changing the signature between generations leaves the old overload in the database. Clean up stale overloads manually before applying a regenerated `PostgreSQL_ALL.sql`.
-- Optimistic concurrency is not enforced on DELETE. The generated `proc_XDelete` takes only PK columns; a stale version on DELETE does not produce an `esConcurrencyException`.
+- `DROP FUNCTION IF EXISTS "name"(<types>)` only matches a function whose signature matches exactly. When a template change alters the signature (for example the DELETE signature now includes the concurrency column), the old overload remains in the database and the new one is created alongside it. Clean up stale overloads before applying a regenerated `PostgreSQL_ALL.sql`:
+
+  ```sql
+  DROP FUNCTION IF EXISTS "proc_invoiceDelete"(int);
+  DROP FUNCTION IF EXISTS "proc_invoicedetailDelete"(int);
+  ```
+
+  Skipping this step causes `42883` (function does not exist) or `42725` (ambiguous function call) at runtime.
 
 ## Dependency Updates
 
