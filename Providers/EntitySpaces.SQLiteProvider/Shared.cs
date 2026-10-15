@@ -60,7 +60,7 @@ namespace EntitySpaces.SQLiteProvider
             esColumnMetadataCollection cols = request.Columns;
             foreach (esColumnMetadata col in cols)
             {
-                bool isModified = packet.ModifiedColumns == null ? false : packet.ModifiedColumns.Contains(col.Name);
+                bool isModified = IsColumnModified(packet, col);
 
                 if (isModified && (!col.IsAutoIncrement && !col.IsConcurrency && !col.IsEntitySpacesConcurrency))
                 {
@@ -79,8 +79,8 @@ namespace EntitySpaces.SQLiteProvider
                     // because the row was inserted with a caller-supplied identity value.
                     // When no explicit value is provided, omit the column so SQLite generates
                     // the next rowid automatically and we retrieve it via last_insert_rowid().
-                    bool hasExplicitPkValue = packet.ModifiedColumns != null &&
-                                             packet.ModifiedColumns.Contains(col.Name);
+                    bool hasExplicitPkValue = IsColumnModified(packet, col);
+
                     if (hasExplicitPkValue)
                     {
                         // Insert with caller-supplied PK — no auto-increment retrieval needed
@@ -228,7 +228,7 @@ namespace EntitySpaces.SQLiteProvider
             esColumnMetadataCollection cols = request.Columns;
             foreach (esColumnMetadata col in cols)
             {
-                bool isModified = packet.ModifiedColumns == null ? false : packet.ModifiedColumns.Contains(col.Name);
+                bool isModified = IsColumnModified(packet, col);
 
                 if (isModified && (!col.IsAutoIncrement && !col.IsConcurrency && !col.IsEntitySpacesConcurrency))
                 {
@@ -532,5 +532,106 @@ namespace EntitySpaces.SQLiteProvider
                 }
             }
         }
-    }
+
+        // ======================================================================
+        // [NEW] Tolerant column/property name resolution.
+        //
+        // The Studio-generated ApplyPostSaveKeys calls SetProperty with the
+        // property name ("Invoiceid"), which writes into ModifiedColumns and
+        // CurrentValues under that key. The provider's SQL builders and the
+        // adapter-based SetModifiedValues / SetOriginalValues helpers must
+        // recognize both the DB column name ("invoiceid") and the generated
+        // property name when they diverge.
+        //
+        // On models where column name and property name coincide (the rest of
+        // the Northwind schema, all SQL Server cases), these helpers are no-ops.
+        // ======================================================================
+
+        /// <summary>
+        /// True if the column is present in ModifiedColumns under either the
+        /// DB column name or the EntitySpaces property name.
+        /// </summary>
+        static private bool IsColumnModified(esEntitySavePacket packet, esColumnMetadata col)
+        {
+            if (packet.ModifiedColumns == null) return false;
+            if (packet.ModifiedColumns.Contains(col.Name)) return true;
+            if (!string.IsNullOrEmpty(col.PropertyName) &&
+                packet.ModifiedColumns.Contains(col.PropertyName)) return true;
+            return false;
+        }
+
+        /// <summary>
+        /// Reads a column value from CurrentValues, accepting either the DB
+        /// column name or the property name. Checks the value slot (not just
+        /// ContainsKey) because esSmartDictionary registers all column names
+        /// and returns null for unassigned ones.
+        /// </summary>
+        static private object GetCurrentValue(esEntitySavePacket packet, esColumnMetadata col)
+        {
+            object byColumn = null;
+            if (packet.CurrentValues.ContainsKey(col.Name))
+                byColumn = packet.CurrentValues[col.Name];
+
+            if (byColumn != null && byColumn != DBNull.Value)
+                return byColumn;
+
+            if (!string.IsNullOrEmpty(col.PropertyName) &&
+                packet.CurrentValues.ContainsKey(col.PropertyName))
+            {
+                object byProperty = packet.CurrentValues[col.PropertyName];
+                if (byProperty != null && byProperty != DBNull.Value)
+                    return byProperty;
+            }
+
+            return byColumn;
+        }
+
+        /// <summary>
+        /// Same as GetCurrentValue, applied to OriginalValues.
+        /// </summary>
+        static private object GetOriginalValue(esEntitySavePacket packet, esColumnMetadata col)
+        {
+            if (packet.OriginalValues == null) return null;
+
+            object byColumn = null;
+            if (packet.OriginalValues.ContainsKey(col.Name))
+                byColumn = packet.OriginalValues[col.Name];
+
+            if (byColumn != null && byColumn != DBNull.Value)
+                return byColumn;
+
+            if (!string.IsNullOrEmpty(col.PropertyName) &&
+                packet.OriginalValues.ContainsKey(col.PropertyName))
+            {
+                object byProperty = packet.OriginalValues[col.PropertyName];
+                if (byProperty != null && byProperty != DBNull.Value)
+                    return byProperty;
+            }
+
+            return byColumn;
+        }
+
+        /// <summary>
+        /// Finds an esColumnMetadata by either the DB column name or the
+        /// property name. Used to resolve entries in ModifiedColumns that were
+        /// keyed by property name.
+        /// </summary>
+        static public esColumnMetadata FindColumnByEitherName(esColumnMetadataCollection columns, string name)
+        {
+            if (columns == null || string.IsNullOrEmpty(name)) return null;
+
+            var byColumn = columns.FindByColumnName(name);
+            if (byColumn != null) return byColumn;
+
+            foreach (esColumnMetadata c in columns)
+            {
+                if (!string.IsNullOrEmpty(c.PropertyName) &&
+                    string.Equals(c.PropertyName, name, StringComparison.Ordinal))
+                    return c;
+            }
+
+            return null;
+        }
+
+    } // end class
 }
