@@ -1665,19 +1665,37 @@ namespace EntitySpaces.SQLiteProvider
             return dataTable;
         }
 
-        static void SetOriginalValues(esDataRequest request, esEntitySavePacket packet, DataRow row, bool primaryKeysAndConcurrencyOnly)
+        static void SetOriginalValues(esDataRequest request, esEntitySavePacket packet,
+     DataRow row, bool primaryKeysAndConcurrencyOnly)
         {
             foreach (esColumnMetadata col in request.Columns)
             {
                 if (primaryKeysAndConcurrencyOnly &&
-                    (!col.IsInPrimaryKey && !col.IsConcurrency && !col.IsEntitySpacesConcurrency)) continue;
+                    (!col.IsInPrimaryKey && !col.IsConcurrency && !col.IsEntitySpacesConcurrency))
+                    continue;
 
-                string columnName = col.Name;
+                object value = null;
+                bool hasValue = false;
 
-                if (packet.OriginalValues.ContainsKey(columnName))
+                if (packet.OriginalValues.ContainsKey(col.Name))
                 {
-                    row[columnName] = packet.OriginalValues[columnName];
+                    value = packet.OriginalValues[col.Name];
+                    hasValue = true;
                 }
+
+                // Fall back to the property-name slot when the column-name slot
+                // is empty. ApplyPostSaveKeys and SetProperty write under the
+                // property name when the two diverge.
+                if ((!hasValue || value == null || value == DBNull.Value) &&
+                    !string.IsNullOrEmpty(col.PropertyName) &&
+                    packet.OriginalValues.ContainsKey(col.PropertyName))
+                {
+                    value = packet.OriginalValues[col.PropertyName];
+                    hasValue = true;
+                }
+
+                if (hasValue)
+                    row[col.Name] = value ?? (object)DBNull.Value;
             }
         }
 
@@ -1685,10 +1703,24 @@ namespace EntitySpaces.SQLiteProvider
         {
             foreach (string column in packet.ModifiedColumns)
             {
-                if (request.Columns.FindByColumnName(column) != null)
-                {
-                    row[column] = packet.CurrentValues[column];
-                }
+                // Resolve the modified-column key to its metadata. The key may
+                // be the DB column name ("Invoice_ID") or the generated property
+                // name ("InvoiceID"). Case-insensitive lookup alone is not enough
+                // when the two diverge by a non-case character (e.g. underscore).
+                esColumnMetadata col = Shared.FindColumnByEitherName(request.Columns, column);
+                if (col == null) continue;
+
+                object value = null;
+                if (packet.CurrentValues.ContainsKey(col.Name))
+                    value = packet.CurrentValues[col.Name];
+                if ((value == null || value == DBNull.Value) &&
+                    !string.IsNullOrEmpty(col.PropertyName) &&
+                    packet.CurrentValues.ContainsKey(col.PropertyName))
+                    value = packet.CurrentValues[col.PropertyName];
+
+                // Write under the canonical DB column name so the adapter's
+                // SourceColumn-based lookup finds it.
+                row[col.Name] = value ?? (object)DBNull.Value;
             }
         }
 
@@ -1851,5 +1883,39 @@ namespace EntitySpaces.SQLiteProvider
             }
             catch { }
         }
-    }
+
+        // ======================================================================
+        // Mirrors any value stored under a column name to its corresponding
+        // property name, and vice versa, for every column where the two diverge.
+        // Called after every successful INSERT/UPDATE so entity getters and the
+        // hierarchical PostSave propagation both see the value.
+        //
+        // esEntitySavePacket is a struct, so no null-check on `packet` itself.
+        // Its CurrentValues reference may still be null on a first pass, so
+        // that one is guarded.
+        // ======================================================================
+        static private void SyncCurrentValuesKeys(esDataRequest request, esEntitySavePacket packet)
+        {
+            if (request == null || request.Columns == null) return;
+            if (packet.CurrentValues == null) return;
+
+            foreach (esColumnMetadata col in request.Columns)
+            {
+                if (string.IsNullOrEmpty(col.PropertyName)) continue;
+                if (string.Equals(col.Name, col.PropertyName, StringComparison.Ordinal)) continue;
+
+                object colVal = packet.CurrentValues.ContainsKey(col.Name)
+                    ? packet.CurrentValues[col.Name] : null;
+                object propVal = packet.CurrentValues.ContainsKey(col.PropertyName)
+                    ? packet.CurrentValues[col.PropertyName] : null;
+
+                bool colHas = colVal != null && colVal != DBNull.Value;
+                bool propHas = propVal != null && propVal != DBNull.Value;
+
+                if (colHas && !propHas) packet.CurrentValues[col.PropertyName] = colVal;
+                else if (propHas && !colHas) packet.CurrentValues[col.Name] = propVal;
+            }
+        }
+
+    } // end class
 }
