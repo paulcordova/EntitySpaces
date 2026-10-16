@@ -140,42 +140,36 @@ namespace EntitySpaces.SQLiteProvider
             }
 
             #region Special Columns
+            // [FIX-PHASE-4] Server-side special columns are excluded from the INSERT
+            // column list. The ProviderMetadata["X.ServerSideText"] value is the
+            // bareword column name (e.g. "DateAdded"), which SQLite resolves in a
+            // VALUES context as a column reference and rejects with
+            // "no such column: DateAdded".
+            //
+            // The DB DEFAULT fills these columns on INSERT. Their generated values
+            // are fetched back through the Defaults mechanism in OnRowUpdated,
+            // which runs a SELECT against the just-inserted row. This mirrors the
+            // pattern already applied in the PostgreSQL and SQL Server providers.
             if (cols.DateAdded != null && cols.DateAdded.IsServerSide)
             {
-                into += comma + Delimiters.ColumnOpen + cols.DateAdded.ColumnName + Delimiters.ColumnClose;
-                values += comma + request.ProviderMetadata["DateAdded.ServerSideText"];
-                comma = ", ";
-
                 defaults += defaultComma + Delimiters.ColumnOpen + cols.DateAdded.ColumnName + Delimiters.ColumnClose;
                 defaultComma = ",";
             }
 
             if (cols.DateModified != null && cols.DateModified.IsServerSide)
             {
-                into += comma + Delimiters.ColumnOpen + cols.DateModified.ColumnName + Delimiters.ColumnClose;
-                values += comma + request.ProviderMetadata["DateModified.ServerSideText"];
-                comma = ", ";
-
                 defaults += defaultComma + Delimiters.ColumnOpen + cols.DateModified.ColumnName + Delimiters.ColumnClose;
                 defaultComma = ",";
             }
 
             if (cols.AddedBy != null && cols.AddedBy.IsServerSide)
             {
-                into += comma + Delimiters.ColumnOpen + cols.AddedBy.ColumnName + Delimiters.ColumnClose;
-                values += comma + request.ProviderMetadata["AddedBy.ServerSideText"];
-                comma = ", ";
-
                 defaults += defaultComma + Delimiters.ColumnOpen + cols.AddedBy.ColumnName + Delimiters.ColumnClose;
                 defaultComma = ",";
             }
 
             if (cols.ModifiedBy != null && cols.ModifiedBy.IsServerSide)
             {
-                into += comma + Delimiters.ColumnOpen + cols.ModifiedBy.ColumnName + Delimiters.ColumnClose;
-                values += comma + request.ProviderMetadata["ModifiedBy.ServerSideText"];
-                comma = ", ";
-
                 defaults += defaultComma + Delimiters.ColumnOpen + cols.ModifiedBy.ColumnName + Delimiters.ColumnClose;
                 defaultComma = ",";
             }
@@ -302,22 +296,24 @@ namespace EntitySpaces.SQLiteProvider
             }
 
             #region Special Columns
+            // [FIX-PHASE-4] Server-side special columns are not emitted in the SET
+            // clause. The ProviderMetadata["X.ServerSideText"] value is the bareword
+            // column name, producing "[DateModified] = DateModified", which is
+            // either a no-op (SQLite without a trigger) or a syntax error
+            // (PostgreSQL without a quoted identifier).
+            //
+            // DateAdded and AddedBy are never touched by an UPDATE. DateModified
+            // and ModifiedBy are read back through the Defaults mechanism after
+            // the UPDATE completes. This mirrors the pattern already applied in
+            // the PostgreSQL and SQL Server providers.
             if (cols.DateModified != null && cols.DateModified.IsServerSide)
             {
-                sql += scomma;
-                sql += Delimiters.ColumnOpen + cols.DateModified.ColumnName + Delimiters.ColumnClose + " = " + request.ProviderMetadata["DateModified.ServerSideText"];
-                scomma = ", ";
-
                 defaults += defaultsComma + Delimiters.ColumnOpen + cols.DateModified.ColumnName + Delimiters.ColumnClose;
                 defaultsComma = ",";
             }
 
             if (cols.ModifiedBy != null && cols.ModifiedBy.IsServerSide)
             {
-                sql += scomma;
-                sql += Delimiters.ColumnOpen + cols.ModifiedBy.ColumnName + Delimiters.ColumnClose + " = " + request.ProviderMetadata["ModifiedBy.ServerSideText"];
-                scomma = ", ";
-
                 defaults += defaultsComma + Delimiters.ColumnOpen + cols.ModifiedBy.ColumnName + Delimiters.ColumnClose;
                 defaultsComma = ",";
             }
