@@ -206,7 +206,10 @@ namespace EntitySpaces.MySQLProvider
             }
             else
             {
-                sql += "DEFAULT VALUES";
+                // MySQL/MariaDB do not support the standard "DEFAULT VALUES"
+                // syntax (valid on SQL Server and PostgreSQL). The empty
+                // column/value list achieves the same result.
+                sql += "() VALUES ()";
             }
 
             request.Properties = props;
