@@ -363,6 +363,66 @@ EntitySpaces generates class metadata (`meta.Source`, `meta.Destination`) using 
 | MySQL on Windows | Case-insensitive | No special action needed |
 | MariaDB (all) | Case-insensitive | No special action needed |
 
+
+## ⚠️ Known Limitations
+
+### `IsComputed` columns with a generic DEFAULT do not receive the value in-memory
+
+The DynamicSQL path omits `IsComputed` columns from the INSERT (correct,
+the DB DEFAULT should fill them), but it also skips the read-back for
+those columns (the provider's `IsComputed` branch runs before the
+`HasDefault` branch in `BuildDynamicInsertCommand`).
+
+Concrete consequence: a column declared as
+
+```sql
+`createdat` DATETIME NULL DEFAULT CURRENT_TIMESTAMP
+```
+
+that is **not** one of the four special column names (`DateAdded`,
+`DateModified`, `AddedBy`, `ModifiedBy`) behaves like this after
+`Save()`:
+
+| Observation | Value |
+|---|---|
+| Row in the database | ✅ Default applied correctly |
+| `SELECT` from any client | ✅ Returns the expected value |
+| `entity.Createdat` immediately after Save | ❌ Returns `null` |
+| `entity.Createdat` after `LoadByPrimaryKey` | ✅ Returns the expected value |
+
+This is not a data-loss bug. The database is correct. Only the in-memory
+convenience (immediate availability of the server-generated value) is
+missing.
+
+### Workarounds
+
+If the value must be available on the entity immediately after `Save()`:
+
+1. **Use a special column name.** Columns named `DateAdded` or
+   `DateModified` are handled by a dedicated read-back branch and the
+   value comes back immediately.
+2. **Set the value client-side before Save.** If the timestamp has
+   business meaning independent of insertion time, compute it in the
+   application.
+3. **Reload after Save.** `entity.LoadByPrimaryKey(entity.Id)` retrieves
+   the correct value.
+
+### Tracked as future work
+
+A provider-level fix would re-order the `IsComputed` and `HasDefault`
+branches in `BuildDynamicInsertCommand` so that `HasDefault` columns
+reach the `Defaults` bag even when `IsComputed` is also true. This is
+deferred because `DateAdded` / `DateModified` would then receive two
+read-backs (one from `Defaults`, one from the special-columns branch),
+requiring a guard to avoid the duplicate.
+
+The long-term fix belongs in the BO generator (Studio): stop classifying
+plain `DEFAULT` columns as `IsComputed` when they are not one of the
+four special columns. That change has broader implications for the
+existing `DateAdded` / `DateModified` handling and is out of scope for
+the current release.
+
+
 ## Dependency Updates
 
 - **MySqlConnector 2.6.2** — migrated from the legacy `MySql.Data` driver. `MySqlConnector` is the actively maintained, .NET-8+-first ADO.NET provider for MySQL/MariaDB. Both drivers are wire-compatible, but `MySqlConnector` has:
