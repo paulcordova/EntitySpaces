@@ -119,12 +119,12 @@ Copyright © 2026 Paul Córdova.</Copyright>
   <ItemGroup Condition="'$(TargetFramework)' == 'net48'">
 	 <Reference Include="Microsoft.CSharp" />
 	 <Reference Include="System.Configuration" />
-	 <PackageReference Include="Npgsql" Version="8.0.8" />
+	 <PackageReference Include="Npgsql" Version="8.0.9" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(TargetFramework)' != 'net48'">
 	  <PackageReference Include="Npgsql" Version="10.0.3" />
-	  <PackageReference Include="System.Configuration.ConfigurationManager" Version="10.0.12" />
+	  <PackageReference Include="System.Configuration.ConfigurationManager" Version="10.0.13" />
   </ItemGroup>
 
 
