@@ -1,5 +1,6 @@
 <Project>
   <PropertyGroup>
+	<CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
     <Version>2026.09</Version>
     <AssemblyVersion>2026.9.0.0</AssemblyVersion>
@@ -7,13 +8,13 @@
 
   <ItemGroup>
     <!-- Proveedores de Bases de Datos -->
-    <PackageVersion Include="Microsoft.Data.SqlClient" Version="7.1.0" />
+    <PackageVersion Include="Microsoft.Data.SqlClient" Version="7.1.1" />
     <PackageVersion Include="MySqlConnector" Version="2.6.2" />
     <PackageVersion Include="Npgsql" Version="10.0.3" />
-    <PackageVersion Include="Oracle.ManagedDataAccess.Core" Version="23.26.301" />
+    <PackageVersion Include="Oracle.ManagedDataAccess.Core" Version="23.26.400" />
     <PackageVersion Include="FirebirdSql.Data.FirebirdClient" Version="10.3.4" />
     <PackageVersion Include="System.Data.SQLite.Core" Version="1.0.119" />
-    <PackageVersion Include="System.Data.OleDb" Version="10.0.12" />
+    <PackageVersion Include="System.Data.OleDb" Version="10.0.13" />
 
     <!-- Compilación Dinámica con Roslyn -->
     <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="5.9.0" />
@@ -24,10 +25,11 @@
     <PackageVersion Include="WeifenLuo.WinFormsUI.Docking" Version="2.1.0" />
 
     <!-- Infraestructura y Extensiones de .NET -->
-    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.12" />
-    <PackageVersion Include="System.Configuration.ConfigurationManager" Version="10.0.12" />
-    <PackageVersion Include="System.Diagnostics.DiagnosticSource" Version="10.0.12" />
-    <PackageVersion Include="System.Management" Version="10.0.12" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.13" />
+    <PackageVersion Include="System.Configuration.ConfigurationManager" Version="10.0.13" />
+    <PackageVersion Include="System.Diagnostics.DiagnosticSource" Version="10.0.13" />
+    <PackageVersion Include="System.Management" Version="10.0.13" />
+	<PackageVersion Include="System.Security.Cryptography.Pkcs" Version="10.0.13" />
 
     <!-- Interop y Extensibilidad de Visual Studio -->
     <PackageVersion Include="EnvDTE" Version="16.7.30328.74" />
