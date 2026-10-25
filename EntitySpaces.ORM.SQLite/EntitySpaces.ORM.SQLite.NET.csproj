@@ -117,7 +117,7 @@ Copyright © 2026 Paul Córdova.</Copyright>
   </ItemGroup>
 	
 	<ItemGroup>
-	  <PackageReference Include="System.Data.SQLite.Core" Version="1.0.119" />
+	  <PackageReference Include="System.Data.SQLite.Core"  />
 	</ItemGroup>
 	
 	<ItemGroup Condition="'$(TargetFramework)' == 'net48'">
@@ -126,7 +126,7 @@ Copyright © 2026 Paul Córdova.</Copyright>
 	</ItemGroup>
 
 	<ItemGroup Condition="'$(TargetFramework)' != 'net48'">
-		<PackageReference Include="System.Configuration.ConfigurationManager" Version="10.0.13" />
+		<PackageReference Include="System.Configuration.ConfigurationManager"  />
 	</ItemGroup>
 
 	<ItemGroup>

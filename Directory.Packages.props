@@ -1,0 +1,24 @@
+<Project>
+  <PropertyGroup>
+    <!-- Habilitar la gestión centralizada de paquetes -->
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <!-- Elevar automáticamente dependencias transitivas vulnerables a la versión centralizada -->
+    <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Proveedores de Bases de Datos -->
+    <PackageVersion Include="Microsoft.Data.SqlClient" Version="7.1.1" />
+    <PackageVersion Include="MySqlConnector" Version="2.6.2" />
+    <PackageVersion Include="Npgsql" Version="10.0.3" />
+    <PackageVersion Include="Oracle.ManagedDataAccess" Version="23.26.400" />
+    <PackageVersion Include="Oracle.ManagedDataAccess.Core" Version="23.26.400" />
+    <PackageVersion Include="System.Data.SQLite.Core" Version="1.0.119" />
+
+    <!-- Infraestructura y Configuración de .NET -->
+    <PackageVersion Include="System.Configuration.ConfigurationManager" Version="10.0.13" />
+
+    <!-- Corrección Centralizada de la Vulnerabilidad Transitiva (Pkcs) -->
+    <PackageVersion Include="System.Security.Cryptography.Pkcs" Version="10.0.13" />
+  </ItemGroup>
+</Project>

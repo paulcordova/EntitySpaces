@@ -127,12 +127,12 @@ Copyright © 2026 Paul Córdova.</Copyright>
 	<ItemGroup Condition="'$(TargetFramework)' == 'net48'">
 		<Reference Include="Microsoft.CSharp" />
 		<Reference Include="System.Configuration" />
-		<PackageReference Include="Microsoft.Data.SqlClient" Version="7.1.1" />
+		<PackageReference Include="Microsoft.Data.SqlClient"  />
 	</ItemGroup>
 	
 	<ItemGroup Condition="'$(TargetFramework)' != 'net48'">
-		<PackageReference Include="System.Configuration.ConfigurationManager" Version="10.0.13" />
-		<PackageReference Include="Microsoft.Data.SqlClient" Version="7.1.1" />
+		<PackageReference Include="System.Configuration.ConfigurationManager"  />
+		<PackageReference Include="Microsoft.Data.SqlClient"  />
 	</ItemGroup>
 
   <ItemGroup>
