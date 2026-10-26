@@ -62,6 +62,35 @@ This package provides the PostgreSQL runtime only — it does not generate code.
 - Type resolution corrected to use dual `udt_name` + `data_type` mapping, avoiding mismatches on custom/aliased PostgreSQL types
 - **Dynamic UPDATE failed on entities with server-side special columns** — `BuildDynamicUpdateCommand` appended a second statement after a semicolon to read the server-generated columns back (`UPDATE ...; SELECT "DateModified", "Version" FROM ...`). Npgsql raises `NotSupportedException: Commands with multiple queries cannot have out parameters` when the command carries `Output` / `InputOutput` parameters — which it does, for `DateModified`, `ModifiedBy`, and `Version`. Replaced the `; SELECT ...` suffix with ` RETURNING ...`. The existing `ExecuteInsertCommand` / `MapOutputParameters` path already knew how to read columns back from a returned row, so no other change was required.
 - **`DELETE` on stale `Version` was silently dropping the row** — the generated `proc_XDelete` function accepted only PK columns, so the `WHERE` clause never matched on `Version` and a stale in-memory copy could delete a row updated by another session. Fixed at three levels: the SP template includes the concurrency column in the function signature and `WHERE` clause, the provider's `BuildStoredProcDeleteCommand` sends it as an argument, and the exception translator maps `P0001` to `esConcurrencyException`. The same fix pattern was previously applied to MySQL.
+- **Dynamic INSERT on tables with user-settable `IsConcurrency` columns** — PostgreSQL `IsConcurrency` columns are nullable timestamps (`invoicedate`, `paidat`, `duedate`, ...), not server-generated `rowversion` like on SQL Server. The provider now (a) binds `DBNull.Value` when the user did not assign a value (Npgsql rejects `null` on `InputOutput` parameters with `InvalidOperationException: Parameter ':X' cannot be null, DBNull.Value should be used instead`), and (b) includes the column in the INSERT `VALUES` list when the user *did* assign a value — previously `NOT NULL` concurrency columns like `billing_invoice.invoicedate` were silently omitted and rejected by the server with `SQLSTATE 23502`. `RETURNING` refreshes the value into `CurrentValues` in both cases.
+- **`MapOutputParameters` no longer NREs on empty `CurrentValues`** — the previous implementation iterated `esSmartDictionary.Keys` to match parameters to columns by normalized name. `Keys` throws `NullReferenceException` when the internal dictionary has never been written to — the exact state of an `Added` entity with no user-assigned properties (e.g. an empty `billing_defaults_probe` inserted via `INSERT ... DEFAULT VALUES RETURNING ...`). `ContainsKey` was null-safe; `Keys` is not. Replaced the `Keys` iteration with metadata lookup (`columns.FindByColumnName`) and dual-slot writes (column name + property name), mirroring what `MapReaderRowToCurrentValues` already does on the SP path. No `Keys` access, no NRE.
+- **Dynamic UPDATE on tables with `IsConcurrency` columns** — three defects in the same branch of `BuildDynamicUpdateCommand`:
+  1. **Parameter value never set** — same class of bug as the INSERT path. Npgsql rejects `InputOutput` parameters with `null` before the SQL reaches the server.
+  2. **No `AND` separator between concurrency `WHERE` clauses** — `conncur` was concatenated with `+=` and no separator. One concurrency column produced valid SQL; two or more produced `... @p4"col5" IS NOT DISTINCT FROM @p5 ...` (syntax error). `billing_invoice` has **six** `IsConcurrency` columns. This bug was **pre-existing** in the provider, not introduced by the Billing port — it had never been surfaced because the Northwind metadata has exactly one `IsConcurrency` column.
+  3. **`= @p` with `@p = NULL` never matches** in SQL. PostgreSQL timestamps on concurrency columns are `NULL` in the common case (`duedate`, `lastreminderat`, `invoicefrommonth`, ...), so the default path hit zero rows and threw a spurious `esConcurrencyException` on a single-user, same-session flow. Replaced with `IS NOT DISTINCT FROM` (NULL-safe equality, PG 8.2+).
+
+  The combined fix binds the original value with `DBNull.Value` fallback, sets `Direction = Input` (the `WHERE` value is the original — the DB does not modify it, nothing to read back), uses `IS NOT DISTINCT FROM`, and threads a local `conncurAnd` separator through the loop. `SourceVersion = DataRowVersion.Original` was removed (no-op on raw `NpgsqlCommand`, only effective via `NpgsqlDataAdapter`).
+- **`IsEntitySpacesConcurrency` UPDATE branch fixed preemptively** — latent, not exercised by any Billing table (`billing_*` uses `IsConcurrency` timestamps, not `IsEntitySpacesConcurrency`). The same class of defect existed in `BuildDynamicUpdateCommand`: `scomma` was not updated after emitting the `SET` clause (a subsequent modified column concatenated without a comma), the `WHERE` clause was concatenated without the `AND` separator (same bug as above), and `p.Value` was not guarded for null. Applied preemptively; a new BO using `IsEntitySpacesConcurrency` should be validated against the same scenarios as `Billing02` (see `Known Limitations` below).
+
+## ⚠️ Known Limitations
+
+### Dynamic UPDATE does not persist changes to `IsConcurrency` columns
+
+`BuildDynamicUpdateCommand`'s first branch excludes `IsConcurrency` from the `SET` clause:
+
+```csharp
+if (isModified && (!col.IsAutoIncrement && !col.IsConcurrency && !col.IsEntitySpacesConcurrency))
+{
+    // add to SET
+}
+```
+
+Consequence: if the application modifies `invoicedate`, `duedate`, or any other `IsConcurrency` column on a loaded entity, the change is **silently discarded**. If the *only* modification is an `IsConcurrency` column, the `SET` clause is empty and the generated SQL is syntactically invalid.
+
+Not exercised by the Billing test suite (the tests modify `invoicenumber`, `total`, `ispaid`, `paymentid` — never a concurrency column). Deferred to the next cycle; the fix requires two parameters per concurrency column (one for `SET` with `CurrentValues`, one for `WHERE` with `OriginalValues`) plus corresponding handling in `MapOutputParameters`.
+
+
+**Workaround:** assign the column's new value via a raw `UPDATE` if needed.
 
 ## ⚠️ Transaction Management
 
@@ -152,7 +181,7 @@ FK propagation from parent to child works identically for auto-increment PKs and
 - **User-supplied parent** — `Customers.CustomerId` (`VARCHAR(5)`, no identity): the parent PK is already known before the INSERT, so the FK is available immediately and the parent-child ordering is still preserved for referential integrity.
 - **Explicit value on IDENTITY parent** — `Orders.OrderId` assigned explicitly by the application: PostgreSQL accepts the explicit value on `GENERATED BY DEFAULT AS IDENTITY`; the provider routes it as `InputOutput` and includes it in `RETURNING`, and the FK is propagated the same way.
 
-Both paths are exercised by the test suite against PostgreSQL 13 and 17, covering all five save patterns: persist-then-add, save-together, `AddNew()`, child-initiated via `UpTo`, and collection-initiated via `collection.Save()`.
+Both paths are exercised by the test suite against PostgreSQL 17 and 18, covering all five save patterns: persist-then-add, save-together, `AddNew()`, child-initiated via `UpTo`, and collection-initiated via `collection.Save()`.
 
 
 > **⚠️ Do not use bidirectional linking.** Setting both `parent.Children.Add(child)` **and** `child.UpToParent = parent` causes infinite recursion between the parent and child navigation properties. In practice this manifests as a hang or a `StackOverflowException` depending on the runtime. This is a limitation of the current EntitySpaces Core, not of this provider. Use one direction — the collection when saving from the parent, or `UpTo` when saving from the child.
@@ -174,7 +203,7 @@ target.Save();   // FK is written and persisted
 
 ### Cross-provider parity
 
-The fixes documented in this README were originally validated against SQL Server and ported to PostgreSQL without provider-specific changes. The following behaviours are now validated against both PostgreSQL 13 and PostgreSQL 17:
+The fixes documented in this README were originally validated against SQL Server and ported to PostgreSQL without provider-specific changes. The following behaviours are now validated against both PostgreSQL 17 and PostgreSQL 18:
 
 - Hierarchical save for identity and non-identity parent PKs.
 - FK propagation across all five save patterns.
@@ -184,8 +213,11 @@ The fixes documented in this README were originally validated against SQL Server
 - StoredProcedure path — insert, load, update, delete, collection save, optimistic concurrency.
 - Optimistic concurrency enforced on both `UPDATE` and `DELETE` through the SP template.
 - Dynamic SQL path uses single-statement `RETURNING` for server-generated columns.
+- Concurrency columns (`IsConcurrency` timestamps) handled correctly on both INSERT and UPDATE, including multiple concurrency columns per table (up to six on `billing_invoice`).
   
-The SP suite is validated at 27 green tests on two consecutive runs against PostgreSQL 13 and PostgreSQL 17, with no provider-specific behaviour differences.
+The SP suite is validated at 159 green tests on two consecutive runs against PostgreSQL 17 and PostgreSQL 18, with no provider-specific behaviour differences.
+
+The Billing domain test suite (ported from SQL Server) adds **42 tests** — Billing00–Billing06 (35 ported) plus Billing08 (7 additional: 6 green + 1 `[Ignore]`d for the known limitation documented above) — all validated against **PostgreSQL 17.11.0** and **PostgreSQL 18.6.0**, with the pre-existing Northwind suite still green.
   
 ## StoredProcedure Path
 
