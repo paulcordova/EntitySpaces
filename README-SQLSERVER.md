@@ -34,36 +34,79 @@ This package provides the SQL Server runtime only — it does not generate code.
 ## New Features
 
 - Concurrency exception detection covering the full set of SQL Server runtime errors (timestamp/rowversion mismatch, CHECK/FK violation, deadlock, lock timeout, unique/PK violation), all translated to `esConcurrencyException`
-- Connection pool safety — `hasError` flag + conditional rollback in `finally`, preventing broken-transaction connections from being reused
-- Unified `OUTPUT INSERTED...INTO @output_vals` pattern — retrieves Identity, Computed, Concurrency (`rowversion`/`timestamp`), Defaults (`GETDATE()`, etc.), `newsequentialid()`, and special columns in a single round-trip
+- Connection pool safety — `hasError` flag drives best-effort cleanup and the connection is closed cleanly before returning to the pool. No explicit `ROLLBACK` is issued from the provider — see the Transaction Semantics section and the Fixes entry about the defensive ROLLBACK removal.
+- Unified `OUTPUT INSERTED...INTO @output_vals` pattern — retrieves Identity, Computed, Concurrency (`rowversion`/`timestamp`), Defaults (`GETDATE()`, etc.), `newsequentialid()`, and special columns in a single round-trip. 
 - `SET XACT_ABORT ON` on all generated INSERT/UPDATE/DELETE statements, ensuring consistent transaction abort behavior on any runtime error
 - Server version auto-detection, cached per connection string — `conn.DatabaseVersion` is now optional
 - Studio metadata engine now extracts `sys.columns.is_computed`, precision/scale/max_length, and `rowversion`/`timestamp` concurrency detection
 - Metadata-aware column/property name resolution in dynamic INSERT/UPDATE/DELETE generation — the provider now accepts both the canonical DB column name (`invoiceid`) and the EntitySpaces property name (`Invoiceid`) when matching modified columns and reading values. On SQL Server both names usually coincide in the current schema, but the new form is robust to case-sensitive collations and to any future schema divergence. Aligned with the pattern in the PostgreSQL and MySQL providers.
 - Hierarchical save now propagates a **user-supplied parent PK** to child FKs across all three construction patterns: `parent.Collection.Add(child)`, `parent.Collection.AddNew()`, and direct `Collection.Save()` calls. Previously, only auto-generated parent PKs (e.g. `Orders.OrderID` with `IDENTITY`) propagated reliably; parents with user-supplied keys (e.g. `Customers.CustomerID` of type `NCHAR(5)`) required an explicit FK assignment on each child. Aligned cross-provider.
+- `OUTPUT INSERTED` is now emitted for the `DEFAULT VALUES` branch of `BuildDynamicInsertCommand`. When an entity is empty (every column is nullable or has a DDL default) but the table has server-generated columns (IDENTITY, HasDefault, Computed, Concurrency), the generated INSERT now carries `OUTPUT INSERTED...INTO @output_vals DEFAULT VALUES` so the IDENTITY id and any default-based read-back columns populate the entity after `Save()`.  
 
 ## Fixes
 
 - Corrected `IsComputed` metadata — no longer mis-identifies `timestamp` columns as computed
+
 - Error 547 (CHECK/FK violation) now reads the constraint name from `SqlError.Message` instead of `SqlException.Message`, ensuring it's available on every SQL Server version including 2025
 - Worked around a SQL Server 2025 regression where `OUTPUT...INTO @table_variable` inside a parameterized batch could silently suppress CHECK constraint exceptions — columns with `HasDefault` (non-GUID) now use a post-insert `SELECT ... WHERE pk = SCOPE_IDENTITY()` instead
 - Hierarchical save now propagates the parent PK to the child FK even when the column and property names differ only in casing. Previously, `ApplyPostSaveKeys` wrote the value under the property name (`Invoiceid`) while the provider searched for the column name (`invoiceid`), causing the FK to be inserted as NULL and the save to fail with `SqlException 515`. Verified against `Invoice` → `Invoicedetail` hierarchies on SQL Server 2016 and SQL Server 2025 Express.
-- In-memory entity state after a hierarchical save now reflects the propagated FK. `SyncCurrentValueKeys` merges any property-name-keyed entries into the canonical column-name slot inside `AcceptChanges`, so the typed getter (`child.Invoiceid`) returns the correct value without requiring a reload. `GetExtraColumns` was updated to accept property names as valid identifiers for real columns, preventing the merged keys from being misclassified as extra columns in serialization payloads.
-- Removed the defensive `IF @@TRANCOUNT > 0 ROLLBACK` from the `finally` blocks of the SQL Server provider. On current `Microsoft.Data.SqlClient`, the command without an explicit `Transaction` assignment executes and aborts the transaction held by an ambient `esTransactionScope`, leaving its `Transaction.Connection` null. Subsequent `Enlist` calls then failed with `InvalidOperationException: ExecuteNonQuery: Connection property has not been initialized`. Rollback is the responsibility of `esTransactionScope.Dispose`, which handles it correctly when `Complete()` is not invoked. Aligned with PostgreSQL and MySQL, where the same pattern was removed.
-- `esEntityCollection.Save()` now applies the collection-level `fks` dictionary to Added children before the PreSave loop. Covers the parent-initiated pattern where the parent is saved **before** the children are added to the collection: in that scenario `ApplyPostSaveKeys()` of the parent runs with an empty collection, and the FK was only carried to the SQL parameters (correct DB value) but never written to the child's `CurrentValues` (null getter after save).
-- `esEntityCollection.BulkInsert()` now applies the collection-level `fks` dictionary to Added children before building the save packets. Previously the FK was omitted from `ModifiedColumns`, causing `SqlBulkCopy` to write NULL for the FK column.
-- `esEntityCollection.Combine()` now writes the target collection's `fks` into each combined entity using `SetProperty` (comparing values through `SetValue`) instead of `SetColumn(..., false)`. The prior unconditional `MarkFieldAsModified` flipped Unchanged entities to Modified even when the FK value already matched, causing spurious UPDATEs on subsequent `Save()` calls.
-- Dynamic INSERT no longer emits `SET @X = <ServerSideText>;` for special columns. The   generated BO stores `ProviderMetadata["DateAdded.ServerSideText"]` (and its siblings)   as the bareword column name (`"DateAdded"`), which the provider was concatenating   directly into the batch. Without a `FROM` context SQL Server rejected the statement   with `Msg 207 Invalid column name 'DateAdded'`. In the same method, `DateAdded` and   `DateModified` were being registered twice in `@output_vals` — once by the `HasDefault`   branch, once by the special-columns block — producing `The variable name '@DateAdded'
-  has already been declared`. Fix: a `HashSet<string>` tracks columns already added to   `@output_vals`, the special-columns block skips duplicates, and it emits only the
-  `OUTPUT INSERTED` machinery. The DB `DEFAULT` fills the column and the value is read   back through `@output_vals` in a single round-trip. Verified against   `Invoice` → `Invoicedetail` on SQL Server 2022 and 2025 Express.
-- Dynamic UPDATE resolves special-column `ServerSideText` barewords to valid T-SQL   expressions. `BuildDynamicUpdateCommand` was emitting   `SET @pDateModified = DateModified;` and `SET @pModifiedBy = ModifiedBy;` from the   same `ProviderMetadata` source, rejected with `Msg 207 Invalid column name`. A new   `ResolveServerSideExpression` helper translates the bareword in three steps: (1) if   the value already contains `(`, `'`, `@`, or a `CURRENT_*` prefix, use it as-is; (2)   otherwise use the column's metadata `Default`, stripping the outer parentheses SQL   Server adds (`(sysdatetime())` → `sysdatetime()`); (3) otherwise fall back by   well-known column name (`DateAdded`/`DateModified` → `SYSDATETIME()`,   `AddedBy`/`ModifiedBy` → `SYSTEM_USER`). If nothing applies, the `SET` is omitted.   Verified against the same hierarchy and SQL Server versions as the INSERT fix.
-- Test suite robustness: `SP_Insert_Populates_DateAdded_From_Default_Sql` now reads   its reference timestamp from the SQL Server instance (`SELECT SYSDATETIME()`) instead   of `DateTime.Now`. The prior form assumed client and server shared a clock, which  holds on a single-machine setup but breaks on any distributed deployment where the   two clocks differ in timezone or skew — observed against SQL Server 2022 while the   identical test passed against SQL Server 2025 Express on the same client. The   assertion is now timezone-agnostic and the tolerance tightened from 5 s to 1 s   because both timestamps come from the same clock. A separate design note is kept   in the test suite: the schema uses timezone-dependent `SYSDATETIME()`; a future   cycle may switch to `SYSDATETIMEOFFSET()` for distributed scenarios.
 
-> **Known limitation — SQL Server 2025 Express:** CHECK/FK constraint violations inside parameterized batches are silently swallowed by the server — the row is persisted with invalid values and no `SqlException` reaches the provider (confirmed on Express 17.0.4085.5 / CU8+GDR, September 2026). Independent of constraint type (CHECK vs FK), ambient transaction, and presence of `OUTPUT INSERTED`. Does not affect SQL Server 2016 Express (13.00.5026) or SQL Server 2022. Track upstream at [dotnet/SqlClient](https://github.com/dotnet/SqlClient/issues).
+- In-memory entity state after a hierarchical save now reflects the propagated FK. `SyncCurrentValueKeys` merges any property-name-keyed entries into the canonical column-name slot inside `AcceptChanges`, so the typed getter (`child.Invoiceid`) returns the correct value without requiring a reload. `GetExtraColumns` was updated to accept property names as valid identifiers for real columns, preventing the merged keys from being misclassified as extra columns in serialization payloads.
+
+- Removed the defensive `IF @@TRANCOUNT > 0 ROLLBACK` from the `finally` blocks of the SQL Server provider. On current `Microsoft.Data.SqlClient`, the command without an explicit `Transaction` assignment executes and aborts the transaction held by an ambient `esTransactionScope`, leaving its `Transaction.Connection` null. Subsequent `Enlist` calls then failed with `InvalidOperationException: ExecuteNonQuery: Connection property has not been initialized`. Rollback is the responsibility of `esTransactionScope.Dispose`, which handles it correctly when `Complete()` is not invoked. Aligned with PostgreSQL and MySQL, where the same pattern was removed.
+
+- `esEntityCollection.Save()` now applies the collection-level `fks` dictionary to Added children before the PreSave loop. Covers the parent-initiated pattern where the parent is saved **before** the children are added to the collection: in that scenario `ApplyPostSaveKeys()` of the parent runs with an empty collection, and the FK was only carried to the SQL parameters (correct DB value) but never written to the child's `CurrentValues` (null getter after save).
+
+- `esEntityCollection.BulkInsert()` now applies the collection-level `fks` dictionary to Added children before building the save packets. Previously the FK was omitted from `ModifiedColumns`, causing `SqlBulkCopy` to write NULL for the FK column.
+
+- `esEntityCollection.Combine()` now writes the target collection's `fks` into each combined entity using `SetProperty` (comparing values through `SetValue`) instead of `SetColumn(..., false)`. The prior unconditional `MarkFieldAsModified` flipped Unchanged entities to Modified even when the FK value already matched, causing spurious UPDATEs on subsequent `Save()` calls.
+
+- Dynamic INSERT no longer emits `SET @X = <ServerSideText>;` for special columns. The generated BO stores `ProviderMetadata["DateAdded.ServerSideText"]` (and its siblings) as the bareword column name (`"DateAdded"`), which the provider was concatenating directly into the batch. Without a `FROM` context SQL Server rejected the statement with `Msg 207 Invalid column name 'DateAdded'`. In the same method, `DateAdded` and `DateModified` were being registered twice in `@output_vals` — once by the `HasDefault` branch, once by the special-columns block — producing `The variable name '@DateAdded' has already been declared`. Fix: a `HashSet<string>` tracks columns already added to `@output_vals`, the special-columns block skips duplicates, and it emits only the `OUTPUT INSERTED` machinery. The DB `DEFAULT` fills the column and the value is read back through `@output_vals` in a single round-trip. Verified against `Invoice` → `Invoicedetail` on SQL Server 2022 and 2025 Express.
+
+- Dynamic UPDATE resolves special-column `ServerSideText` barewords to valid T-SQL expressions. `BuildDynamicUpdateCommand` was emitting `SET @pDateModified = DateModified;` and `SET @pModifiedBy = ModifiedBy;` from the same `ProviderMetadata` source, rejected with `Msg 207 Invalid column name`. A new `ResolveServerSideExpression` helper translates the bareword in three steps: (1) if the value already contains `(`, `'`, `@`, or a `CURRENT_*` prefix, use it as-is; (2) otherwise use the column's metadata `Default`, stripping the outer parentheses SQL Server adds (`(sysdatetime())` → `sysdatetime()`); (3) otherwise fall back by well-known column name (`DateAdded`/`DateModified` → `SYSDATETIME()`, `AddedBy`/`ModifiedBy` → `SYSTEM_USER`). If nothing applies, the `SET` is omitted. Verified against the same hierarchy and SQL Server versions as the INSERT fix.
+  
+- Test suite robustness: `SP_Insert_Populates_DateAdded_From_Default_Sql` now reads its reference timestamp from the SQL Server instance (`SELECT SYSDATETIME()`) instead of `DateTime.Now`. The prior form assumed client and server shared a clock, which holds on a single-machine setup but breaks on any distributed deployment where the two clocks differ in timezone or skew — observed against SQL Server 2022 while the identical test passed against SQL Server 2025 Express on the same client. The assertion is now timezone-agnostic and the tolerance tightened from 5 s to 1 s because both timestamps come from the same clock. A separate design note is kept in the test suite: the schema uses timezone-dependent `SYSDATETIME()`; a future cycle may switch to `SYSDATETIMEOFFSET()` for distributed scenarios.
+ 
+- Empty `Added` entities are now INSERTed instead of silently dropped. `SaveDynamicEntity` previously returned early whenever `CurrentValues` was null or empty, regardless of `RowState`. That made `new EmptyEntity().Save()` a no-op — the SQL never reached the server, no exception was raised, and the entity stayed with `Id = null` and `RowState = Unchanged` after the subsequent `AcceptChanges()`. The early return is now conditional on `RowState != Added`, which enables two scenarios: (1) entities where all columns are nullable/default — the INSERT succeeds and IDENTITY is captured via `OUTPUT`; (2) entities with NOT NULL columns that have no default — the INSERT is rejected with `SqlException 515`, which must propagate to the caller. MySQL does not have this early return; the fix aligns SQL Server behavior with MySQL.
+- Metadata-aware column/property lookup is now applied to all three `StoredProcedure` code paths. Previously, `PopulateStoredProcParameters`, `BuildStoredProcDeleteCommand`, and `SaveStoredProcCollection`'s preprocess-parameters block used `ContainsKey(col.Name)` / direct dictionary indexing. When `ApplyPostSaveKeys` wrote a child FK under the property name (`Invoiceid`) but the SP parameter was named after the column (`invoiceid`), the value was silently bound as `NULL` and the INSERT failed with `SqlException 515`. The same divergence was already tolerated on the Dynamic path (`BuildDynamicInsertCommand`/`Update`/`Delete`), but was latent on the SP path because no prior test exercised a hierarchical save through stored procedures. All three SP paths now route through the shared `GetColumnValue` / `GetOriginalColumnValue` helpers.
+
+## Known Limitation — SQL Server 2025 Express
+
+> CHECK/FK constraint violations inside parameterized batches are silently swallowed by the server — the row is persisted with invalid values and no `SqlException` reaches the provider (confirmed on Express 17.0.4085.5 / CU8+GDR, September 2026). Independent of constraint type (CHECK vs FK), ambient transaction, and presence of `OUTPUT INSERTED`. Does not affect SQL Server 2016 Express (13.00.5026) or SQL Server 2022. Track upstream at [dotnet/SqlClient](https://github.com/dotnet/SqlClient/issues).
+
+## Transaction Semantics
+
+### XACT_ABORT ON — the scope is single-use after a constraint violation
+
+`SET XACT_ABORT ON` is applied to every generated INSERT/UPDATE/DELETE. When a statement fails (CHECK, FK, NOT NULL, arithmetic overflow), SQL Server rolls back the entire transaction server-side. The `esTransactionScope` object still exists on the client side but its enlisted connection is now unusable.
+
+The next command in the same scope fails with:
+`InvalidOperationException: ExecuteNonQuery: Connection property has not been initialized`
+
+
+This is expected. To recover, dispose the dead scope and open a new one:
+
+```csharp
+using (var scope1 = new esTransactionScope())
+{
+    try { /* ... */ scope1.Complete(); }
+    catch (SqlException) { /* scope is dead, do NOT Complete() */ }
+}
+
+using (var scope2 = new esTransactionScope())
+{
+    /* ... fresh transaction, works normally ... */
+    scope2.Complete();
+}
+```
+
+This behavior is verified by TransactionScopeRegressionTests.`TransactionScope_Is_Aborted_By_XACT_ABORT_After_Check_Violation` and `New_Scope_After_Check_Violation_Works`. The former is skipped (Inconclusive) on SQL Server 2025 Express because the underlying CHECK violation is silently swallowed by the server — see the Known Limitation above.
+
+
 
 ## Dependency Updates
 
-- Updated `System.Configuration.ConfigurationManager` from `10.0.10` to `10.0.11`
+- Updated `System.Configuration.ConfigurationManager` from `10.0.13` to `10.0.14`
   - Maintenance release. No API changes affecting EntitySpaces.
 
 ## Quick Samples
