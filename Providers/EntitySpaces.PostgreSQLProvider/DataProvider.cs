@@ -1639,13 +1639,15 @@ namespace EntitySpaces.Npgsql2Provider
         //   2. Map Output / InputOutput parameters (existing behaviour).
         // ===================================================================
         private static void MapOutputParameters(
-            NpgsqlParameterCollection parameters,
-            esSmartDictionary currentValues,
-            esColumnMetadataCollection columns)
+    NpgsqlParameterCollection parameters,
+    esSmartDictionary currentValues,
+    esColumnMetadataCollection columns)
         {
+            if (parameters == null || currentValues == null) return;
+
             // -----------------------------------------------------------------
-            // Step 1: sync property-name key → column-name key for any Input or
-            // InputOutput parameter whose source column has a distinct property
+            // Step 1: sync property-name key → column-name key for Input/
+            // InputOutput parameters whose source column has a distinct property
             // name and whose column-name slot is empty.
             // -----------------------------------------------------------------
             if (columns != null)
@@ -1662,10 +1664,11 @@ namespace EntitySpaces.Npgsql2Provider
                     esColumnMetadata meta = columns.FindByColumnName(colName);
                     if (meta == null || string.IsNullOrEmpty(meta.PropertyName)) continue;
 
-                    // Nothing to sync when both names coincide (SQL Server).
+                    // Nothing to sync when both names coincide.
                     if (string.Equals(colName, meta.PropertyName, StringComparison.Ordinal))
                         continue;
 
+                    // ContainsKey is null-safe on esSmartDictionary.
                     if (!currentValues.ContainsKey(meta.PropertyName))
                         continue;
 
@@ -1685,7 +1688,16 @@ namespace EntitySpaces.Npgsql2Provider
             }
 
             // -----------------------------------------------------------------
-            // Step 2: existing Output / InputOutput mapping (unchanged).
+            // Step 2: map Output / InputOutput parameter values into CurrentValues.
+            //
+            // [FIX] The previous implementation iterated currentValues.Keys to
+            // find a normalized match. esSmartDictionary.Keys throws NRE when the
+            // internal dictionary has not been initialized — which is the case for
+            // an Added entity that was saved with zero user-assigned properties
+            // (e.g. an empty BillingDefaultsProbe). Both ContainsKey and the indexer
+            // are null-safe (ContainsKey returns false; the indexer lazy-inits), so
+            // we look up the metadata and write both the column-name and
+            // property-name slots directly, mirroring MapReaderRowToCurrentValues.
             // -----------------------------------------------------------------
             foreach (NpgsqlParameter param in parameters)
             {
@@ -1697,35 +1709,30 @@ namespace EntitySpaces.Npgsql2Provider
                     ? param.SourceColumn
                     : param.ParameterName.TrimStart(':', '@');
 
-                string targetKey = null;
-                string normalized = NormalizeKey(colName);
-
-                foreach (string key in currentValues.Keys)
-                {
-                    if (NormalizeKey(key) == normalized)
-                    {
-                        targetKey = key;
-                        break;
-                    }
-                }
-
-                if (targetKey == null)
-                    targetKey = colName;
-
                 object value = param.Value;
 
+                // Preserve existing long -> int coercion (defensive; Npgsql
+                // normally returns the correct CLR type from RETURNING).
                 if (value is long longVal &&
                     longVal <= int.MaxValue && longVal >= int.MinValue)
                 {
-                    object existing = currentValues.ContainsKey(targetKey)
-                        ? currentValues[targetKey]
+                    object existing = currentValues.ContainsKey(colName)
+                        ? currentValues[colName]
                         : null;
 
                     if (existing == null || existing == DBNull.Value || existing is int)
                         value = (int)longVal;
                 }
 
-                currentValues[targetKey] = value;
+                currentValues[colName] = value;
+
+                esColumnMetadata meta = columns?.FindByColumnName(colName);
+                if (meta != null &&
+                    !string.IsNullOrEmpty(meta.PropertyName) &&
+                    !string.Equals(meta.PropertyName, colName, StringComparison.Ordinal))
+                {
+                    currentValues[meta.PropertyName] = value;
+                }
             }
         }
 

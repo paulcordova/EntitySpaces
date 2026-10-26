@@ -144,6 +144,29 @@ namespace EntitySpaces.Npgsql2Provider
                     p = cmd.Parameters.Add(CloneParameter(types[col.Name]));
                     p.Direction = ParameterDirection.InputOutput;
 
+                    // [FIX] PostgreSQL IsConcurrency columns are user-settable timestamps
+                    // (invoicedate, paidat, createdat, duedate, ...), not server-generated
+                    // rowversion like on SQL Server. Two problems addressed:
+                    //
+                    //   (a) Npgsql rejects InputOutput parameters with null Value:
+                    //       "Parameter ':Createdat' cannot be null, DBNull.Value should be
+                    //       used instead". Bind DBNull explicitly so the command reaches
+                    //       the server.
+                    //
+                    //   (b) When the user supplies a value (isModified), include the column
+                    //       in the INSERT list so NOT NULL columns like invoicedate aren't
+                    //       omitted, and so the value persists. RETURNING still refreshes
+                    //       CurrentValues with the DB-rounded timestamp, keeping
+                    //       OriginalValues consistent after AcceptChanges.
+                    p.Value = GetColumnValue(packet, col) ?? (object)DBNull.Value;
+
+                    if (isModified)
+                    {
+                        into += comma + Delimiters.ColumnOpen + col.Name + Delimiters.ColumnClose;
+                        values += comma + p.ParameterName;
+                        comma = ", ";
+                    }
+
                     returningCols.Add(Delimiters.ColumnOpen + col.Name + Delimiters.ColumnClose);
 
                     if (col.CharacterMaxLength > 0)
@@ -338,6 +361,7 @@ namespace EntitySpaces.Npgsql2Provider
         {
             string where = String.Empty;
             string conncur = String.Empty;
+            string conncurAnd = String.Empty;    // [FIX v2] separator between concurrency WHERE clauses
             string scomma = String.Empty;
             string defaults = String.Empty;
             string defaultsComma = String.Empty;
@@ -380,25 +404,54 @@ namespace EntitySpaces.Npgsql2Provider
                 else if (col.IsConcurrency)
                 {
                     p = CloneParameter(types[col.Name]);
-                    p.SourceVersion = DataRowVersion.Original;
-                    p.Direction = ParameterDirection.InputOutput;
+
+                    // [FIX v2] PostgreSQL IsConcurrency columns are user-settable nullable
+                    // timestamps, not server-generated rowversion like on SQL Server.
+                    //
+                    //   (a) p.Value was never set → Npgsql rejects the bind:
+                    //       "Parameter ':X' cannot be null, DBNull.Value should be used".
+                    //   (b) "col = @p" with @p = NULL never matches → UPDATE touches 0 rows
+                    //       → esConcurrencyException on a single-user flow. PG timestamps
+                    //       in concurrency columns are NULL in the common case
+                    //       (duedate, lastreminderat, ...), so this is the default path.
+                    //       Use IS NOT DISTINCT FROM (NULL-safe equality).
+                    //   (c) The concurrency WHERE clauses were concatenated WITHOUT an AND
+                    //       separator. One IsConcurrency column is fine; two or more produce
+                    //       invalid SQL. billing_invoice has six. Track a local separator.
+                    //   (d) SourceVersion = Original is a no-op on raw NpgsqlCommand.
+                    //       Direction = Input (not InputOutput): the WHERE value is the
+                    //       ORIGINAL, the DB does not change it during UPDATE, and leaving
+                    //       it InputOutput made MapOutputParameters overwrite CurrentValues
+                    //       with the pre-save value, discarding any server-side rounding.
+                    p.Direction = ParameterDirection.Input;
+
+                    object origValue = GetOriginalColumnValue(packet, col);
+                    p.Value = origValue ?? (object)DBNull.Value;
+
                     cmd.Parameters.Add(p);
 
-                    conncur += Delimiters.ColumnOpen + col.Name + Delimiters.ColumnClose + " = " + p.ParameterName;
+                    conncur += conncurAnd + Delimiters.ColumnOpen + col.Name + Delimiters.ColumnClose
+                             + " IS NOT DISTINCT FROM " + p.ParameterName;
+                    conncurAnd = " AND ";
                 }
                 else if (col.IsEntitySpacesConcurrency)
                 {
                     p = CloneParameter(types[col.Name]);
 
+                    object origValue = GetOriginalColumnValue(packet, col);
+
                     // [NEW ADJUSTMENT] Tolerant original-value lookup.
-                    p.Value = GetOriginalColumnValue(packet, col);
+                    p.Value = origValue ?? (object)DBNull.Value;
                     p.Direction = ParameterDirection.InputOutput;
                     cmd.Parameters.Add(p);
 
                     sql += scomma;
                     sql += Delimiters.ColumnOpen + col.Name + Delimiters.ColumnClose + " = " + p.ParameterName + " + 1";
+                    scomma = ", ";   // [FIX] was missing — next SET clause concatenated without comma
 
-                    conncur += Delimiters.ColumnOpen + col.Name + Delimiters.ColumnClose + " = " + p.ParameterName;
+                    conncur += conncurAnd + Delimiters.ColumnOpen + col.Name + Delimiters.ColumnClose
+                             + " = " + p.ParameterName;
+                    conncurAnd = " AND ";   // [FIX] was missing — no separator between concurrency clauses
 
                     defaults += defaultsComma + Delimiters.ColumnOpen + col.Name + Delimiters.ColumnClose;
                     defaultsComma = ",";
