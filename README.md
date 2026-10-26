@@ -333,7 +333,7 @@ Because EntitySpaces manages connection enlistment through its own scope, `esTra
 
 | Provider | Notes |
 |---|---|
-| SQL Server | Uses `SET XACT_ABORT ON` on all INSERT/UPDATE/DELETE statements; no explicit `ROLLBACK` on enlisted connections — rollback delegated to the scope owner (same pattern as PostgreSQL and MySQL) |
+| SQL Server | `SET XACT_ABORT ON` on all INSERT/UPDATE/DELETE statements. A constraint violation aborts the transaction server-side — the scope becomes unusable and the next command fails with `InvalidOperationException`. Recovery pattern: dispose the dead scope and open a new `esTransactionScope`. No explicit `ROLLBACK` is issued by the provider — rollback is delegated to the server via `XACT_ABORT` and to `esTransactionScope.Dispose`. |
 | PostgreSQL | No explicit `ROLLBACK` on enlisted connections — rollback delegated to the scope owner |
 | MySQL / MariaDB | No explicit `ROLLBACK` on enlisted connections — rollback delegated to the scope owner (same pattern as PostgreSQL) |
 | SQLite | Single-connection model; transactions handled by `esTransactionScope` |
@@ -633,7 +633,7 @@ The SQL Server provider has been modernized for robustness, correctness, and com
 
 ### SQL Server provider
 
-The SQL Server provider is the most extensively tested in the fork: **119 unit tests** cover CRUD, dynamic queries, hierarchical saves (parent → child and child → parent), user-supplied PK propagation, composite-key entities, rollback and commit semantics, constraint propagation across SQL Server versions, and the `esEntityCollection.Save` / `BulkInsert` / `Combine` FK-sync paths.
+The SQL Server provider is the most extensively tested in the fork: **180 unit tests** cover CRUD, dynamic queries, hierarchical saves (parent → child and child → parent), user-supplied PK propagation, composite-key entities, rollback and commit semantics, constraint propagation across SQL Server versions, and the `esEntityCollection.Save` / `BulkInsert` / `Combine` FK-sync paths.
 
 Verified against **SQL Server 2016 Express (13.00.5026)**, **SQL Server 2022**, and **SQL Server 2025 Express (17.0.4085.5 / CU8+GDR)**. A known limitation of SQL Server 2025 Express — CHECK/FK constraint violations inside parameterized batches are silently swallowed by the server — is documented in the provider README along with the diagnostic evidence and the exact build where it was observed.
 
