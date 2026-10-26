@@ -1189,13 +1189,22 @@ namespace EntitySpaces.SqlClientProvider
                                 }
                                 else
                                 {
-                                    if (packet.CurrentValues.ContainsKey(param.SourceColumn))
+                                    // Metadata-aware: resolve the column metadata for this parameter
+                                    // and look up the value via GetColumnValue, which accepts both
+                                    // the column name and the property name (tolerant of the
+                                    // ApplyPostSaveKeys property-name path).
+                                    esColumnMetadata col = request.Columns.FindByColumnName(param.SourceColumn);
+                                    if (col != null)
                                     {
-                                        param.Value = packet.CurrentValues[param.SourceColumn];
+                                        object value = Shared.GetColumnValue(packet, col);
+                                        param.Value = value ?? (object)DBNull.Value;
                                     }
                                     else
                                     {
-                                        param.Value = null;
+                                        // Fallback for parameters not mapped to a column (rare)
+                                        param.Value = packet.CurrentValues.ContainsKey(param.SourceColumn)
+                                            ? packet.CurrentValues[param.SourceColumn]
+                                            : (object)DBNull.Value;
                                     }
                                 }
                             }
@@ -1476,7 +1485,31 @@ namespace EntitySpaces.SqlClientProvider
         {
             SqlCommand cmd = null;
 
-            if (request.EntitySavePacket.CurrentValues == null || request.EntitySavePacket.CurrentValues.Count == 0) return null;
+            // Only early-return when there is genuinely nothing to persist:
+            //   - Modified entity with no column values → no UPDATE to run
+            //   - Deleted entity with no original values → no DELETE to run
+            //
+            // An Added entity with an empty CurrentValues MUST still attempt the
+            // INSERT. Two important scenarios depend on it:
+            //
+            //   1. Entities where every column is nullable or has a DDL DEFAULT
+            //      (e.g. billing_defaults_probe). The INSERT ... OUTPUT INSERTED
+            //      DEFAULT VALUES succeeds and the server-generated IDENTITY id is
+            //      captured via @output_vals.
+            //
+            //   2. Entities with NOT NULL columns that have no default. The empty
+            //      INSERT is rejected with SqlException 515, which must propagate to
+            //      the caller so the caller sees the constraint violation.
+            //
+            // MySQL does not have this early return, which is why the same tests pass
+            // there. Removing the unconditional early-return here aligns SQL Server
+            // behavior with MySQL.
+            if (request.EntitySavePacket.RowState != esDataRowState.Added
+                && (request.EntitySavePacket.CurrentValues == null
+                    || request.EntitySavePacket.CurrentValues.Count == 0))
+            {
+                return null;
+            }
 
             switch (request.EntitySavePacket.RowState)
             {

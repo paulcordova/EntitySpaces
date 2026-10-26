@@ -336,8 +336,25 @@ namespace EntitySpaces.SqlClientProvider
             }
             else
             {
-                // No explicit columns — DEFAULT VALUES
-                sql += "DEFAULT VALUES";
+                // No explicit columns — DEFAULT VALUES.
+                //
+                // When server-generated columns are present (IDENTITY, HasDefault,
+                // Computed, etc.), the OUTPUT clause must still be emitted so the
+                // @output_vals table variable is populated. Without it, the subsequent
+                // SELECT @param = col FROM @output_vals finds no row and the output
+                // parameters stay NULL, leaving the entity's Id (and any default-based
+                // read-back column) unpopulated after Save().
+                //
+                // T-SQL syntax: INSERT INTO t [OUTPUT ...] DEFAULT VALUES
+                // (the OUTPUT clause precedes the VALUES/DEFAULT VALUES keyword).
+                if (hasOutputCols)
+                {
+                    sql += "OUTPUT " + outputCols + " INTO @output_vals (" + outputInto + ") DEFAULT VALUES";
+                }
+                else
+                {
+                    sql += "DEFAULT VALUES";
+                }
             }
 
             // Guard against CHECK/FK constraint violations that silently fail on SQL Server 2025 Express
@@ -833,7 +850,7 @@ namespace EntitySpaces.SqlClientProvider
             Dictionary<string, SqlParameter> types = Cache.GetParameters(request);
 
             SqlCommand cmd = new SqlCommand();
-            if(request.CommandTimeout != null) cmd.CommandTimeout = request.CommandTimeout.Value;
+            if (request.CommandTimeout != null) cmd.CommandTimeout = request.CommandTimeout.Value;
 
             cmd.CommandType = CommandType.StoredProcedure;
             cmd.CommandText = CreateFullSPName(request, request.ProviderMetadata.spDelete);
@@ -842,18 +859,16 @@ namespace EntitySpaces.SqlClientProvider
 
             foreach (esColumnMetadata col in request.Columns)
             {
-                if (col.IsInPrimaryKey)
+                if (col.IsInPrimaryKey || col.IsConcurrency || col.IsEntitySpacesConcurrency)
                 {
                     p = types[col.Name];
                     p = CloneParameter(p);
-                    p.Value = packet.OriginalValues[col.Name];
-                    cmd.Parameters.Add(p);
-                }
-                else if (col.IsConcurrency || col.IsEntitySpacesConcurrency)
-                {
-                    p = types[col.Name];
-                    p = CloneParameter(p);
-                    p.Value = packet.OriginalValues[col.Name];
+
+                    // Same metadata-aware lookup as PopulateStoredProcParameters.
+                    // OriginalValues holds the pre-save values, which may have been
+                    // written under the property name by earlier post-save syncs.
+                    p.Value = GetOriginalColumnValue(packet, col);
+
                     cmd.Parameters.Add(p);
                 }
             }
@@ -872,9 +887,15 @@ namespace EntitySpaces.SqlClientProvider
                 p = types[col.Name];
                 p = CloneParameter(p);
 
-                if (packet.CurrentValues.ContainsKey(col.Name))
+                // Metadata-aware value lookup: accepts both the canonical DB column
+                // name ("invoiceid") and the EntitySpaces property name ("Invoiceid").
+                // Required for stored procedure path parity with the dynamic path —
+                // ApplyPostSaveKeys writes the FK under the property name, and the
+                // SP parameter binding must find it under either form.
+                object value = GetColumnValue(packet, col);
+                if (value != null)
                 {
-                    p.Value = packet.CurrentValues[col.Name];
+                    p.Value = value;
                 }
 
                 if (p.SqlDbType == SqlDbType.Timestamp)
@@ -1176,7 +1197,7 @@ namespace EntitySpaces.SqlClientProvider
         /// slot when it holds a real value; falls back to the property-name slot
         /// (populated by generated ApplyPostSaveKeys on snake_case providers).
         /// </summary>
-        static private object GetColumnValue(esEntitySavePacket packet, esColumnMetadata col)
+        static public object GetColumnValue(esEntitySavePacket packet, esColumnMetadata col)
         {
             return GetValueFromDictionary(packet.CurrentValues, col);
         }
