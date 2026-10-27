@@ -58,6 +58,8 @@ The template also handles server-side **special columns** (`DateAdded`, `DateMod
 - Thread-safe parameter cache — upgraded from a locked `Dictionary` to a lock-free `ConcurrentDictionary`, improving throughput under concurrent load
 - .NET 8 compatibility — explicit `ConfigurationManager.OpenExeConfiguration` call added, required because .NET 8 no longer auto-binds the `oracle.manageddataaccess.client` `app.config` section
 - Studio metadata engine rewritten to use ODP.NET Managed instead of the legacy OLE DB driver
+- **Empty Entity Insert Support** — the provider correctly handles inserting entities with no user-set values. The dynamic SQL builder replaces the unsupported `DEFAULT VALUES` syntax with `(first_col) VALUES (DEFAULT)`, allowing DB-generated defaults (like `SYSTIMESTAMP`) to fire and be captured via `RETURNING INTO`.
+- **Explicit PK Insert on IDENTITY columns** — when a user assigns a value to an auto-increment PK, the column is sent as `InputOutput` and included in the `RETURNING` clause. The entity is marked clean after save, bypassing the sequence generator.
 
 ## Fixes
 
@@ -82,6 +84,11 @@ The template also handles server-side **special columns** (`DateAdded`, `DateMod
 - `CreateConnection()` now correctly returns an `OracleConnection` — it previously returned `OleDbConnection`, which caused silent failures
 - The `Delimiters` class was corrected to use single quotes for string literals and double quotes for identifiers — both were previously set to double quotes, which caused `ORA-00911` (invalid character) on string comparisons
 - Documented the correct cleanup pattern for `TransactionScope` with ODP.NET Managed (which doesn't support DTC/MSDTC) — use `TransactionScopeOption.Suppress` or the provided `RunWithoutTransaction` helper to avoid "transaction within transaction" errors during error cleanup
+- **Dynamic INSERT Empty Entity (`DEFAULT VALUES`)** — Oracle rejects the `INSERT INTO table DEFAULT VALUES` syntax. The provider now emits `INSERT INTO table (first_col) VALUES (DEFAULT) RETURNING ...`, fixing `ORA-00926` on empty entity saves.
+- **Concurrency RowCount Enforcement (UPDATE & DELETE)** — Oracle does not throw an error when an `UPDATE` or `DELETE` affects 0 rows, which caused silent data loss and missed concurrency conflicts. The provider now injects `IF SQL%ROWCOUNT = 0 THEN Raise_application_error(-20101, 'NO RECORDS WERE UPDATED/DELETED');` into the PL/SQL blocks. `CheckForConcurrencyException` translates this to `esConcurrencyException`.
+- **NULL-Safe Concurrency for `TIMESTAMP` columns** — `IsConcurrency` columns (like `invoicedate`) are nullable. The dynamic `UPDATE` `WHERE` clause now uses `DECODE(col, param, 1, 0) = 1` (or `OR IS NULL` logic) to match NULL values correctly, preventing false-positive concurrency exceptions.
+- **TIMESTAMP Precision Truncation** — `DateTime.Now` in .NET has a precision of 100ns, but Oracle `TIMESTAMP` only stores microseconds (6 decimal places). The provider now truncates the C# ticks to microseconds before building the concurrency `WHERE` clause, eliminating `ORA-20101` false positives on save.
+- **Special Column Exclusion from UPDATE WHERE** — server-managed auditing columns (`DateModified`, `DateAdded`) are now excluded from the dynamic `UPDATE` concurrency `WHERE` clause to avoid precision mismatch false positives.
 
 ## ⚠️ Transaction Management
 
@@ -182,17 +189,23 @@ The provider **never sends these columns as input values**. They are excluded fr
 
 The behaviour is validated by the test suite for both the SP path and the dynamic SQL path against a schema with `DEFAULT SYSTIMESTAMP` on both timestamp columns.
 
-### The concurrency token (`Version`)
+### Concurrency token (`Version` and `IsConcurrency` columns)
 
-The concurrency token is the column marked `IsEntitySpacesConcurrency` in the generated metadata. On Oracle:
+EntitySpaces handles optimistic concurrency in two ways on Oracle:
 
-- **On INSERT** the SP sets `pVersion := 1` and includes it in the row. The value is returned to the client so `entity.Version` is `1` immediately after `Save()`.
-- **On UPDATE** the SP increments the column (`"Version" = "Version" + 1`) and adds `AND "Version" = pConcurrency` to the `WHERE` clause. If `SQL%ROWCOUNT <> 1` the SP raises `-20101`, which the provider translates to `esConcurrencyException`.
-- **On DELETE** the SP matches both the primary key and the concurrency token. A stale token produces `0` affected rows and the same `-20101` error.
+**1. The `Version` token (`IsEntitySpacesConcurrency`)**
+The concurrency token is the column marked `IsEntitySpacesConcurrency` in the generated metadata.
+- **On INSERT** the SP sets `pVersion := 1`. The dynamic path includes the `Version` column with a hardcoded `1`. 
+- **On UPDATE** the SP increments the column (`"Version" = "Version" + 1`) and adds `AND "Version" = pConcurrency` to the `WHERE` clause. The dynamic path does the same. If `SQL%ROWCOUNT <> 1` the provider raises `-20101`, translated to `esConcurrencyException`.
+- **On DELETE** the SP matches both the PK and the concurrency token. A stale token produces 0 affected rows and the same error.
 
-The dynamic SQL path implements the same semantics inline. On a concurrency failure the entity is left `IsDirty = true` so the caller can inspect the stale state and retry.
+**2. Timestamp tokens (`IsConcurrency`)**
+Columns like `invoicedate` or `duedate` can be marked `IsConcurrency`.
+- The dynamic `UPDATE` builder uses NULL-safe equality (`DECODE`) to ensure null timestamps match correctly.
+- It also truncates C# `DateTime` ticks to microseconds to prevent false positives against Oracle's `TIMESTAMP` precision.
+- 0-row updates trigger `ORA-20101`, which is translated by `CheckForConcurrencyException`.
 
-> **⚠️ Do not use bidirectional linking.** Setting both `parent.Children.Add(child)` **and** `child.UpToParent = parent` causes infinite recursion between the parent and child navigation properties. In practice this manifests as a hang or a `StackOverflowException` depending on the runtime. This is a limitation of the current EntitySpaces Core, not of this provider. Use one direction — the collection when saving from the parent, or `UpTo` when saving from the child.
+On a concurrency failure, the entity is left `IsDirty = true` so the caller can inspect the stale state and retry.
 
 ### Collection `Combine()`
 
@@ -228,7 +241,6 @@ The following areas are known gaps that are not yet covered by the Oracle provid
 
 - **Custom fields in `DynamicQuery`.** The `Select` overloads that project literals, expressions, aggregate functions, or ad-hoc SQL columns onto an entity's `dynamic` dictionary are not covered by the Oracle test suite. This feature spans every provider and needs to be validated consistently across SQL Server, PostgreSQL, MySQL/MariaDB and Oracle before it can be advertised as supported.
 - **`AddedBy` / `ModifiedBy` event handlers.** When the generated entity declares `UseEventHandler = true` for either auditing column, the provider delegates to the `AddedByEventHandler` / `ModifiedByEventHandler` on the entity. This path is documented but not exercised by the current test suite — the current Northwind test schema uses `UseEventHandler = false`.
-- **`GENERATED ALWAYS AS IDENTITY` with explicit PK on INSERT.** The provider handles `GENERATED BY DEFAULT AS IDENTITY` correctly. `GENERATED ALWAYS AS IDENTITY` requires `OVERRIDING SYSTEM VALUE` on the INSERT when the caller supplies an explicit value; this is not implemented.
 
 ## Dependency Updates
 
