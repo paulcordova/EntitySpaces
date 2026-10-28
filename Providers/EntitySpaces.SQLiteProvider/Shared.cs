@@ -65,7 +65,8 @@ namespace EntitySpaces.SQLiteProvider
                 if (isModified && (!col.IsAutoIncrement && !col.IsConcurrency && !col.IsEntitySpacesConcurrency))
                 {
                     SQLiteParameter p = types[col.Name];
-                    cmd.Parameters.Add(CloneParameter(p));
+                    SQLiteParameter clone = CloneParameter(p, col);
+                    cmd.Parameters.Add(clone);  
 
                     into += comma + Delimiters.ColumnOpen + col.Name + Delimiters.ColumnClose;
                     values += comma + p.ParameterName;
@@ -85,7 +86,8 @@ namespace EntitySpaces.SQLiteProvider
                     {
                         // Insert with caller-supplied PK — no auto-increment retrieval needed
                         SQLiteParameter p = types[col.Name];
-                        cmd.Parameters.Add(CloneParameter(p));
+                        SQLiteParameter clone = CloneParameter(p, col);
+                        cmd.Parameters.Add(clone);  
 
                         into   += comma + Delimiters.ColumnOpen + col.Name + Delimiters.ColumnClose;
                         values += comma + p.ParameterName;
@@ -227,7 +229,7 @@ namespace EntitySpaces.SQLiteProvider
                 if (isModified && (!col.IsAutoIncrement && !col.IsConcurrency && !col.IsEntitySpacesConcurrency))
                 {
                     SQLiteParameter p = types[col.Name];
-                    cmd.Parameters.Add(CloneParameter(p));
+                    cmd.Parameters.Add(CloneParameter(p, col));
 
                     sql += scomma;
                     sql += Delimiters.ColumnOpen + col.Name + Delimiters.ColumnClose + " = " + p.ParameterName;
@@ -240,7 +242,7 @@ namespace EntitySpaces.SQLiteProvider
                 else if (col.IsConcurrency)
                 {
                     SQLiteParameter p = types[col.Name];
-                    p = CloneParameter(p);
+                    p = CloneParameter(p, col);
                     p.SourceVersion = DataRowVersion.Original;
                     cmd.Parameters.Add(p);
 
@@ -253,7 +255,7 @@ namespace EntitySpaces.SQLiteProvider
                     props["EntitySpacesConcurrency"] = col.Name;
 
                     SQLiteParameter p = types[col.Name];
-                    p = CloneParameter(p);
+                    p = CloneParameter(p, col);
                     p.SourceVersion = DataRowVersion.Original;
                     cmd.Parameters.Add(p);
 
@@ -282,7 +284,7 @@ namespace EntitySpaces.SQLiteProvider
                 if (col.IsInPrimaryKey)
                 {
                     SQLiteParameter p = types[col.Name];
-                    p = CloneParameter(p);
+                    p = CloneParameter(p, col);
                     p.SourceVersion = DataRowVersion.Original;
                     cmd.Parameters.Add(p);
 
@@ -351,7 +353,7 @@ namespace EntitySpaces.SQLiteProvider
                 if (col.IsInPrimaryKey || col.IsEntitySpacesConcurrency)
                 {
                     SQLiteParameter p = types[col.Name];
-                    cmd.Parameters.Add(CloneParameter(p));
+                    cmd.Parameters.Add(CloneParameter(p, col));
 
                     sql += comma;
                     sql += Delimiters.ColumnOpen + col.Name + Delimiters.ColumnClose + " = " + p.ParameterName;
@@ -388,7 +390,7 @@ namespace EntitySpaces.SQLiteProvider
             foreach (esColumnMetadata col in request.Columns)
             {
                 p = types[col.Name];
-                p = CloneParameter(p);
+                p = CloneParameter(p, col);
                 p.SourceVersion = DataRowVersion.Current;
 
                 if (col.IsComputed && col.CharacterMaxLength > 0)
@@ -400,10 +402,43 @@ namespace EntitySpaces.SQLiteProvider
             }
         }
 
-        static private SQLiteParameter CloneParameter(SQLiteParameter p)
+        static private SQLiteParameter CloneParameter(SQLiteParameter p, esColumnMetadata col = null)
         {
             ICloneable param = p as ICloneable;
-            return param.Clone() as SQLiteParameter;
+            SQLiteParameter clone = param.Clone() as SQLiteParameter;
+
+            // [DECIMAL PRECISION FIX]
+            // SQLite has no native DECIMAL type. When the driver binds a parameter
+            // declared as DbType.Decimal, it serializes the value via
+            // CultureInfo.CurrentCulture. On comma-decimal cultures (es-CL, es-ES,
+            // de-DE, ...), 123.45m becomes "123,45". SQLite's NUMERIC affinity
+            // parser stops at the comma and stores 123 (INTEGER), silently
+            // truncating the fractional part.
+            //
+            // Forcing DbType.Double makes the driver use sqlite3_bind_double, which
+            // stores the value as REAL. REAL round-trips back to decimal without
+            // precision loss for the DECIMAL(10,2) and DECIMAL(10,5) ranges used in
+            // the Billing schema.
+            //
+            // Two detection paths:
+            //   1. DbType check: catches cases where the Cache mapped
+            //      esSystemType.Decimal to DbType.Decimal or DbType.Currency.
+            //   2. Metadata check: catches cases where the Cache mapped it to
+            //      something else (String, VarNumeric). Passing col explicitly
+            //      lets us look at the authoritative source — the entity metadata.
+            //
+            // Observed on BillingInvoice.Total (DECIMAL(10,2)) with es-CL:
+            // before this metadata-aware branch, the DbType check never fired
+            // because Cache returned DbType.String. 123.45m was stored as 123.
+            if (clone.DbType == DbType.Decimal
+                || clone.DbType == DbType.Currency
+                || clone.DbType == DbType.VarNumeric
+                || (col != null && col.esType == esSystemType.Decimal))
+            {
+                clone.DbType = DbType.Double;
+            }
+
+            return clone;
         }
 
         static public string CreateFullName(esDynamicQuery query)

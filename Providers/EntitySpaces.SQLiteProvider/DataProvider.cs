@@ -1651,14 +1651,40 @@ namespace EntitySpaces.SQLiteProvider
                 for (int i = 0; i < cols.Count; i++)
                 {
                     col = cols[i];
-                    dataColumns.Add(new DataColumn(col.Name, col.Type));
+                    // [DECIMAL STORAGE FIX]
+                    // SQLite has no native DECIMAL type. SQLiteDataAdapter.Update()
+                    // regenerates SQLiteParameter instances from the DataColumn
+                    // type, ignoring the DbType we set on the SqlCommand's parameters
+                    // in Shared.CloneParameter. When DataColumn.DataType is decimal,
+                    // the driver serializes the value as text using CurrentCulture;
+                    // on comma-decimal cultures (es-CL) 123.45m becomes "123,45",
+                    // SQLite's NUMERIC affinity parser stops at the comma and stores
+                    // 123 (INTEGER), and the fractional part is lost.
+                    //
+                    // Declaring the DataColumn as Double forces the adapter to bind
+                    // via sqlite3_bind_double, which stores REAL. The entity property
+                    // remains System.Decimal — only this intermediate DataTable used
+                    // by the adapter changes type. GetSystemDecimal applies
+                    // Convert.ToDecimal on read, so the round-trip is lossless for
+                    // the DECIMAL(10,x) ranges used in Billing.
+                    Type columnType = col.Type;
+                    if (col.esType == esSystemType.Decimal && columnType == typeof(decimal))
+                    {
+                        columnType = typeof(double);
+                    }
+                    dataColumns.Add(new DataColumn(col.Name, columnType));
                 }
             }
             else
             {
                 foreach (string col in request.SelectedColumns.Keys)
                 {
-                    dataColumns.Add(new DataColumn(col, cols[col].Type));
+                    Type columnType = cols[col].Type;
+                    if (cols[col].esType == esSystemType.Decimal && columnType == typeof(decimal))
+                    {
+                        columnType = typeof(double);
+                    }
+                    dataColumns.Add(new DataColumn(col, columnType));
                 }
             }
 
