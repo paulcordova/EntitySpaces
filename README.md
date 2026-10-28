@@ -75,6 +75,7 @@ This fork focuses on:
 - MySQL / MariaDB modernization for MySQL 8.0.14+ and MariaDB 10.2+ — LATERAL JOIN support with automatic engine detection, tolerant column/property name resolution, hierarchical parent-child save, explicit AUTO_INCREMENT PK insert, safe transaction handling (no explicit `ROLLBACK` on enlisted connections), and server-side column sync for AutoInc / Timestamp / Defaults
 - PostgreSQL modernization for PG 17–18 and Npgsql 7–10 — tolerant column/property name resolution, single-pass RETURNING reader, safe transaction handling (no explicit `ROLLBACK` on enlisted connections), corrected server-side column RETURNING for auditing fields, and correct handling of user-settable nullable `IsConcurrency` columns on both INSERT and UPDATE, including multiple concurrency columns per table
 - Oracle modernization for Oracle 12c–19c and Oracle Cloud (ATP) with ODP.NET Managed 23.x — robust dynamic and stored-procedure paths, optimistic concurrency for `TIMESTAMP` and `Version` columns, NULL-safe equality, empty entity insert support, explicit PK inserts on IDENTITY, and connection pool safety.
+- SQLite modernization for SQLite 3.x and System.Data.SQLite 1.0.119 — culture-independent DECIMAL storage (fixing silent truncation on comma-decimal cultures like es-CL), robust dynamic INSERT parameter binding, automatic FK enforcement, and concurrency exception translation.
 - Clean compilation with warnings resolved
 - Correct exception propagation and improved debug support (`LastQuery` always available)
 - Reliable NuGet packaging
@@ -337,7 +338,7 @@ Because EntitySpaces manages connection enlistment through its own scope, `esTra
 | SQL Server | `SET XACT_ABORT ON` on all INSERT/UPDATE/DELETE statements. A constraint violation aborts the transaction server-side — the scope becomes unusable and the next command fails with `InvalidOperationException`. Recovery pattern: dispose the dead scope and open a new `esTransactionScope`. No explicit `ROLLBACK` is issued by the provider — rollback is delegated to the server via `XACT_ABORT` and to `esTransactionScope.Dispose`. |
 | PostgreSQL | No explicit `ROLLBACK` on enlisted connections — rollback delegated to the scope owner |
 | MySQL / MariaDB | No explicit `ROLLBACK` on enlisted connections — rollback delegated to the scope owner (same pattern as PostgreSQL) |
-| SQLite | Single-connection model; transactions handled by `esTransactionScope` |
+| SQLite | A constraint violation closes the connection internally, poisoning the scope. Subsequent commands fail with "database is locked". | Recovery pattern: dispose the poisoned scope and open a new esTransactionScope. |
 | Oracle | Provider participates in `esTransactionScope`; **does not support MSDTC** — do not attempt to escalate to distributed transactions. On error, issues `ROLLBACK` in `finally` to return clean connections to the pool. |
 
 ---
@@ -370,7 +371,7 @@ If your team understands SQL, you already understand EntitySpaces.
 | SQL Server | EntitySpaces.ORM.SqlServer.NET | ✅ Modernized | SQL Server 2016–2025 · Concurrency exception detection · Connection pool safety (no explicit ROLLBACK on enlisted connections) |
 | PostgreSQL | EntitySpaces.ORM.PostgreSQL.NET | ✅ Modernized | PG 17–18 · Npgsql 7–10 · Neon compatible · `IsConcurrency` multi-column INSERT/UPDATE fixed |
 | MySQL | EntitySpaces.ORM.MySQL.NET | ✅ Modernized | MySQL 8.0.14+ · MariaDB 10.2+ · MySqlConnector 2.6.2 · Concurrency exception detection · Hierarchical save · Explicit AUTO_INCREMENT PK insert |
-| SQLite | EntitySpaces.ORM.SQLite.NET | ✅ Modernized | SQLite 3.x · System.Data.SQLite 1.0.119 · Auto-increment detection · FK enforcement · Concurrency exception detection |
+| SQLite | EntitySpaces.ORM.SQLite.NET | ✅ Modernized | SQLite 3.x · System.Data.SQLite 1.0.119 · Culture-independent DECIMAL storage (REAL) · Auto-increment detection · FK enforcement (NO ACTION) · Concurrency exception detection · 50-test suite |
 | Oracle | EntitySpaces.ORM.OracleManagedClient.NET | ✅ Modernized | Oracle 12c–19c · ODP.NET Managed 23.x · Oracle Cloud ATP · Concurrency exception detection (ORA-20101, ORA-00001) · Connection pool safety · Navigation properties · Thread-safe parameter cache · .NET 8 compatible · Empty insert support · Explicit PK on IDENTITY |
 | Firebird | — | 🚧 Work in Progress | |
 
@@ -814,6 +815,26 @@ esConfigSettings.ConnectionInfo.Connections.Add(conn);
 > **Validated with:** SQLite 3.46.1 · System.Data.SQLite.Core 1.0.119 · Northwind model
 
 The SQLite provider has been significantly modernized for correct auto-increment detection, foreign key enforcement, and concurrency exception translation.
+
+## Decimal Precision (Culture-Independent)
+SQLite has no native `DECIMAL` type. Values are stored as REAL (IEEE 754 double). The provider implements a two-part fix to prevent silent truncation on cultures that use a comma as the decimal separator (e.g., `es-CL`, `de-DE`):
+
+1. `Shared.CloneParameter` forces DbType.Double for all `esSystemType.Decimal` columns.
+2. `DataProvider.CreateDataTable` declares the intermediate `DataColumn` as `typeof(double)`.
+
+This ensures the driver uses `sqlite3_bind_double` instead of serializing the decimal to text using 
+`CurrentCulture`. Fractional values (e.g., `123.45m`) round-trip exactly without being truncated to `123`. Whole numbers are stored as `INTEGER` under SQLite's NUMERIC affinity but are transparently converted back to `decimal` on read.
+
+## Advanced SQLite Semantics
+The provider and test suite (50 tests) validate and document SQLite-specific behaviors that differ from SQL Server or MySQL:
+
+- **Case Sensitivity:** `=` is BINARY (case-sensitive). `LIKE` is case-insensitive for ASCII by design.
+
+- **NULL Handling:** Uses 3-valued logic. `= NULL` returns 0 rows; `IsNull()` must be used. Aggregates skip NULLs.
+
+- **Identity & Rowids:** `INTEGER PRIMARY KEY` is a rowid alias. Without `AUTOINCREMENT`, SQLite reuses the rowid of deleted rows.
+
+- **Foreign Keys:** Enforced per connection. Uses `NO ACTION` by default (prevents deleting a parent with active children).`
 
 ## SQLite Auto-Increment Detection
 

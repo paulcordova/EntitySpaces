@@ -32,11 +32,11 @@ This package provides the SQLite runtime only — it does not generate code. Ent
 
 ## New Features
 
-## New Features
-
+- **Culture-independent DECIMAL storage** — Decimal values are now stored as `REAL` (via `DbType.Double` and `DataColumn double`). This prevents silent truncation (e.g., `123.45` becoming `123`) on OS cultures that use a comma as the decimal separator (like Spanish or German).
+- **Robust parameter binding on INSERT** — Fixed a bug where dynamic INSERTs with modified columns or explicit PKs would fail because the generated SQL referenced a parameter that was never registered in the `SQLiteCommand.Parameters` collection.
 - Auto-increment detection for both SQLite forms — the rowid alias (`INTEGER PRIMARY KEY`) and the explicit `AUTOINCREMENT` keyword — both now correctly generate `IsAutoIncrement = true` metadata
 - Foreign key enforcement is now automatic — the provider appends `Foreign Keys=True` to the connection string on every connection, no configuration change needed
-- Concurrency exception detection — `SQLITE_CONSTRAINT` (code 19) violations (PK/UNIQUE/FK/CHECK) are translated to `esConcurrencyException`, consistent with the other providers
+- Concurrency exception detection — `SQLITE_CONSTRAINT` (code 19) violations (PK/UNIQUE/FK/CHECK/NOT NULL) are translated to `esConcurrencyException`, consistent with the other providers
 - Navigation properties generated in Studio from FK relationships defined in the DDL
 - Studio metadata engine rewritten to use native SQLite pragmas (`PRAGMA table_info`, `PRAGMA foreign_key_list`) instead of `information_schema`, which SQLite does not support
 - **Tolerant column/property name resolution** — the provider accepts both the database column name and the generated property name when deciding whether a column is part of an INSERT/UPDATE and when mapping server-returned values back to the entity. This covers:
@@ -50,6 +50,8 @@ This package provides the SQLite runtime only — it does not generate code. Ent
 
 ## Fixes
 
+- **Decimal truncation on non-English cultures** — Fixed an issue where `decimal` columns were serialized to text using `CurrentCulture` before being bound to SQLite. The provider now forces binary double binding, preserving precision across all platforms.
+- **Missing parameter registration in INSERT** — Fixed `BuildDynamicInsertCommand` to correctly call `cmd.Parameters.Add(clone)` in the `isModified` and `hasExplicitPkValue` branches. Previously, the SQL was generated correctly but the parameter collection was empty, causing a runtime exception.
 - FK violations now correctly raise `esConcurrencyException` instead of failing silently — a direct result of foreign key enforcement now being applied by default
 - Explicit PK inserts on auto-increment tables are now detected correctly, so an explicitly assigned `Id` is inserted directly instead of being overwritten by a generated rowid
 - **Tolerant name resolution in dynamic INSERT/UPDATE/DELETE** — the provider now accepts both the canonical DB column name (`invoiceid`) and the EntitySpaces property name (`Invoiceid`) when matching modified columns, reading values, and building WHERE clauses. SQLite preserves whatever casing was used at schema-creation time, so schemas that use lowercase columns with PascalCase property names would previously fail to bind the FK parameter (bound as `DBNull`) or produce no match in the WHERE clause. Aligned with the pattern in the MySQL, PostgreSQL, and SQL Server providers.
@@ -83,6 +85,9 @@ using (var scope = new esTransactionScope())
 Nested `esTransactionScope` instances are supported — the inner scope votes on the outer transaction. Omitting `Complete()` on any scope that owns the root transaction rolls back everything created inside it.
 
 > **Connection pool behavior on error:** All save and load operations release connections safely. On error, the connection is closed by `CleanupCommand` (or by the reader being disposed when the `RETURNING` result set was opened). **No explicit `ROLLBACK` is issued** — that responsibility belongs to the transaction scope owner. This avoids the class of bugs where a child insert failure would abort an otherwise recoverable transaction.
+
+> **Scope poisoning on error:** When a constraint violation occurs (e.g., NOT NULL), the provider's `SaveDynamicEntity` catch block closes the ambient connection to prevent connection pool corruption. As a result, the current `esTransactionScope` becomes unusable — any subsequent command will fail with `SQLiteException: database is locked`. This mirrors SQL Server's `XACT_ABORT` behavior. 
+> **Recovery pattern:** Dispose the poisoned scope without calling `Complete()` (which rolls back the transaction cleanly), and open a new `esTransactionScope` for subsequent operations.
 
 > **SQLite file locking:** SQLite serializes writers at the file level. In single-process scenarios `esTransactionScope` provides the correct isolation. If multiple processes write to the same database file, expect `SQLITE_BUSY` responses under contention. Combine `WAL` journaling with `busy_timeout` in the connection string for shared-file scenarios.
 
@@ -213,15 +218,16 @@ The fixes documented in this README were validated against the SQL Server, MySQL
 - Transaction scope, rollback, and atomicity.
 - Dynamic INSERT/UPDATE handling of **both Server-Side and Client-Side special columns**.
 - No explicit `ROLLBACK` issued by the provider — delegated entirely to `esTransactionScope`.
+- **Advanced SQLite semantics validated by 50 tests** — The suite now covers case-sensitive equality vs. `LIKE`, NULL three-valued logic, `CAST` truncation, rowid identity/reuse, explicit PK inserts, and FK `NO ACTION` constraints (deleting parents with active children).
 
 ### SQLite-specific notes
 
 - **No stored procedures.** SQLite has no `CREATE PROCEDURE` equivalent, so the `StoredProcedure` save path (`esSqlAccessType.StoredProcedure`) is not supported. All saves go through the dynamic SQL path.
 - **`RETURNING` availability.** SQLite 3.35 (March 2021) introduced `INSERT ... RETURNING` and `UPDATE ... RETURNING`. On builds without it, the provider falls back to a two-step pattern (`last_insert_rowid()` + a read-back `SELECT`). Update the SQLite native bundle if `RETURNING` is available — it halves the round-trips for INSERTs with server-generated columns.
 - **File-level locking.** SQLite is a file, not a server. Writers are serialized at the file level. For applications with multiple concurrent writers, use `journal_mode=WAL` in the connection string to allow concurrent readers during a write.
-
-
-
+- **Rowid reuse:** SQLite reuses the rowid of the last deleted row. If your audit trail depends on stable IDs, add `AUTOINCREMENT` to your DDL (at the cost of a non-transactional `sqlite_sequence`).
+- **String collation:** `=` is strictly case-sensitive. `LIKE` is case-insensitive, but only for ASCII characters.
+- **Foreign Key `NO ACTION`:** The provider does not cascade deletes. You must delete children before parents, or define `ON DELETE CASCADE` in your DDL.
 
 ## Dependency Updates
 
