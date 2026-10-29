@@ -17,6 +17,8 @@ namespace EntitySpaces
             InitializeComponent();
 
             this.label2.Text = $"Version {VersionInfo.Version}";
+
+            this.label1.Text = $".NET Version {Environment.Version.ToString()}";
         }
 
         private void buttonClose_Click(object sender, EventArgs e)
