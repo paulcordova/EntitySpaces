@@ -23,6 +23,7 @@
 
     <!-- UI y Docking -->
     <PackageVersion Include="WeifenLuo.WinFormsUI.Docking" Version="2.1.0" />
+	<PackageVersion Include="Krypton.Toolkit" Version="105.26.7.201" />
 
     <!-- Infraestructura y Extensiones de .NET -->
     <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.14" />

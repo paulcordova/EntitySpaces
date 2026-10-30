@@ -3,13 +3,15 @@ using System.Diagnostics;
 using System.Drawing;
 using System.Windows.Forms;
 
+using Krypton.Toolkit;
+
 namespace EntitySpaces
 {
     /// <summary>
     /// Feedback &amp; Support screen, opened from Help → Feedback.
     /// Follows the same usage pattern as AboutBox (new instance, ShowDialog, dispose).
     /// </summary>
-    public partial class FeedbackBox : Form
+    public partial class FeedbackBox : KryptonForm
     {
         private const string SurveyUrl = "https://docs.google.com/forms/d/e/1FAIpQLSd-FVQiC3deoaIarYnsOCH4pdj-4zjGKznN68uUtyx9CpuKgA/viewform?usp=header";
         private const string SupportUrl = "https://netstep.cl/entityspaces/support/";
@@ -17,7 +19,27 @@ namespace EntitySpaces
         public FeedbackBox()
         {
             InitializeComponent();
+
+            KryptonColors();
         }
+
+        private void KryptonColors()
+        {
+            // Set labels and link labels to transparent to inherit the form's background color
+            this.lblTitle.BackColor = Color.Transparent;
+            this.lblMessage.BackColor = Color.Transparent;
+            this.lblDisclosure.BackColor = Color.Transparent;
+            this.linkSupport.BackColor = Color.Transparent;
+            this.linkSurvey.BackColor = Color.Transparent;
+
+            // Retrieve the exact background color from the active Krypton palette
+            Color kryptonBackColor = KryptonManager.CurrentGlobalPalette.GetBackColor1(PaletteBackStyle.PanelClient, PaletteState.Normal);
+
+            // Apply the palette color to the button 
+            // Note: If btnClose is a standard WinForms button, this might be overridden by FlatStyle or UseVisualStyleBackColor
+            this.btnClose.BackColor = kryptonBackColor;
+        }
+
 
         private void FeedbackBox_Load(object sender, EventArgs e)
         {

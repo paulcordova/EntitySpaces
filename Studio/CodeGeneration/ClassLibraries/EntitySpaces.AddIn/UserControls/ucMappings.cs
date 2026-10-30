@@ -3,6 +3,10 @@ using System.Data;
 using System.IO;
 using System.Xml;
 
+using System.Drawing; 
+using System.Windows.Forms;
+using EntitySpaces.Common; 
+
 namespace EntitySpaces.AddIn
 {
     internal partial class ucMappings : esUserControl
@@ -173,5 +177,89 @@ namespace EntitySpaces.AddIn
                     break;
             }
         }
-    }
+
+        #region Krypton Themes
+
+        // Override the base method to apply specific styles for this control
+        public override void ApplyTheme()
+        {
+            base.ApplyTheme(); // Applies general UserControl background from AppTheme
+            KryptonColors();   // Applies specific control styles
+        }
+
+        private void KryptonColors()
+        {
+            Color bgColor = AppTheme.GetBackgroundColor();
+            Color fgColor = AppTheme.GetForegroundColor();
+            bool isDark = AppTheme.CurrentMode == AppThemeMode.Dark;
+
+            // Define selection color for grids and menus
+            Color selectionColor = isDark ? Color.FromArgb(75, 75, 75) : Color.FromArgb(200, 220, 240);
+
+            // 1. Style the ToolStrip
+            if (this.ToolStrip != null)
+            {
+                var customRenderer = new KryptonMenuRenderer(bgColor, selectionColor, fgColor);
+
+                this.ToolStrip.BackColor = bgColor;
+                this.ToolStrip.ForeColor = fgColor;
+                this.ToolStrip.Renderer = customRenderer;
+
+                foreach (ToolStripItem item in this.ToolStrip.Items)
+                {
+                    item.BackColor = bgColor;
+                    item.ForeColor = fgColor;
+                }
+            }
+
+            // 2. Style the Filter Label
+            if (this.ProviderLabel != null)
+            {
+                this.ProviderLabel.BackColor = Color.Transparent;
+                this.ProviderLabel.ForeColor = fgColor;
+            }
+
+            // 3. Style the Filter ComboBox
+            if (this.ProviderComboBox != null)
+            {
+                this.ProviderComboBox.BackColor = isDark ? Color.FromArgb(60, 60, 60) : Color.White;
+                this.ProviderComboBox.ForeColor = fgColor;
+                this.ProviderComboBox.FlatStyle = FlatStyle.Flat; // Helps in Dark Mode
+            }
+
+            // 4. Style the DataGridView
+            if (this.MappingsDataGridView != null)
+            {
+                // Cell background: White in light mode, Dark Gray in dark mode
+                Color gridBg = isDark ? Color.FromArgb(45, 45, 48) : Color.White;
+
+                // Header background: Dark gray for dark, Light Blue for EntitySpaces
+                Color gridHeaderBg = isDark ? Color.FromArgb(60, 60, 60) : Color.FromArgb(200, 220, 240);
+
+                // Force the empty space below the rows to match the form background
+                this.MappingsDataGridView.BackgroundColor = bgColor;
+
+                // Ensure no 3D borders that break the theme
+                this.MappingsDataGridView.BorderStyle = BorderStyle.None;
+                this.MappingsDataGridView.EnableHeadersVisualStyles = false;
+
+                // Cell styles (Data rows)
+                this.MappingsDataGridView.DefaultCellStyle.BackColor = gridBg;
+                this.MappingsDataGridView.DefaultCellStyle.ForeColor = fgColor;
+                this.MappingsDataGridView.DefaultCellStyle.SelectionBackColor = selectionColor;
+                this.MappingsDataGridView.DefaultCellStyle.SelectionForeColor = fgColor;
+
+                // Header styles (Columns)
+                this.MappingsDataGridView.ColumnHeadersDefaultCellStyle.BackColor = gridHeaderBg;
+                this.MappingsDataGridView.ColumnHeadersDefaultCellStyle.ForeColor = isDark ? fgColor : Color.Black;
+
+                // Force a redraw
+                this.MappingsDataGridView.Refresh();
+            }
+        }
+
+        #endregion
+
+
+    } // end class
 }

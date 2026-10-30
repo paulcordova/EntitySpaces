@@ -14,6 +14,8 @@ using EntitySpaces.CodeGenerator;
 using EntitySpaces.MetadataEngine;
 using EntitySpaces;
 
+using Krypton.Toolkit;
+
 namespace EntitySpaces.AddIn
 {
     internal partial class ucProjects : esUserControl
@@ -108,7 +110,7 @@ namespace EntitySpaces.AddIn
 
         public override void OnSettingsChanged()
         {
-      
+
         }
 
         private void ButtonRecord_Click(object sender, EventArgs e)
@@ -393,18 +395,18 @@ namespace EntitySpaces.AddIn
 
                 this.Cursor = Cursors.WaitCursor;
 
-//#if TRIAL
-//                Licensing licensing = new Licensing();
-//                string id = licensing.getUniqueID("C");
+                //#if TRIAL
+                //                Licensing licensing = new Licensing();
+                //                string id = licensing.getUniqueID("C");
 
-//                if (1 != licensing.ValidateLicense("trial", "b69e3783-9f56-47a7-82e0-6eee6d0779bf", System.Environment.MachineName, id, MainWindow.esVersion, GetProxySettings(Settings)))
-//                {
-//                    return;
-//                }
-//#else
-//                Licensing licensing = new Licensing();
-//                licensing.ReplaceMeLater("developer", MainWindow.esVersion, "Serial_Number", "Serial_Number2", "Interop.ADODBX.dll", GetProxySettings(Settings));
-//#endif
+                //                if (1 != licensing.ValidateLicense("trial", "b69e3783-9f56-47a7-82e0-6eee6d0779bf", System.Environment.MachineName, id, MainWindow.esVersion, GetProxySettings(Settings)))
+                //                {
+                //                    return;
+                //                }
+                //#else
+                //                Licensing licensing = new Licensing();
+                //                licensing.ReplaceMeLater("developer", MainWindow.esVersion, "Serial_Number", "Serial_Number2", "Interop.ADODBX.dll", GetProxySettings(Settings));
+                //#endif
 
                 TreeNode node = this.projectTree.SelectedNode;
 
@@ -439,7 +441,7 @@ namespace EntitySpaces.AddIn
         {
             try
             {
-                 ExecuteRecordedTemplate(node);
+                ExecuteRecordedTemplate(node);
 
                 foreach (TreeNode childNode in node.Nodes)
                 {
@@ -573,7 +575,7 @@ namespace EntitySpaces.AddIn
                     tag.Input = surface.CacheUserInput();
                     tag.Settings = Settings.Clone();
                     recordedTemplate.Tag = tag;
-        
+
                     node.Expand();
                     isDirty = true;
 
@@ -691,7 +693,7 @@ namespace EntitySpaces.AddIn
                 node = parentNode.Nodes.Add(esNode.Name);
             }
 
-            if(!esNode.IsFolder)
+            if (!esNode.IsFolder)
             {
                 ProjectNodeData tag = new ProjectNodeData();
                 tag.Template = esNode.Template;
@@ -1043,6 +1045,96 @@ namespace EntitySpaces.AddIn
             return proxy;
         }
 
+        #region Krypton Themes
+
+        // Override the base method to apply specific styles for this control
+        public override void ApplyTheme()
+        {
+            base.ApplyTheme(); // Applies the general UserControl background
+            KryptonColors();   // Applies specific control styles
+        }
+
+        private void KryptonColors()
+        {
+            Color bgColor = AppTheme.GetBackgroundColor();
+            Color fgColor = AppTheme.GetForegroundColor();
+
+            Color selectionColor = AppTheme.CurrentMode == AppThemeMode.Dark
+                ? Color.FromArgb(75, 75, 75)
+                : Color.FromArgb(200, 220, 240);
+
+            var customRenderer = new KryptonMenuRenderer(bgColor, selectionColor, fgColor);
+
+            // --- ToolStrips and ContextMenus ---
+            this.toolStrip1.BackColor = bgColor;
+            this.toolStrip1.ForeColor = fgColor;
+            this.toolStrip1.Renderer = customRenderer;
+
+            this.menuFolder.BackColor = bgColor;
+            this.menuFolder.ForeColor = fgColor;
+            this.menuFolder.Renderer = customRenderer;
+
+            this.menuTemplate.BackColor = bgColor;
+            this.menuTemplate.ForeColor = fgColor;
+            this.menuTemplate.Renderer = customRenderer;
+
+            this.menuMRU.BackColor = bgColor;
+            this.menuMRU.ForeColor = fgColor;
+            this.menuMRU.Renderer = customRenderer;
+
+            // --- Containers ---
+            this.splitContainer.BackColor = bgColor;
+            this.splitContainer.Panel1.BackColor = bgColor;
+            this.splitContainer.Panel2.BackColor = bgColor;
+            this.tableLayoutPanel1.BackColor = bgColor;
+
+            // --- TreeView Background Logic ---
+            Color treeBg;
+            if (AppTheme.CurrentMode == AppThemeMode.Dark)
+            {
+                treeBg = Color.FromArgb(45, 45, 48);
+            }
+            else if (AppTheme.CurrentMode == AppThemeMode.EntitySpaces)
+            {
+                treeBg = bgColor;
+            }
+            else
+            {
+                treeBg = Color.White;
+            }
+
+            this.projectTree.BackColor = treeBg;
+            this.projectTree.ForeColor = fgColor;
+
+            this.tree.BackColor = treeBg;
+            this.tree.ForeColor = fgColor;
+
+            // --- Labels & Buttons ---
+            this.label1.BackColor = Color.Transparent;
+            this.label1.ForeColor = fgColor;
+
+            this.buttonRecordOk.BackColor = bgColor;
+            this.buttonRecordOk.ForeColor = fgColor;
+
+            this.buttonRecordCancel.BackColor = bgColor;
+            this.buttonRecordCancel.ForeColor = fgColor;
+
+            // Force background color on all ToolStrip items (fixes dynamically added items)
+            foreach (ToolStripItem item in this.toolStrip1.Items)
+            {
+                item.BackColor = bgColor;
+                item.ForeColor = fgColor;
+            }
+
+            // Also apply to the MRU context menu items just in case
+            foreach (ToolStripItem item in this.menuMRU.Items)
+            {
+                item.BackColor = bgColor;
+                item.ForeColor = fgColor;
+            }
+        }
+
+        #endregion
 
     }
 

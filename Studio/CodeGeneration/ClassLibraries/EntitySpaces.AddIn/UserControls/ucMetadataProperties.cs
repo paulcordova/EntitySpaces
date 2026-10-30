@@ -1,16 +1,19 @@
-﻿using System;
+﻿using EntitySpaces.Common;
+using EntitySpaces.MetadataEngine;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
-using System.Drawing;
 using System.Data;
+using System.Drawing;
 using System.Text;
 using System.Windows.Forms;
 
-using EntitySpaces.MetadataEngine;
+using System.Drawing;
+using EntitySpaces.Common;
 
 namespace EntitySpaces.AddIn
 {
-    internal partial class ucMetadataProperties : UserControl
+    internal partial class ucMetadataProperties : UserControl, IThemeable
     {
         private int _currentHashCode = Int32.MinValue;
  
@@ -159,5 +162,34 @@ namespace EntitySpaces.AddIn
             propGrid.SelectedObject = type;
             this._currentHashCode = type.GetHashCode();
         }
-    }
+
+        #region Krypton Theme Support
+
+        public void ApplyTheme()
+        {
+            Color bgColor = AppTheme.GetBackgroundColor();
+            Color fgColor = AppTheme.GetForegroundColor();
+
+            this.BackColor = bgColor;
+
+            if (this.propGrid != null)
+            {
+                // Force basic colors on the PropertyGrid
+                this.propGrid.BackColor = bgColor;
+                this.propGrid.ViewBackColor = bgColor;
+                this.propGrid.ViewForeColor = fgColor;
+
+                // Help section (bottom text area)
+                this.propGrid.HelpBackColor = bgColor;
+                this.propGrid.HelpForeColor = fgColor;
+
+                // Command panel (usually at the bottom)
+                this.propGrid.CommandsBackColor = bgColor;
+                this.propGrid.CommandsForeColor = fgColor;
+            }
+        }
+
+        #endregion
+
+    } // end class
 }

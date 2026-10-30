@@ -5,5 +5,8 @@
     <Setting Name="InstallId" Type="System.String" Scope="User">
       <Value Profile="(Default)" />
     </Setting>
+    <Setting Name="Theme" Type="System.String" Scope="User">
+      <Value Profile="(Default)">EntitySpaces</Value>
+    </Setting>
   </Settings>
 </SettingsFile>

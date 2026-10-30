@@ -1,21 +1,45 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Drawing;
-using System.Data;
-using System.Text;
-using System.Windows.Forms;
-
+﻿using EntitySpaces.AddIn.ES2025;
 using EntitySpaces.Common;
 using EntitySpaces.MetadataEngine;
-
-using EntitySpaces.AddIn.ES2025;
+using Krypton.Toolkit;
+using System;
+using System.ComponentModel;
+using System.Drawing;
+using System.Windows.Forms;
 
 namespace EntitySpaces.AddIn
 {
-    public class esUserControl : UserControl
+    // Implement the IThemeable interface
+    public class esUserControl : UserControl, IThemeable
     {
-        public esUserControl() { }
+        public esUserControl()
+        {
+        }
+
+        // Override OnLoad to apply theme automatically when the control is ready
+        protected override void OnLoad(EventArgs e)
+        {
+            base.OnLoad(e);
+
+            if (!DesignMode)
+            {
+                ApplyTheme();
+            }
+        }
+
+        public virtual void ApplyTheme()
+        {
+            if (!this.DesignMode)
+            {
+                try
+                {
+                    this.BackColor = AppTheme.GetBackgroundColor();
+                    this.ForeColor = AppTheme.GetForegroundColor();
+                }
+                catch { }
+            }
+        }
+
 
         private MainWindow mainWindow;
 
@@ -23,16 +47,13 @@ namespace EntitySpaces.AddIn
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public MainWindow MainWindow
         {
-            get { return mainWindow;  }
-            set 
-            { 
-                mainWindow = value; 
-            }
+            get { return mainWindow; }
+            set { mainWindow = value; }
         }
 
         public esSettings Settings
         {
-            get 
+            get
             {
                 if (mainWindow != null)
                 {
@@ -47,7 +68,6 @@ namespace EntitySpaces.AddIn
 
         virtual public void OnSettingsChanged()
         {
-
         }
     }
 }

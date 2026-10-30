@@ -22,6 +22,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\EntitySpaces.AddIn.TemplateUI\EntitySpaces.AddIn.TemplateUI.csproj" />
+    <ProjectReference Include="..\EntitySpaces.Common\EntitySpaces.Common.csproj" />
     <ProjectReference Include="..\EntitySpaces.MetadataEngine\EntitySpaces.MetadataEngine.csproj" />
   </ItemGroup>
 
@@ -44,5 +45,10 @@
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>
     </EmbeddedResource>
   </ItemGroup>
+
+	<ItemGroup>
+		<!-- Krypton UI Style NuGet -->
+		<PackageReference Include="Krypton.Toolkit" />
+	</ItemGroup>
 
 </Project>

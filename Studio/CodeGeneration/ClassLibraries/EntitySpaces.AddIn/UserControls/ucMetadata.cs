@@ -1,8 +1,9 @@
-﻿using System;
-using System.Data;
-using System.Windows.Forms;
-
+﻿using EntitySpaces.Common; 
 using EntitySpaces.MetadataEngine;
+using System;
+using System.Data;
+using System.Drawing;
+using System.Windows.Forms;
 
 namespace EntitySpaces.AddIn
 {
@@ -1042,7 +1043,134 @@ namespace EntitySpaces.AddIn
             }
             catch { }
         }
-    }
+
+
+        #region Krypton Themes
+
+        // Override the base method to apply specific styles for this control
+        public override void ApplyTheme()
+        {
+            base.ApplyTheme(); // Applies general UserControl background from AppTheme
+            KryptonColors();   // Applies specific control styles
+        }
+
+        private void KryptonColors()
+        {
+            Color bgColor = AppTheme.GetBackgroundColor();
+            Color fgColor = AppTheme.GetForegroundColor();
+            bool isDark = AppTheme.CurrentMode == AppThemeMode.Dark;
+
+            // 1. Style the ToolStrip
+            Color selectionColor = isDark ? Color.FromArgb(75, 75, 75) : Color.FromArgb(200, 220, 240);
+            var customRenderer = new KryptonMenuRenderer(bgColor, selectionColor, fgColor);
+
+            if (this.ToolStrip != null)
+            {
+                this.ToolStrip.BackColor = bgColor;
+                this.ToolStrip.ForeColor = fgColor;
+                this.ToolStrip.Renderer = customRenderer;
+
+                foreach (ToolStripItem item in this.ToolStrip.Items)
+                {
+                    item.BackColor = bgColor;
+                    item.ForeColor = fgColor;
+                }
+            }
+
+            // 2. Style Containers (SplitContainers and Panels)
+            if (this.splitContainer1 != null)
+            {
+                this.splitContainer1.BackColor = bgColor;
+                this.splitContainer1.Panel1.BackColor = bgColor;
+                this.splitContainer1.Panel2.BackColor = bgColor;
+            }
+
+            if (this.splitContainer2 != null)
+            {
+                this.splitContainer2.BackColor = bgColor;
+                this.splitContainer2.Panel1.BackColor = bgColor;
+                this.splitContainer2.Panel2.BackColor = bgColor;
+            }
+
+            if (this.panel1 != null)
+            {
+                this.panel1.BackColor = bgColor;
+            }
+
+            // 3. Style the TreeView
+            if (this.tree != null)
+            {
+                Color treeBg;
+                if (AppTheme.CurrentMode == AppThemeMode.Dark)
+                {
+                    treeBg = Color.FromArgb(45, 45, 48);
+                }
+                else if (AppTheme.CurrentMode == AppThemeMode.EntitySpaces)
+                {
+                    treeBg = bgColor;
+                }
+                else
+                {
+                    treeBg = Color.White;
+                }
+
+                this.tree.BackColor = treeBg;
+                this.tree.ForeColor = fgColor;
+            }
+
+            // 4. Style the DataGridView (Grid)
+            if (this.Grid != null)
+            {
+                Color gridBg = isDark ? Color.FromArgb(45, 45, 48) : Color.White;
+                Color gridHeaderBg = isDark ? Color.FromArgb(60, 60, 60) : Color.FromArgb(240, 240, 240);
+
+                this.Grid.BackgroundColor = bgColor;
+                this.Grid.GridColor = isDark ? Color.FromArgb(80, 80, 80) : Color.LightGray;
+                this.Grid.EnableHeadersVisualStyles = false; // CRITICAL for dark mode headers
+
+                // Cell styles
+                this.Grid.DefaultCellStyle.BackColor = gridBg;
+                this.Grid.DefaultCellStyle.ForeColor = fgColor;
+                this.Grid.DefaultCellStyle.SelectionBackColor = selectionColor;
+                this.Grid.DefaultCellStyle.SelectionForeColor = fgColor;
+
+                // Header styles
+                this.Grid.ColumnHeadersDefaultCellStyle.BackColor = gridHeaderBg;
+                this.Grid.ColumnHeadersDefaultCellStyle.ForeColor = fgColor;
+                this.Grid.ColumnHeadersDefaultCellStyle.SelectionBackColor = gridHeaderBg;
+                this.Grid.ColumnHeadersDefaultCellStyle.SelectionForeColor = fgColor;
+            }
+
+            // 5. Style the nested UserControl (ucMetadataProperties)
+            if (this.ucMetadataProperties != null)
+            {
+                this.ucMetadataProperties.BackColor = bgColor;
+                this.ucMetadataProperties.ForeColor = fgColor;
+
+                // Search for the PropertyGrid inside the UserControl without LINQ
+                PropertyGrid grid = null;
+                foreach (Control ctrl in this.ucMetadataProperties.Controls)
+                {
+                    if (ctrl is PropertyGrid)
+                    {
+                        grid = (PropertyGrid)ctrl;
+                        break;
+                    }
+                }
+
+                if (grid != null)
+                {
+                    grid.ViewBackColor = bgColor;       // The main background
+                    grid.HelpBackColor = bgColor;       // The help panel at the bottom
+                    grid.CommandsBackColor = bgColor;   // The commands panel
+                    grid.LineColor = isDark ? Color.FromArgb(80, 80, 80) : Color.LightGray;
+                }
+            }
+        }
+
+        #endregion
+
+    } // end class
 
     class NodeData
     {

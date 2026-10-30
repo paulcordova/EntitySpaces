@@ -22,11 +22,42 @@ namespace EntitySpaces.AddIn
         static private TemplateUICollection coll = new TemplateUICollection();
         static private MainWindow MainWindow;
 
+        //Krypton Theme: Keep track of the current instance to handle live theme changes
+        static private TemplateDisplaySurface _currentInstance;
+
+
         static public Dictionary<Guid, Hashtable> CachedInput = new Dictionary<Guid, Hashtable>();
         public SortedList<int, UserControl> CurrentUIControls = new SortedList<int, UserControl>();
         public Root esMeta = null;
         public Template Template;
 
+        internal TemplateDisplaySurface()
+        {
+            // Krypton Theme: Subscribe to theme changes
+            _currentInstance = this;
+            AppTheme.ThemeChanged += OnThemeChanged;
+        }
+
+        // Krypton Theme: Method to handle live theme changes
+        private void OnThemeChanged()
+        {
+            if (_currentInstance == null) return;
+
+            Color bgColor = AppTheme.GetBackgroundColor();
+            Color fgColor = AppTheme.GetForegroundColor();
+
+            foreach (UserControl control in _currentInstance.CurrentUIControls.Values)
+            {
+                ApplyThemeToControlTree(control, bgColor, fgColor);
+            }
+        }
+
+        // Add a method to clean up the event
+        public void Cleanup()
+        {
+            AppTheme.ThemeChanged -= OnThemeChanged;
+            _currentInstance = null;
+        }
 
         static internal void Initialize(MainWindow mainWindow)
         {
@@ -42,10 +73,6 @@ namespace EntitySpaces.AddIn
             TemplateDisplaySurface.MainWindow = mainWindow;
         }
 
-        internal TemplateDisplaySurface()
-        {
-
-        }
 
         public void DisplayTemplateUI
         (
@@ -105,19 +132,36 @@ namespace EntitySpaces.AddIn
                     MainWindow.tabControlTemplateUI.SuspendLayout();
                     MainWindow.tabControlTemplateUI.TabPages.Clear();
 
+                    // Get the active theme colors once
+                    Color themeBgColor = AppTheme.GetBackgroundColor();
+                    Color themeFgColor = AppTheme.GetForegroundColor();
+
                     foreach (esTemplateInfo info in templateInfoCollection.Values)
                     {
                         UserControl userControl = info.UserInterface.CreateInstance(esMeta, useCachedInput, MainWindow.ApplicationObject);
                         CurrentUIControls.Add(info.TabOrder, userControl);
 
                         TabPage page = new TabPage(info.TabTitle);
-                        page.Controls.Add(userControl);
 
+                        page.BackColor = themeBgColor;
+                        page.ForeColor = themeFgColor;
+                        page.UseVisualStyleBackColor = false;
+
+                        userControl.BackColor = themeBgColor;
+                        userControl.ForeColor = themeFgColor;
+
+                        if (userControl is IThemeable themeableControl)
+                        {
+                            themeableControl.ApplyTheme();
+                        }
+
+                        // Apply to children
+                        ApplyThemeToControlTree(userControl, themeBgColor, themeFgColor);
+
+                        page.Controls.Add(userControl);
                         userControl.Dock = DockStyle.Fill;
 
                         MainWindow.tabControlTemplateUI.TabPages.Add(page);
-
-                        MainWindow.ShowTemplateUIControl();
                     }
 
                     MainWindow.tabControlTemplateUI.ResumeLayout();
@@ -189,5 +233,67 @@ namespace EntitySpaces.AddIn
         {
             CachedInput = new Dictionary<Guid, Hashtable>();
         }
-    }
+
+        #region Krypton Theme Support
+
+       
+        private static void ApplyThemeToControlTree(Control parent, Color bgColor, Color fgColor)
+        {
+            bool isDark = AppTheme.CurrentMode == AppThemeMode.Dark;
+
+            foreach (Control ctrl in parent.Controls)
+            {
+                // 1. Labels, CheckBoxes, RadioButtons
+                if (ctrl is Label || ctrl is CheckBox || ctrl is RadioButton)
+                {
+                    ctrl.BackColor = Color.Transparent;
+
+                    // CRITICAL FIX: If the control is disabled, use a lighter gray so it's readable in dark mode
+                    if (!ctrl.Enabled)
+                    {
+                        ctrl.ForeColor = isDark ? Color.FromArgb(150, 150, 150) : Color.Gray;
+                    }
+                    else
+                    {
+                        ctrl.ForeColor = fgColor;
+                    }
+                }
+                // 2. GroupBoxes (Force text color)
+                else if (ctrl is GroupBox gb)
+                {
+                    gb.BackColor = Color.Transparent;
+                    gb.ForeColor = fgColor;
+                }
+                // 3. TextBoxes and ComboBoxes
+                else if (ctrl is TextBox || ctrl is ComboBox || ctrl is ListBox)
+                {
+                    ctrl.BackColor = isDark ? Color.FromArgb(60, 60, 60) : Color.White;
+                    ctrl.ForeColor = fgColor;
+                }
+                // 4. Containers
+                else if (ctrl is Panel || ctrl is TableLayoutPanel || ctrl is TabControl || ctrl is TabPage)
+                {
+                    ctrl.BackColor = bgColor;
+                    ctrl.ForeColor = fgColor;
+                }
+                // 5. Buttons
+                else if (ctrl is Button btn)
+                {
+                    btn.BackColor = bgColor;
+                    btn.ForeColor = fgColor;
+                    btn.FlatStyle = FlatStyle.Flat;
+                    btn.FlatAppearance.BorderColor = fgColor;
+                }
+
+                // Go deeper into nested controls
+                if (ctrl.HasChildren)
+                {
+                    ApplyThemeToControlTree(ctrl, bgColor, fgColor);
+                }
+            }
+        }
+
+        #endregion
+
+    } // end class
 }

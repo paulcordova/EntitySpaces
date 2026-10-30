@@ -1,19 +1,18 @@
-﻿using System;
+﻿using EntitySpaces;
+using EntitySpaces.Common;
+using EntitySpaces.MetadataEngine;
+using Microsoft.Win32;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
-using System.Drawing;
 using System.Data;
+using System.Drawing;
 using System.IO;
-using System.Text;
 using System.Reflection;
+using System.Text;
 using System.Windows.Forms;
-
-using Microsoft.Win32;
-
-using EntitySpaces.MetadataEngine;
 using System.Xml.Serialization;
-using EntitySpaces;
 
 namespace EntitySpaces.AddIn
 {
@@ -1438,5 +1437,218 @@ namespace EntitySpaces.AddIn
 
             return proxy;
         }
+
+        #region Krypton Themes
+
+        public override void ApplyTheme()
+        {
+            base.ApplyTheme(); // Applies base background color to the UserControl
+            KryptonColors();
+        }
+
+        private void KryptonColors()
+        {
+            Color bgColor = AppTheme.GetBackgroundColor();
+            Color fgColor = AppTheme.GetForegroundColor();
+            bool isDark = AppTheme.CurrentMode == AppThemeMode.Dark;
+
+            // --- 1. Style the ToolStrip ---
+            Color selectionColor = isDark ? Color.FromArgb(75, 75, 75) : Color.FromArgb(200, 220, 240);
+            var customRenderer = new KryptonMenuRenderer(bgColor, selectionColor, fgColor);
+
+            this.toolStripSettings.BackColor = bgColor;
+            this.toolStripSettings.ForeColor = fgColor;
+            this.toolStripSettings.Renderer = customRenderer;
+
+            foreach (ToolStripItem item in this.toolStripSettings.Items)
+            {
+                item.BackColor = bgColor;
+                item.ForeColor = fgColor;
+            }
+
+            // Configure all TabControls for custom drawing (OwnerDraw)
+            ApplyTabControlStyle(this.tabControlSettings);
+            ApplyTabControlStyle(this.tabControlNaming); // Nested in Naming Conventions
+            ApplyTabControlStyle(this.tabControl1);      // Nested in Custom Fields
+
+
+            // --- 2. Specific Fixes for Connection Tab (Prevents white boxes and 3D borders) ---
+
+            // Ensure the main layout panel matches the theme background
+            if (this.tableLayoutPanel5 != null)
+            {
+                this.tableLayoutPanel5.BackColor = bgColor;
+            }
+
+            // Style the large Connection String textbox
+            if (this.textBoxConnectionString != null)
+            {
+                this.textBoxConnectionString.BackColor = isDark ? Color.FromArgb(60, 60, 60) : Color.White;
+                this.textBoxConnectionString.ForeColor = fgColor;
+                this.textBoxConnectionString.BorderStyle = BorderStyle.None;
+
+                // Optional: Add a little breathing room inside the textbox
+                this.textBoxConnectionString.Margin = new Padding(4);
+                this.textBoxConnectionString.Padding = new Padding(2); // Does not work well on multiline, but worth a try
+            }
+
+            // Style the Driver ComboBox
+            if (this.comboBoxDriver != null)
+            {
+                this.comboBoxDriver.BackColor = isDark ? Color.FromArgb(60, 60, 60) : Color.White;
+                this.comboBoxDriver.ForeColor = fgColor;
+            }
+
+            // Style the Help TextBox (Read-only text at the bottom)
+            if (this.textBoxConnectionHelp != null)
+            {
+                // Match it with the background and change text color to a readable blue
+                this.textBoxConnectionHelp.BackColor = bgColor;
+                this.textBoxConnectionHelp.ForeColor = isDark ? Color.DeepSkyBlue : Color.Blue;
+            }
+
+            // --- 3. Style the main TabControl and its pages ---
+            if (this.tabControlSettings != null)
+            {
+                foreach (TabPage page in this.tabControlSettings.TabPages)
+                {
+                    page.BackColor = bgColor;
+                    page.ForeColor = fgColor;
+                    page.UseVisualStyleBackColor = false; // Forces Windows to respect our color
+
+                    // Apply recursively to all nested controls inside the tab page
+                    ApplyThemeToContainers(page, bgColor, fgColor, isDark);
+                }
+            }
+        }
+
+        private void ApplyThemeToContainers(Control parent, Color bgColor, Color fgColor, bool isDark)
+        {
+            foreach (Control ctrl in parent.Controls)
+            {
+                // --- TabControls (Handles Naming and Custom Fields nested tabs) ---
+                if (ctrl is TabControl tabCtrl)
+                {
+                    tabCtrl.BackColor = bgColor;
+                    foreach (TabPage page in tabCtrl.TabPages)
+                    {
+                        page.BackColor = bgColor;
+                        page.ForeColor = fgColor;
+                        page.UseVisualStyleBackColor = false; // Fix for nested tabs
+                        ApplyThemeToContainers(page, bgColor, fgColor, isDark);
+                    }
+                }
+                // --- Containers ---
+                else if (ctrl is TableLayoutPanel || ctrl is Panel || ctrl is GroupBox)
+                {
+                    ctrl.BackColor = bgColor;
+                    ctrl.ForeColor = fgColor;
+                }
+                // --- TextBoxes ---
+                else if (ctrl is TextBox txt)
+                {
+                    if (txt == textBoxConnectionHelp)
+                    {
+                        // Special case for the help textbox (BorderStyle=None)
+                        // Match it with the background and change text color to a readable blue
+                        txt.BackColor = bgColor;
+                        txt.ForeColor = isDark ? Color.DeepSkyBlue : Color.Blue;
+                    }
+                    else
+                    {
+                        txt.BackColor = isDark ? Color.FromArgb(60, 60, 60) : Color.White;
+                        txt.ForeColor = fgColor;
+
+                        if (txt.Multiline)
+                        {
+                            txt.BorderStyle = BorderStyle.FixedSingle;
+                        }
+                    }
+                }
+                // --- ComboBoxes ---
+                else if (ctrl is ComboBox cbo)
+                {
+                    cbo.BackColor = isDark ? Color.FromArgb(60, 60, 60) : Color.White;
+                    cbo.ForeColor = fgColor;
+                }
+                // --- Labels, CheckBoxes, RadioButtons ---
+                else if (ctrl is Label || ctrl is CheckBox || ctrl is RadioButton)
+                {
+                    ctrl.BackColor = Color.Transparent;
+                    ctrl.ForeColor = fgColor;
+                }
+                // --- Buttons ---
+                else if (ctrl is Button btn)
+                {
+                    btn.BackColor = bgColor;
+                    btn.ForeColor = fgColor;
+                    btn.FlatStyle = FlatStyle.Flat;
+                    btn.FlatAppearance.BorderColor = fgColor;
+                }
+
+                // Go deeper into the control tree
+                if (ctrl.HasChildren)
+                {
+                    ApplyThemeToContainers(ctrl, bgColor, fgColor, isDark);
+                }
+            }
+        }
+
+        private void ApplyTabControlStyle(TabControl tabCtrl)
+        {
+            if (tabCtrl == null) return;
+
+            tabCtrl.DrawMode = TabDrawMode.OwnerDrawFixed;
+            tabCtrl.DrawItem -= TabControl_DrawItem; // Prevent duplicate subscriptions
+            tabCtrl.DrawItem += TabControl_DrawItem;
+            tabCtrl.Refresh();
+        }
+
+        private void TabControl_DrawItem(object sender, DrawItemEventArgs e)
+        {
+            TabControl tabCtrl = sender as TabControl;
+            if (tabCtrl == null || e.Index < 0) return;
+
+            Color bgColor = AppTheme.GetBackgroundColor();
+            Color fgColor = AppTheme.GetForegroundColor();
+            bool isDark = AppTheme.CurrentMode == AppThemeMode.Dark;
+
+            TabPage page = tabCtrl.TabPages[e.Index];
+            Rectangle rect = tabCtrl.GetTabRect(e.Index);
+
+            // Determine if this tab is currently selected
+            bool isSelected = (e.State & DrawItemState.Selected) == DrawItemState.Selected;
+
+            // Define the background color for the tab header
+            Color tabBg;
+            if (isSelected)
+            {
+                tabBg = bgColor; // Selected tab blends with the form background
+            }
+            else
+            {
+                // Unselected tabs get a cleaner shade
+                if (isDark)
+                    tabBg = Color.FromArgb(60, 60, 60); // Dark gray for dark mode
+                else if (AppTheme.CurrentMode == AppThemeMode.EntitySpaces)
+                    tabBg = Color.FromArgb(220, 235, 250); // Light blue for EntitySpaces
+                else
+                    tabBg = Color.FromArgb(240, 240, 240); // Light gray for Standard mode
+            }
+
+            // 1. Draw the tab background
+            using (SolidBrush b = new SolidBrush(tabBg))
+            {
+                e.Graphics.FillRectangle(b, rect);
+            }
+
+            // 2. Draw the tab text
+            TextRenderer.DrawText(e.Graphics, page.Text, e.Font, rect, fgColor,
+                TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+        }
+
+        #endregion
+
+
     }
 }

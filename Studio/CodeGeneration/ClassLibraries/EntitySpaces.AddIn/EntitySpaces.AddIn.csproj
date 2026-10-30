@@ -53,6 +53,7 @@
     <Content Include="esIcon.ico" />
     <Content Include="Icons\**\*.png" />
     <Compile Remove="MetaProperties.cs" />
+    <Compile Remove="UserControls\KryptonColorTable.cs" />
     <EmbeddedResource Remove="MetaProperties.resx" />
     
     <None Include="..\..\StrongNameKey\EntitySpaces.snk" Link="EntitySpaces.snk" />
@@ -80,5 +81,10 @@
       <LastGenOutput>Resource.Designer.cs</LastGenOutput>
     </EmbeddedResource>
   </ItemGroup>
+
+    <ItemGroup>
+	    <!-- Krypton UI Style NuGet -->
+	    <PackageReference Include="Krypton.Toolkit" />
+    </ItemGroup>
 
 </Project>

@@ -1,13 +1,13 @@
-﻿using System;
+﻿using EntitySpaces.AddIn.TemplateUI;
+using EntitySpaces.CodeGenerator;
+using EntitySpaces.Common;
+using EntitySpaces.MetadataEngine;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
 using System.Windows.Forms;
-
-using EntitySpaces.AddIn.TemplateUI;
-using EntitySpaces.CodeGenerator;
-using EntitySpaces.MetadataEngine;
 
 namespace EntitySpaces.AddIn
 {
@@ -235,5 +235,83 @@ namespace EntitySpaces.AddIn
             }
             catch { }
         }
-    }
+
+        #region Krypton Themes
+
+        // Override the base method to apply specific styles for this control
+        public override void ApplyTheme()
+        {
+            base.ApplyTheme(); // Applies general UserControl background from AppTheme
+            KryptonColors();   // Applies specific control styles
+        }
+
+        private void KryptonColors()
+        {
+            Color bgColor = AppTheme.GetBackgroundColor();
+            Color fgColor = AppTheme.GetForegroundColor();
+            bool isDark = AppTheme.CurrentMode == AppThemeMode.Dark;
+
+            // Define selection color for menus based on theme
+            Color selectionColor = isDark ? Color.FromArgb(75, 75, 75) : Color.FromArgb(200, 220, 240);
+            var customRenderer = new KryptonMenuRenderer(bgColor, selectionColor, fgColor);
+
+            // 1. Style the ToolStrip
+            if (this.toolStrip1 != null)
+            {
+                this.toolStrip1.BackColor = bgColor;
+                this.toolStrip1.ForeColor = fgColor;
+                this.toolStrip1.Renderer = customRenderer;
+
+                foreach (ToolStripItem item in this.toolStrip1.Items)
+                {
+                    item.BackColor = bgColor;
+                    item.ForeColor = fgColor;
+                }
+            }
+
+            // 2. Style the Context Menus
+            if (this.templateMenu != null)
+            {
+                this.templateMenu.BackColor = bgColor;
+                this.templateMenu.ForeColor = fgColor;
+                this.templateMenu.Renderer = customRenderer;
+            }
+
+            if (this.subTemplateMenu != null)
+            {
+                this.subTemplateMenu.BackColor = bgColor;
+                this.subTemplateMenu.ForeColor = fgColor;
+                this.subTemplateMenu.Renderer = customRenderer;
+            }
+
+            // 3. Style the custom Tree control (ucTemplateControl)
+            // Note: This handles the background of the UserControl. 
+            // If it has an internal TreeView that stays white, we may need to style that inside ucTemplateControl itself.
+            if (this.tree != null)
+            {
+                Color treeBg;
+                if (AppTheme.CurrentMode == AppThemeMode.Dark)
+                {
+                    treeBg = Color.FromArgb(45, 45, 48);
+                }
+                else if (AppTheme.CurrentMode == AppThemeMode.EntitySpaces)
+                {
+                    treeBg = bgColor; // Use the blue background
+                }
+                else
+                {
+                    treeBg = Color.White;
+                }
+
+                this.tree.BackColor = treeBg;
+                this.tree.ForeColor = fgColor;
+
+                // If 'tree' implements IThemeable, it will handle its own inner controls.
+                // If not, the recursive method in MainWindow will try to paint its children.
+            }
+        }
+
+        #endregion
+
+    } // end class
 }

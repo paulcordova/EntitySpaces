@@ -1,19 +1,21 @@
-﻿using System;
+﻿using EntitySpaces.AddIn.TemplateUI;
+using EntitySpaces.MetadataEngine;
+using EntitySpaces.Common; // Add this for AppTheme
+using Krypton.Toolkit;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
-using System.Drawing;
 using System.Data;
+using System.Drawing;
 using System.Linq;
 using System.Text;
 using System.Windows.Forms;
 
-using EntitySpaces.AddIn.TemplateUI;
-using EntitySpaces.MetadataEngine;
-
 namespace EntitySpaces.TemplateUI
 {
-    public partial class CustomMaster_Basic : UserControl, ITemplateUI
+    // Add IThemeable to the interface list
+    public partial class CustomMaster_Basic : UserControl, ITemplateUI, IThemeable
     {
         private Root esMeta;
         private bool UseCachedSettings;
@@ -22,6 +24,22 @@ namespace EntitySpaces.TemplateUI
         public CustomMaster_Basic()
         {
             InitializeComponent();
+
+            // Subscribe to the global theme change event
+            AppTheme.ThemeChanged += ApplyTheme;
+
+            // Unsubscribe when the control is disposed to prevent memory leaks
+            this.Disposed += (s, e) => AppTheme.ThemeChanged -= ApplyTheme;
+
+        }
+        
+        // Add this override to apply the theme exactly when the control is loaded
+        protected override void OnLoad(EventArgs e)
+        {
+            base.OnLoad(e);
+
+            // Apply theme now that the control is ready and Form1 has loaded the saved settings
+            ApplyTheme();
         }
 
         #region ITemplateUI Members
@@ -66,7 +84,7 @@ namespace EntitySpaces.TemplateUI
             }
             catch { }
 
-            return true;  
+            return true;
         }
 
         void ITemplateUI.OnCancel()
@@ -247,5 +265,84 @@ namespace EntitySpaces.TemplateUI
                 }
             }
         }
+
+        #region Krypton Themes
+
+        // Implement the interface method
+        public void ApplyTheme()
+        {
+            KryptonColors();
+        }
+
+        private void KryptonColors()
+        {
+            // Retrieve colors from the central AppTheme
+            Color bgColor = AppTheme.GetBackgroundColor();
+            Color fgColor = AppTheme.GetForegroundColor();
+            bool isDark = AppTheme.CurrentMode == AppThemeMode.Dark;
+
+            // Apply background to the UserControl itself
+            this.BackColor = bgColor;
+            this.ForeColor = fgColor;
+
+            // Set labels to transparent to inherit the form's background color
+            this.label1.BackColor = Color.Transparent;
+            this.label1.ForeColor = fgColor;
+
+            this.label2.BackColor = Color.Transparent;
+            this.label2.ForeColor = fgColor;
+
+            this.label4.BackColor = Color.Transparent;
+            this.label4.ForeColor = fgColor;
+
+            this.label5.BackColor = Color.Transparent;
+            this.label5.ForeColor = fgColor;
+
+            this.label6.BackColor = Color.Transparent;
+            this.label6.ForeColor = fgColor;
+
+            // --- TextBoxes: White in light mode, Dark Gray in Dark mode ---
+            Color inputBg = isDark ? Color.FromArgb(60, 60, 60) : Color.White;
+
+            this.txtOutputPath.BackColor = inputBg;
+            this.txtOutputPath.ForeColor = fgColor;
+            this.txtOutputPath.BorderStyle = BorderStyle.FixedSingle;
+
+            this.txtNamespace.BackColor = inputBg;
+            this.txtNamespace.ForeColor = fgColor;
+            this.txtNamespace.BorderStyle = BorderStyle.FixedSingle;
+
+            // Apply palette color to the button
+            this.btnOutputPath.BackColor = bgColor;
+            this.btnOutputPath.ForeColor = fgColor;
+
+            // --- ListBox and ComboBoxes ---
+            this.lboxTablesViews.BackColor = inputBg;
+            this.lboxTablesViews.ForeColor = fgColor;
+
+            this.cboDatabase.BackColor = inputBg;
+            this.cboDatabase.ForeColor = fgColor;
+
+            this.cboTablesViews.BackColor = inputBg;
+            this.cboTablesViews.ForeColor = fgColor;
+
+            // --- Theme TabControl if present ---
+            // This ensures the background behind the tabs matches the dark mode
+            foreach (Control ctrl in this.Controls)
+            {
+                if (ctrl is TabControl tabCtrl)
+                {
+                    // Note: Standard WinForms TabControl doesn't easily change 
+                    // its tab headers color without custom drawing, but this sets the page background
+                    foreach (TabPage page in tabCtrl.TabPages)
+                    {
+                        page.BackColor = bgColor;
+                        page.ForeColor = fgColor;
+                    }
+                }
+            }
+        }
+
+        #endregion
     }
 }

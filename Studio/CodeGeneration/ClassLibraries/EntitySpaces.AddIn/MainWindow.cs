@@ -14,7 +14,7 @@ using System.IO;
 using Microsoft.Win32;
 
 using EntitySpaces;
-using EntitySpaces.Common;
+using EntitySpaces.Common; // Required for AppTheme and IThemeable
 using EntitySpaces.CodeGenerator;
 using EntitySpaces.MetadataEngine;
 
@@ -22,7 +22,8 @@ using EntitySpaces.AddIn;
 
 namespace EntitySpaces.AddIn.ES2025
 {
-    public partial class MainWindow : UserControl
+    // Add IThemeable to the class definition
+    public partial class MainWindow : UserControl, IThemeable
     {
         private Licensing licensing = new Licensing();
         private object applicationObject;
@@ -36,8 +37,13 @@ namespace EntitySpaces.AddIn.ES2025
 
         public MainWindow()
         {
-
             InitializeComponent();
+
+            // Subscribe to the global theme change event
+            AppTheme.ThemeChanged += ApplyTheme;
+
+            // Unsubscribe when disposed to prevent memory leaks
+            this.Disposed += (s, e) => AppTheme.ThemeChanged -= ApplyTheme;
 
             NotAConstructor();
         }
@@ -50,8 +56,6 @@ namespace EntitySpaces.AddIn.ES2025
                 {
                     TemplateDisplaySurface.Initialize(this);
 
-                    // Always propagate current setting to other controls
-
                     if (this.DesignMode)
                         return;
 
@@ -63,7 +67,7 @@ namespace EntitySpaces.AddIn.ES2025
 
                     esPlugIn plugin = new esPlugIn(settings);
 
-//#if TRIAL
+                    // ... (license code remains unchanged)
 //                    Licensing licensing = new Licensing();
 //                    string id = licensing.getUniqueID("C");
 
@@ -216,9 +220,9 @@ namespace EntitySpaces.AddIn.ES2025
         public esSettings Settings
         {
             get { return settings; }
-            set 
-            { 
-                settings = value; 
+            set
+            {
+                settings = value;
             }
         }
 
@@ -309,20 +313,16 @@ namespace EntitySpaces.AddIn.ES2025
 
         public void ShowTemplateUIControl()
         {
-
             try
             {
                 this.splitContainerTabControl.Panel1Collapsed = true;
                 this.splitContainerTabControl.Panel2Collapsed = false;
-
-
             }
             catch (Exception ex)
             {
                 this.ShowError(ex);
             }
         }
-
 
         private void buttonExecuteTemplateOk_Click(object sender, EventArgs e)
         {
@@ -426,5 +426,216 @@ namespace EntitySpaces.AddIn.ES2025
             catch { }
         }
 
+        #region Krypton Themes
+
+        // Implement the IThemeable interface method
+        public void ApplyTheme()
+        {
+            if (DesignMode) return;
+
+            Color bgColor = AppTheme.GetBackgroundColor();
+            Color fgColor = AppTheme.GetForegroundColor();
+            bool isDark = AppTheme.CurrentMode == AppThemeMode.Dark;
+
+            // Apply base colors to main containers
+            this.BackColor = bgColor;
+            this.splitContainer.BackColor = bgColor;
+            this.splitContainer.Panel1.BackColor = bgColor;
+            this.splitContainer.Panel2.BackColor = Color.Black; // Keep error panel dark
+
+            this.splitContainerTabControl.BackColor = bgColor;
+            this.splitContainerTabControl.Panel1.BackColor = bgColor;
+
+            this.tableLayoutPanel3.BackColor = bgColor;
+            this.panel1.BackColor = bgColor;
+
+
+            // Configure the Template UI TabControl for custom drawing
+            if (this.tabControlTemplateUI != null)
+            {
+                this.tabControlTemplateUI.DrawMode = TabDrawMode.OwnerDrawFixed;
+                this.tabControlTemplateUI.DrawItem -= TabControlTemplateUI_DrawItem; // Prevent duplicate subscriptions
+                this.tabControlTemplateUI.DrawItem += TabControlTemplateUI_DrawItem;
+                this.tabControlTemplateUI.Refresh(); // Force redraw
+            }
+
+            // Configure main TabControl for custom drawing
+            this.tabControl.DrawMode = TabDrawMode.OwnerDrawFixed;
+            this.tabControl.DrawItem -= TabControl_DrawItem; // Avoid duplicate subscriptions
+            this.tabControl.DrawItem += TabControl_DrawItem;
+
+            // Recursively apply theme to all children
+            ApplyThemeRecursively(this, bgColor, fgColor, isDark);
+        }
+
+        private void TabControlTemplateUI_DrawItem(object sender, DrawItemEventArgs e)
+        {
+            TabControl tabCtrl = sender as TabControl;
+            if (tabCtrl == null || e.Index < 0) return;
+
+            Color bgColor = AppTheme.GetBackgroundColor();
+            Color fgColor = AppTheme.GetForegroundColor();
+            bool isDark = AppTheme.CurrentMode == AppThemeMode.Dark;
+
+            TabPage page = tabCtrl.TabPages[e.Index];
+            Rectangle rect = tabCtrl.GetTabRect(e.Index);
+
+            // Determine if this tab is currently selected
+            bool isSelected = (e.State & DrawItemState.Selected) == DrawItemState.Selected;
+
+            // Define the background color for the tab header
+            Color tabBg;
+            if (isSelected)
+            {
+                tabBg = bgColor; // Selected tab blends with the form background
+            }
+            else
+            {
+                // Unselected tabs get a slightly darker shade to stand out
+                if (isDark)
+                    tabBg = Color.FromArgb(60, 60, 60);
+                else if (AppTheme.CurrentMode == AppThemeMode.EntitySpaces)
+                    tabBg = Color.FromArgb(180, 200, 230); // Slightly darker blue
+                else
+                    tabBg = Color.FromArgb(230, 230, 230); // Light gray for Standard
+            }
+
+            // 1. Draw the tab background
+            using (SolidBrush b = new SolidBrush(tabBg))
+            {
+                e.Graphics.FillRectangle(b, rect);
+            }
+
+            // 2. Draw the tab text
+            TextRenderer.DrawText(e.Graphics, page.Text, e.Font, rect, fgColor,
+                TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+        }
+
+
+        private void ApplyThemeRecursively(Control parent, Color bgColor, Color fgColor, bool isDark)
+        {
+            foreach (Control control in parent.Controls)
+            {
+                // 1. If the control handles its own theme (like ucProjects)
+                if (control is IThemeable themeable)
+                {
+                    themeable.ApplyTheme();
+
+                    // Force background color just in case the ApplyTheme implementation missed the base background
+                    if (control is UserControl)
+                    {
+                        control.BackColor = bgColor;
+                    }
+                }
+                else
+                {
+                    // 2. Apply generic rules for standard controls
+                    if (control is Label || control is LinkLabel)
+                    {
+                        control.BackColor = Color.Transparent;
+                        control.ForeColor = fgColor;
+                    }
+                    else if (control is TextBox || control is ComboBox || control is ListBox)
+                    {
+                        control.BackColor = isDark ? Color.FromArgb(60, 60, 60) : Color.White;
+                        control.ForeColor = fgColor;
+
+                        if (control is TextBox txt)
+                            txt.BorderStyle = BorderStyle.FixedSingle;
+                    }
+                    else if (control is Button btn)
+                    {
+                        btn.BackColor = bgColor;
+                        btn.ForeColor = fgColor;
+                        btn.FlatStyle = FlatStyle.Flat;
+                        btn.FlatAppearance.BorderColor = fgColor;
+                    }
+                    // ADDED: || control is UserControl to catch standard UserControls like ucTemplates and ucMetadata
+                    else if (control is TabPage || control is Panel || control is TableLayoutPanel || control is SplitContainer || control is SplitterPanel || control is UserControl)
+                    {
+                        control.BackColor = bgColor;
+                    }
+                    else if (control is TabControl tabCtrl)
+                    {
+                        tabCtrl.BackColor = bgColor;
+                        foreach (TabPage page in tabCtrl.TabPages)
+                        {
+                            page.BackColor = bgColor;
+                        }
+                    }
+                    else if (control is TreeView tree)
+                    {
+                        tree.BackColor = isDark ? Color.FromArgb(45, 45, 48) : Color.White;
+                        tree.ForeColor = fgColor;
+                    }
+                    else if (control is DataGridView dgv)
+                    {
+                        dgv.BackgroundColor = bgColor;
+                        dgv.DefaultCellStyle.BackColor = isDark ? Color.FromArgb(45, 45, 48) : Color.White;
+                        dgv.DefaultCellStyle.ForeColor = fgColor;
+                    }
+                }
+
+                // 3. ALWAYS recurse into children
+                if (control.HasChildren)
+                {
+                    ApplyThemeRecursively(control, bgColor, fgColor, isDark);
+                }
+            }
+        }
+
+        private void TabControl_DrawItem(object sender, DrawItemEventArgs e)
+        {
+            TabControl tabCtrl = sender as TabControl;
+            if (tabCtrl == null || e.Index < 0) return;
+
+            Color bgColor = AppTheme.GetBackgroundColor();
+            Color fgColor = AppTheme.GetForegroundColor();
+            bool isDark = AppTheme.CurrentMode == AppThemeMode.Dark;
+
+            TabPage page = tabCtrl.TabPages[e.Index];
+            Rectangle rect = tabCtrl.GetTabRect(e.Index);
+
+            // Determine selected state
+            bool isSelected = (e.State & DrawItemState.Selected) == DrawItemState.Selected;
+
+            // Define the background color for the tab header
+            Color tabBg;
+            if (isSelected)
+            {
+                // Selected tab blends with the form background
+                tabBg = bgColor;
+            }
+            else
+            {
+                if (isDark)
+                {
+                    // Dark gray for dark mode
+                    tabBg = Color.FromArgb(60, 60, 60);
+                }
+                else if (AppTheme.CurrentMode == AppThemeMode.EntitySpaces)
+                {
+                    // Very light blue for EntitySpaces to avoid the dirty gray look
+                    tabBg = Color.FromArgb(220, 235, 250);
+                }
+                else
+                {
+                    // Light gray for Standard mode
+                    tabBg = Color.FromArgb(240, 240, 240);
+                }
+            }
+
+            // Draw background
+            using (SolidBrush b = new SolidBrush(tabBg))
+            {
+                e.Graphics.FillRectangle(b, rect);
+            }
+
+            // Draw text
+            TextRenderer.DrawText(e.Graphics, page.Text, e.Font, rect, fgColor,
+                TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+        }
+
+        #endregion
     }
 }

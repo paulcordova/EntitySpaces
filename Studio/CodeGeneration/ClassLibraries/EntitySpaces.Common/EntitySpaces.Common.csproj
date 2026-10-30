@@ -28,4 +28,9 @@
     <None Include="..\..\StrongNameKey\EntitySpaces.snk" Link="EntitySpaces.snk" />
   </ItemGroup>
 
+	<ItemGroup>
+		<!-- Krypton UI Style NuGet -->
+		<PackageReference Include="Krypton.Toolkit" />
+	</ItemGroup>
+
 </Project>

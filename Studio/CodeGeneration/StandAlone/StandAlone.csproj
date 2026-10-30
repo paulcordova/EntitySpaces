@@ -28,6 +28,7 @@
     <ProjectReference Include="..\ClassLibraries\EntitySpaces.AddIn.TemplateUI\EntitySpaces.AddIn.TemplateUI.csproj" />
     <ProjectReference Include="..\ClassLibraries\EntitySpaces.AddIn\EntitySpaces.AddIn.csproj" />
     <ProjectReference Include="..\ClassLibraries\EntitySpaces.CodeGenerator\EntitySpaces.CodeGenerator.csproj" />
+    <ProjectReference Include="..\ClassLibraries\EntitySpaces.Common\EntitySpaces.Common.csproj" />
     <!--<ProjectReference Include="..\ClassLibraries\EntitySpaces.MetadataEngine.SQLAzure\EntitySpaces.MetadataEngine.SQLAzure.csproj" />-->
     <ProjectReference Include="..\ClassLibraries\EntitySpaces.MetadataEngine.SQLite\EntitySpaces.MetadataEngine.SQLite.csproj" />
     <ProjectReference Include="..\ClassLibraries\EntitySpaces.MetadataEngine\EntitySpaces.MetadataEngine.csproj" />
@@ -56,12 +57,22 @@
     <None Update="Oracle.ManagedDataAccess.Client.Configuration.Section.xsd" SubType="Designer" />-->
   </ItemGroup>
 
+	<ItemGroup>
+		<!-- Krypton UI Style NuGet -->
+		<PackageReference Include="Krypton.Toolkit" />
+	</ItemGroup>
+
   <!-- Configuración explícita de recursos y diseñadores si el SDK no los auto-enlaza a la primera -->
   <ItemGroup>
     <Compile Update="Properties\Resources.Designer.cs">
       <DesignTime>True</DesignTime>
       <AutoGen>True</AutoGen>
       <DependentUpon>Resources.resx</DependentUpon>
+    </Compile>
+    <Compile Update="Properties\Settings.Designer.cs">
+      <DesignTimeSharedInput>True</DesignTimeSharedInput>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Settings.settings</DependentUpon>
     </Compile>
     <Compile Update="Resource1.Designer.cs">
       <DesignTime>True</DesignTime>
@@ -77,6 +88,12 @@
       <Generator>PublicResXFileCodeGenerator</Generator>
       <LastGenOutput>Resource1.Designer.cs</LastGenOutput>
     </EmbeddedResource>
+  </ItemGroup>
+  <ItemGroup>
+    <None Update="Properties\Settings.settings">
+      <Generator>SettingsSingleFileGenerator</Generator>
+      <LastGenOutput>Settings.Designer.cs</LastGenOutput>
+    </None>
   </ItemGroup>
 
 </Project>
