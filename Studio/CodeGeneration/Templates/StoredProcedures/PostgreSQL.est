@@ -41,7 +41,7 @@
     Description="PostgreSQL Stored Procedures" 
     Namespace="EntitySpaces.2026.StoredProcedures" 
     Author="EntitySpaces, LLC"
-    Version="2026.10.0.0"
+    Version="2026.11.0.0"
     RequiresUI="True" %><%
 ArrayList entities = esMeta.Input["Entities"] as ArrayList;
 string entityType = (string)esMeta.Input["EntityType"];
@@ -453,7 +453,7 @@ private string BuildArgTypesForDelete(ITable table)
 		first = false;
 	}
 	return args;
-}
+}	
 
 private string BuildArgTypesForPK(ITable table)
 {
