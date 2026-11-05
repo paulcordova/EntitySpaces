@@ -15,7 +15,7 @@
     
     <!-- Evitar conflictos con Properties\AssemblyInfo.cs y SharedVersion.cs -->
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
-    <PlatformTarget>x86</PlatformTarget>
+    <PlatformTarget>x64</PlatformTarget>
   </PropertyGroup>
 
   <ItemGroup>

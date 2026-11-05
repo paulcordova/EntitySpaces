@@ -717,18 +717,18 @@ namespace EntitySpaces.MetadataEngine
                 if (basePath != null)
                 {
                     // Installed — fill empty or invalid paths with installation paths
-                    string installTemplate  = basePath + @"CodeGeneration\Templates\";
-                    string installUI        = basePath + @"CodeGeneration\Bin\UIAddIns\";
-                    string installCompiler  = basePath + @"CodeGeneration\Bin\";
-                    string installLangMap   = basePath + @"CodeGeneration\esLanguages.xml";
+                    string installTemplate = basePath + @"CodeGeneration\Templates\";
+                    string installUI = basePath + @"CodeGeneration\Bin\UIAddIns\";
+                    string installCompiler = basePath + @"CodeGeneration\Bin\";
+                    string installLangMap = basePath + @"CodeGeneration\esLanguages.xml";
 
-                    if (string.IsNullOrEmpty(settings.TemplatePath)        || !Directory.Exists(settings.TemplatePath))
+                    if (string.IsNullOrEmpty(settings.TemplatePath) || !Directory.Exists(settings.TemplatePath))
                         settings.TemplatePath = installTemplate;
 
-                    if (string.IsNullOrEmpty(settings.UIAssemblyPath)      || !Directory.Exists(settings.UIAssemblyPath))
+                    if (string.IsNullOrEmpty(settings.UIAssemblyPath) || !Directory.Exists(settings.UIAssemblyPath))
                         settings.UIAssemblyPath = installUI;
 
-                    if (string.IsNullOrEmpty(settings.CompilerAssemblyPath)|| !Directory.Exists(settings.CompilerAssemblyPath))
+                    if (string.IsNullOrEmpty(settings.CompilerAssemblyPath) || !Directory.Exists(settings.CompilerAssemblyPath))
                         settings.CompilerAssemblyPath = installCompiler;
 
                     if (string.IsNullOrEmpty(settings.LanguageMappingFile) || !File.Exists(settings.LanguageMappingFile))
@@ -745,19 +745,21 @@ namespace EntitySpaces.MetadataEngine
 
                     if (!exeDir.EndsWith(@"\")) exeDir += @"\";
 
-                    string codeGenDir = Path.GetFullPath(Path.Combine(exeDir, @"..\..\..\..\"));
+                    // [FIX] CodeGeneration is the parent directory of Bin
+                    string codeGenDir = Path.GetFullPath(Path.Combine(exeDir, @"..\"));
 
                     string devTemplate = Path.Combine(codeGenDir, @"Templates\");
-                    string devLangMap  = Path.Combine(codeGenDir, @"esLanguages.xml");
+                    string devLangMap = Path.Combine(codeGenDir, @"esLanguages.xml");
+                    string devUI = Path.Combine(exeDir, @"UIAddIns\"); // [FIX] Points to Bin\UIAddIns\
 
                     // In development all DLLs (UI, compiler, plugins) live in the same bin directory
-                    if (string.IsNullOrEmpty(settings.TemplatePath)        || !Directory.Exists(settings.TemplatePath))
+                    if (string.IsNullOrEmpty(settings.TemplatePath) || !Directory.Exists(settings.TemplatePath))
                         settings.TemplatePath = devTemplate;
 
-                    if (string.IsNullOrEmpty(settings.UIAssemblyPath)      || !Directory.Exists(settings.UIAssemblyPath))
-                        settings.UIAssemblyPath = exeDir;
+                    if (string.IsNullOrEmpty(settings.UIAssemblyPath) || !Directory.Exists(settings.UIAssemblyPath))
+                        settings.UIAssemblyPath = devUI;
 
-                    if (string.IsNullOrEmpty(settings.CompilerAssemblyPath)|| !Directory.Exists(settings.CompilerAssemblyPath))
+                    if (string.IsNullOrEmpty(settings.CompilerAssemblyPath) || !Directory.Exists(settings.CompilerAssemblyPath))
                         settings.CompilerAssemblyPath = exeDir;
 
                     if (string.IsNullOrEmpty(settings.LanguageMappingFile) || !File.Exists(settings.LanguageMappingFile))
@@ -775,10 +777,10 @@ namespace EntitySpaces.MetadataEngine
                 string basePath = key.GetValue("Install_Dir") as string ?? string.Empty;
                 if (!basePath.EndsWith(@"\")) basePath += @"\";
 
-                if (settings.TemplatePath        == basePath + @"CodeGeneration\Templates\")   settings.TemplatePath        = string.Empty;
-                if (settings.UIAssemblyPath       == basePath + @"CodeGeneration\Bin\UIAddIns\") settings.UIAssemblyPath    = string.Empty;
-                if (settings.CompilerAssemblyPath == basePath + @"CodeGeneration\Bin\")          settings.CompilerAssemblyPath = string.Empty;
-                if (settings.LanguageMappingFile  == basePath + @"CodeGeneration\esLanguages.xml") settings.LanguageMappingFile = string.Empty;
+                if (settings.TemplatePath == basePath + @"CodeGeneration\Templates\") settings.TemplatePath = string.Empty;
+                if (settings.UIAssemblyPath == basePath + @"CodeGeneration\Bin\UIAddIns\") settings.UIAssemblyPath = string.Empty;
+                if (settings.CompilerAssemblyPath == basePath + @"CodeGeneration\Bin\") settings.CompilerAssemblyPath = string.Empty;
+                if (settings.LanguageMappingFile == basePath + @"CodeGeneration\esLanguages.xml") settings.LanguageMappingFile = string.Empty;
 
                 string appPath = Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData) + @"\EntitySpaces\" + version;
                 if (settings.UserMetadataFile == appPath + @"\esUserData.xml") settings.UserMetadataFile = string.Empty;

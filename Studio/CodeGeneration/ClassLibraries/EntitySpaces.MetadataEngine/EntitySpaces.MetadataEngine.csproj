@@ -16,7 +16,7 @@
 
 		<!-- Documentación XML opcional para Debug -->
 		<DocumentationFile Condition="'$(Configuration)'=='Debug'">bin\Debug\net8.0\EntitySpaces.MetadataEngine.xml</DocumentationFile>
-		<PlatformTarget>x86</PlatformTarget>
+		<PlatformTarget>x64</PlatformTarget>
 	</PropertyGroup>
 
 	<!-- Constantes condicionales para Release -->

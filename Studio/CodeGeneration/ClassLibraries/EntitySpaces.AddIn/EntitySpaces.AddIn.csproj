@@ -18,7 +18,7 @@
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
 	<NoWarn>$(NoWarn);NU1701</NoWarn>
-	<PlatformTarget>x86</PlatformTarget>
+	<PlatformTarget>x64</PlatformTarget>
   </PropertyGroup>
 
   <!-- Archivos compartidos (Linked files) -->
