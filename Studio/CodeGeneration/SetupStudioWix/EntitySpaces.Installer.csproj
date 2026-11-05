@@ -1,0 +1,23 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<OutputType>Exe</OutputType>
+		<TargetFramework>net48</TargetFramework>
+		<LangVersion>latest</LangVersion>
+		<UseWindowsForms>true</UseWindowsForms>
+		<RootNamespace>EntitySpaces.Installer</RootNamespace>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<None Remove="*.msi" />
+		<None Remove="*.exe" />
+		<None Remove="*.wxs" />
+		<None Remove="*.wixpdb" />
+		<None Remove="*.wixobj" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<PackageReference Include="WixSharp_wix4" />
+	</ItemGroup>
+
+</Project>
