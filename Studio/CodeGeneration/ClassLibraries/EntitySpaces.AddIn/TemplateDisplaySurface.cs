@@ -155,13 +155,34 @@ namespace EntitySpaces.AddIn
                             themeableControl.ApplyTheme();
                         }
 
-                        // Apply to children
                         ApplyThemeToControlTree(userControl, themeBgColor, themeFgColor);
 
+                        // Add the UserControl to the TabPage FIRST
                         page.Controls.Add(userControl);
+
+                        // THEN apply Dock = Fill. This forces the control to calculate its size relative to the TabPage.
                         userControl.Dock = DockStyle.Fill;
 
+                        // Add the TabPage to the TabControl
                         MainWindow.tabControlTemplateUI.TabPages.Add(page);
+                    }
+
+                    MainWindow.tabControlTemplateUI.ResumeLayout(true);
+
+                    if (CurrentUIControls.Count > 0)
+                    {
+                        MainWindow.ShowTemplateUIControl();
+
+                        // [FIX] Force immediate UI update after showing
+                        MainWindow.tabControlTemplateUI.PerformLayout();
+                        if (MainWindow.tabControlTemplateUI.SelectedTab != null)
+                        {
+                            MainWindow.tabControlTemplateUI.SelectedTab.PerformLayout();
+                            if (MainWindow.tabControlTemplateUI.SelectedTab.Controls.Count > 0)
+                            {
+                                MainWindow.tabControlTemplateUI.SelectedTab.Controls[0].PerformLayout();
+                            }
+                        }
                     }
 
                     MainWindow.tabControlTemplateUI.ResumeLayout();

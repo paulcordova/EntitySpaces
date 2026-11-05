@@ -317,6 +317,31 @@ namespace EntitySpaces.AddIn.ES2025
             {
                 this.splitContainerTabControl.Panel1Collapsed = true;
                 this.splitContainerTabControl.Panel2Collapsed = false;
+
+                // Force parent layout
+                this.splitContainerTabControl.Panel2.PerformLayout();
+                this.tableLayoutPanel3.PerformLayout();
+                this.tabControlTemplateUI.PerformLayout();
+
+                // [CRITICAL FIX] Force a Resize event on the active TabPage.
+                // This forces the inner ListBox to recalculate its scrollbar dimensions.
+                if (this.tabControlTemplateUI.SelectedTab != null)
+                {
+                    TabPage activePage = this.tabControlTemplateUI.SelectedTab;
+
+                    // Trigger the resize manually by toggling a tiny bit of size
+                    Size originalSize = activePage.Size;
+                    activePage.Size = new Size(originalSize.Width, originalSize.Height - 1);
+                    activePage.Size = originalSize; // Restore original size
+
+                    // Apply layout to children
+                    activePage.PerformLayout();
+                    if (activePage.Controls.Count > 0)
+                    {
+                        activePage.Controls[0].PerformLayout();
+                        activePage.Controls[0].Refresh();
+                    }
+                }
             }
             catch (Exception ex)
             {
@@ -516,6 +541,17 @@ namespace EntitySpaces.AddIn.ES2025
         {
             foreach (Control control in parent.Controls)
             {
+                // [FIX] EXCLUDE ERROR PANEL CONTROLS FROM THEME
+                // Prevent the recursive theme from overriding the Error TextBox and its containers
+                if (control.Name == "textBoxError" ||
+                    control.Name == "tableLayoutPanel1" ||
+                    control.Name == "tableLayoutPanel2" ||
+                    control.Name == "pictureBoxError")
+                {
+                    continue;
+                }
+
+
                 // 1. If the control handles its own theme (like ucProjects)
                 if (control is IThemeable themeable)
                 {

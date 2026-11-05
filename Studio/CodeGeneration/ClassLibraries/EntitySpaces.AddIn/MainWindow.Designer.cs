@@ -28,370 +28,386 @@
         /// </summary>
         private void InitializeComponent()
         {
-            this.components = new System.ComponentModel.Container();
+            components = new System.ComponentModel.Container();
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(MainWindow));
-            this.splitContainer = new System.Windows.Forms.SplitContainer();
-            this.splitContainerTabControl = new System.Windows.Forms.SplitContainer();
-            this.tabControl = new System.Windows.Forms.TabControl();
-            this.tabProjects = new System.Windows.Forms.TabPage();
-            this.ucProjects = new EntitySpaces.AddIn.ucProjects();
-            this.tabTemplates = new System.Windows.Forms.TabPage();
-            this.ucTemplates = new EntitySpaces.AddIn.ucTemplates();
-            this.tabSettings = new System.Windows.Forms.TabPage();
-            this.ucSettings = new EntitySpaces.AddIn.ucSettings();
-            this.tabMetadata = new System.Windows.Forms.TabPage();
-            this.ucMetadata = new EntitySpaces.AddIn.ucMetadata();
-            this.tabLanguageMappings = new System.Windows.Forms.TabPage();
-            this.ucMappings = new EntitySpaces.AddIn.ucMappings();
-            this.tableLayoutPanel3 = new System.Windows.Forms.TableLayoutPanel();
-            this.tabControlTemplateUI = new System.Windows.Forms.TabControl();
-            this.panel1 = new System.Windows.Forms.Panel();
-            this.buttonExecuteTemplateCancel = new System.Windows.Forms.Button();
-            this.buttonExecuteTemplateOk = new System.Windows.Forms.Button();
-            this.tableLayoutPanel1 = new System.Windows.Forms.TableLayoutPanel();
-            this.textBoxError = new System.Windows.Forms.TextBox();
-            this.tableLayoutPanel2 = new System.Windows.Forms.TableLayoutPanel();
-            this.pictureBoxError = new System.Windows.Forms.PictureBox();
-            this.imageList1 = new System.Windows.Forms.ImageList(this.components);
-            ((System.ComponentModel.ISupportInitialize)(this.splitContainer)).BeginInit();
-            this.splitContainer.Panel1.SuspendLayout();
-            this.splitContainer.Panel2.SuspendLayout();
-            this.splitContainer.SuspendLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.splitContainerTabControl)).BeginInit();
-            this.splitContainerTabControl.Panel1.SuspendLayout();
-            this.splitContainerTabControl.Panel2.SuspendLayout();
-            this.splitContainerTabControl.SuspendLayout();
-            this.tabControl.SuspendLayout();
-            this.tabProjects.SuspendLayout();
-            this.tabTemplates.SuspendLayout();
-            this.tabSettings.SuspendLayout();
-            this.tabMetadata.SuspendLayout();
-            this.tabLanguageMappings.SuspendLayout();
-            this.tableLayoutPanel3.SuspendLayout();
-            this.panel1.SuspendLayout();
-            this.tableLayoutPanel1.SuspendLayout();
-            this.tableLayoutPanel2.SuspendLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.pictureBoxError)).BeginInit();
-            this.SuspendLayout();
+            splitContainer = new System.Windows.Forms.SplitContainer();
+            splitContainerTabControl = new System.Windows.Forms.SplitContainer();
+            tabControl = new System.Windows.Forms.TabControl();
+            tabProjects = new System.Windows.Forms.TabPage();
+            ucProjects = new ucProjects();
+            tabTemplates = new System.Windows.Forms.TabPage();
+            ucTemplates = new ucTemplates();
+            tabSettings = new System.Windows.Forms.TabPage();
+            ucSettings = new ucSettings();
+            tabMetadata = new System.Windows.Forms.TabPage();
+            ucMetadata = new ucMetadata();
+            tabLanguageMappings = new System.Windows.Forms.TabPage();
+            ucMappings = new ucMappings();
+            tableLayoutPanel3 = new System.Windows.Forms.TableLayoutPanel();
+            tabControlTemplateUI = new System.Windows.Forms.TabControl();
+            panel1 = new System.Windows.Forms.Panel();
+            buttonExecuteTemplateCancel = new System.Windows.Forms.Button();
+            buttonExecuteTemplateOk = new System.Windows.Forms.Button();
+            tableLayoutPanel1 = new System.Windows.Forms.TableLayoutPanel();
+            textBoxError = new System.Windows.Forms.TextBox();
+            tableLayoutPanel2 = new System.Windows.Forms.TableLayoutPanel();
+            pictureBoxError = new System.Windows.Forms.PictureBox();
+            imageList1 = new System.Windows.Forms.ImageList(components);
+            ((System.ComponentModel.ISupportInitialize)splitContainer).BeginInit();
+            splitContainer.Panel1.SuspendLayout();
+            splitContainer.Panel2.SuspendLayout();
+            splitContainer.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)splitContainerTabControl).BeginInit();
+            splitContainerTabControl.Panel1.SuspendLayout();
+            splitContainerTabControl.Panel2.SuspendLayout();
+            splitContainerTabControl.SuspendLayout();
+            tabControl.SuspendLayout();
+            tabProjects.SuspendLayout();
+            tabTemplates.SuspendLayout();
+            tabSettings.SuspendLayout();
+            tabMetadata.SuspendLayout();
+            tabLanguageMappings.SuspendLayout();
+            tableLayoutPanel3.SuspendLayout();
+            panel1.SuspendLayout();
+            tableLayoutPanel1.SuspendLayout();
+            tableLayoutPanel2.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)pictureBoxError).BeginInit();
+            SuspendLayout();
             // 
             // splitContainer
             // 
-            this.splitContainer.BackColor = System.Drawing.SystemColors.Window;
-            this.splitContainer.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.splitContainer.Location = new System.Drawing.Point(0, 0);
-            this.splitContainer.Name = "splitContainer";
-            this.splitContainer.Orientation = System.Windows.Forms.Orientation.Horizontal;
+            splitContainer.BackColor = System.Drawing.SystemColors.Window;
+            splitContainer.Dock = System.Windows.Forms.DockStyle.Fill;
+            splitContainer.Location = new System.Drawing.Point(0, 0);
+            splitContainer.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
+            splitContainer.Name = "splitContainer";
+            splitContainer.Orientation = System.Windows.Forms.Orientation.Horizontal;
             // 
             // splitContainer.Panel1
             // 
-            this.splitContainer.Panel1.Controls.Add(this.splitContainerTabControl);
+            splitContainer.Panel1.Controls.Add(splitContainerTabControl);
             // 
             // splitContainer.Panel2
             // 
-            this.splitContainer.Panel2.Controls.Add(this.tableLayoutPanel1);
-            this.splitContainer.Panel2Collapsed = true;
-            this.splitContainer.Panel2MinSize = 40;
-            this.splitContainer.Size = new System.Drawing.Size(509, 636);
-            this.splitContainer.SplitterDistance = 547;
-            this.splitContainer.TabIndex = 1;
+            splitContainer.Panel2.Controls.Add(tableLayoutPanel1);
+            splitContainer.Panel2Collapsed = true;
+            splitContainer.Panel2MinSize = 40;
+            splitContainer.Size = new System.Drawing.Size(594, 734);
+            splitContainer.SplitterDistance = 29;
+            splitContainer.SplitterWidth = 5;
+            splitContainer.TabIndex = 1;
             // 
             // splitContainerTabControl
             // 
-            this.splitContainerTabControl.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.splitContainerTabControl.Location = new System.Drawing.Point(0, 0);
-            this.splitContainerTabControl.Name = "splitContainerTabControl";
+            splitContainerTabControl.Dock = System.Windows.Forms.DockStyle.Fill;
+            splitContainerTabControl.Location = new System.Drawing.Point(0, 0);
+            splitContainerTabControl.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
+            splitContainerTabControl.Name = "splitContainerTabControl";
             // 
             // splitContainerTabControl.Panel1
             // 
-            this.splitContainerTabControl.Panel1.Controls.Add(this.tabControl);
+            splitContainerTabControl.Panel1.Controls.Add(tabControl);
             // 
             // splitContainerTabControl.Panel2
             // 
-            this.splitContainerTabControl.Panel2.Controls.Add(this.tableLayoutPanel3);
-            this.splitContainerTabControl.Panel2Collapsed = true;
-            this.splitContainerTabControl.Size = new System.Drawing.Size(509, 636);
-            this.splitContainerTabControl.SplitterDistance = 247;
-            this.splitContainerTabControl.TabIndex = 1;
+            splitContainerTabControl.Panel2.Controls.Add(tableLayoutPanel3);
+            splitContainerTabControl.Panel2Collapsed = true;
+            splitContainerTabControl.Size = new System.Drawing.Size(594, 734);
+            splitContainerTabControl.SplitterDistance = 288;
+            splitContainerTabControl.SplitterWidth = 5;
+            splitContainerTabControl.TabIndex = 1;
             // 
             // tabControl
             // 
-            this.tabControl.AllowDrop = true;
-            this.tabControl.Controls.Add(this.tabProjects);
-            this.tabControl.Controls.Add(this.tabTemplates);
-            this.tabControl.Controls.Add(this.tabSettings);
-            this.tabControl.Controls.Add(this.tabMetadata);
-            this.tabControl.Controls.Add(this.tabLanguageMappings);
-            this.tabControl.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.tabControl.Location = new System.Drawing.Point(0, 0);
-            this.tabControl.Name = "tabControl";
-            this.tabControl.SelectedIndex = 0;
-            this.tabControl.Size = new System.Drawing.Size(509, 636);
-            this.tabControl.TabIndex = 0;
+            tabControl.AllowDrop = true;
+            tabControl.Controls.Add(tabProjects);
+            tabControl.Controls.Add(tabTemplates);
+            tabControl.Controls.Add(tabSettings);
+            tabControl.Controls.Add(tabMetadata);
+            tabControl.Controls.Add(tabLanguageMappings);
+            tabControl.Dock = System.Windows.Forms.DockStyle.Fill;
+            tabControl.Location = new System.Drawing.Point(0, 0);
+            tabControl.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
+            tabControl.Name = "tabControl";
+            tabControl.SelectedIndex = 0;
+            tabControl.Size = new System.Drawing.Size(594, 734);
+            tabControl.TabIndex = 0;
             // 
             // tabProjects
             // 
-            this.tabProjects.Controls.Add(this.ucProjects);
-            this.tabProjects.Location = new System.Drawing.Point(4, 22);
-            this.tabProjects.Name = "tabProjects";
-            this.tabProjects.Padding = new System.Windows.Forms.Padding(3);
-            this.tabProjects.Size = new System.Drawing.Size(501, 610);
-            this.tabProjects.TabIndex = 6;
-            this.tabProjects.Text = "Projects";
-            this.tabProjects.UseVisualStyleBackColor = true;
-            this.tabProjects.Enter += new System.EventHandler(this.TabPage_Enter);
+            tabProjects.Controls.Add(ucProjects);
+            tabProjects.Location = new System.Drawing.Point(4, 24);
+            tabProjects.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
+            tabProjects.Name = "tabProjects";
+            tabProjects.Padding = new System.Windows.Forms.Padding(4, 3, 4, 3);
+            tabProjects.Size = new System.Drawing.Size(586, 706);
+            tabProjects.TabIndex = 6;
+            tabProjects.Text = "Projects";
+            tabProjects.UseVisualStyleBackColor = true;
+            tabProjects.Enter += TabPage_Enter;
             // 
             // ucProjects
             // 
-            this.ucProjects.AllowDrop = true;
-            this.ucProjects.BackColor = System.Drawing.SystemColors.Window;
-            this.ucProjects.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.ucProjects.Location = new System.Drawing.Point(3, 3);
-            this.ucProjects.MainWindow = null;
-            this.ucProjects.Name = "ucProjects";
-            this.ucProjects.Size = new System.Drawing.Size(495, 604);
-            this.ucProjects.TabIndex = 0;
+            ucProjects.AllowDrop = true;
+            ucProjects.BackColor = System.Drawing.SystemColors.Window;
+            ucProjects.Dock = System.Windows.Forms.DockStyle.Fill;
+            ucProjects.Location = new System.Drawing.Point(4, 3);
+            ucProjects.Margin = new System.Windows.Forms.Padding(5, 3, 5, 3);
+            ucProjects.Name = "ucProjects";
+            ucProjects.Size = new System.Drawing.Size(578, 700);
+            ucProjects.TabIndex = 0;
             // 
             // tabTemplates
             // 
-            this.tabTemplates.Controls.Add(this.ucTemplates);
-            this.tabTemplates.Location = new System.Drawing.Point(4, 22);
-            this.tabTemplates.Name = "tabTemplates";
-            this.tabTemplates.Padding = new System.Windows.Forms.Padding(3);
-            this.tabTemplates.Size = new System.Drawing.Size(501, 610);
-            this.tabTemplates.TabIndex = 0;
-            this.tabTemplates.Text = "Templates";
-            this.tabTemplates.UseVisualStyleBackColor = true;
-            this.tabTemplates.Enter += new System.EventHandler(this.TabPage_Enter);
+            tabTemplates.Controls.Add(ucTemplates);
+            tabTemplates.Location = new System.Drawing.Point(4, 24);
+            tabTemplates.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
+            tabTemplates.Name = "tabTemplates";
+            tabTemplates.Padding = new System.Windows.Forms.Padding(4, 3, 4, 3);
+            tabTemplates.Size = new System.Drawing.Size(586, 706);
+            tabTemplates.TabIndex = 0;
+            tabTemplates.Text = "Templates";
+            tabTemplates.UseVisualStyleBackColor = true;
+            tabTemplates.Enter += TabPage_Enter;
             // 
             // ucTemplates
             // 
-            this.ucTemplates.BackColor = System.Drawing.SystemColors.Window;
-            this.ucTemplates.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.ucTemplates.Location = new System.Drawing.Point(3, 3);
-            this.ucTemplates.MainWindow = null;
-            this.ucTemplates.Margin = new System.Windows.Forms.Padding(2, 2, 2, 2);
-            this.ucTemplates.Name = "ucTemplates";
-            this.ucTemplates.Size = new System.Drawing.Size(495, 604);
-            this.ucTemplates.TabIndex = 0;
+            ucTemplates.BackColor = System.Drawing.SystemColors.Window;
+            ucTemplates.Dock = System.Windows.Forms.DockStyle.Fill;
+            ucTemplates.Location = new System.Drawing.Point(4, 3);
+            ucTemplates.Margin = new System.Windows.Forms.Padding(2);
+            ucTemplates.Name = "ucTemplates";
+            ucTemplates.Size = new System.Drawing.Size(578, 700);
+            ucTemplates.TabIndex = 0;
             // 
             // tabSettings
             // 
-            this.tabSettings.Controls.Add(this.ucSettings);
-            this.tabSettings.Location = new System.Drawing.Point(4, 22);
-            this.tabSettings.Name = "tabSettings";
-            this.tabSettings.Padding = new System.Windows.Forms.Padding(3);
-            this.tabSettings.Size = new System.Drawing.Size(501, 610);
-            this.tabSettings.TabIndex = 3;
-            this.tabSettings.Text = "Settings";
-            this.tabSettings.UseVisualStyleBackColor = true;
-            this.tabSettings.Enter += new System.EventHandler(this.TabPage_Enter);
+            tabSettings.Controls.Add(ucSettings);
+            tabSettings.Location = new System.Drawing.Point(4, 24);
+            tabSettings.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
+            tabSettings.Name = "tabSettings";
+            tabSettings.Padding = new System.Windows.Forms.Padding(4, 3, 4, 3);
+            tabSettings.Size = new System.Drawing.Size(586, 706);
+            tabSettings.TabIndex = 3;
+            tabSettings.Text = "Settings";
+            tabSettings.UseVisualStyleBackColor = true;
+            tabSettings.Enter += TabPage_Enter;
             // 
             // ucSettings
             // 
-            this.ucSettings.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.ucSettings.Location = new System.Drawing.Point(3, 3);
-            this.ucSettings.MainWindow = null;
-            this.ucSettings.Margin = new System.Windows.Forms.Padding(4);
-            this.ucSettings.Name = "ucSettings";
-            this.ucSettings.Padding = new System.Windows.Forms.Padding(3);
-            this.ucSettings.Settings = null;
-            this.ucSettings.Size = new System.Drawing.Size(495, 604);
-            this.ucSettings.TabIndex = 0;
+            ucSettings.Dock = System.Windows.Forms.DockStyle.Fill;
+            ucSettings.Location = new System.Drawing.Point(4, 3);
+            ucSettings.Margin = new System.Windows.Forms.Padding(5, 5, 5, 5);
+            ucSettings.Name = "ucSettings";
+            ucSettings.Padding = new System.Windows.Forms.Padding(4, 3, 4, 3);
+            ucSettings.Size = new System.Drawing.Size(578, 700);
+            ucSettings.TabIndex = 0;
             // 
             // tabMetadata
             // 
-            this.tabMetadata.BackColor = System.Drawing.Color.Transparent;
-            this.tabMetadata.Controls.Add(this.ucMetadata);
-            this.tabMetadata.Location = new System.Drawing.Point(4, 22);
-            this.tabMetadata.Name = "tabMetadata";
-            this.tabMetadata.Padding = new System.Windows.Forms.Padding(3);
-            this.tabMetadata.Size = new System.Drawing.Size(501, 610);
-            this.tabMetadata.TabIndex = 1;
-            this.tabMetadata.Text = "Metadata";
-            this.tabMetadata.UseVisualStyleBackColor = true;
-            this.tabMetadata.Enter += new System.EventHandler(this.TabPage_Enter);
+            tabMetadata.BackColor = System.Drawing.Color.Transparent;
+            tabMetadata.Controls.Add(ucMetadata);
+            tabMetadata.Location = new System.Drawing.Point(4, 24);
+            tabMetadata.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
+            tabMetadata.Name = "tabMetadata";
+            tabMetadata.Padding = new System.Windows.Forms.Padding(4, 3, 4, 3);
+            tabMetadata.Size = new System.Drawing.Size(586, 706);
+            tabMetadata.TabIndex = 1;
+            tabMetadata.Text = "Metadata";
+            tabMetadata.UseVisualStyleBackColor = true;
+            tabMetadata.Enter += TabPage_Enter;
             // 
             // ucMetadata
             // 
-            this.ucMetadata.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.ucMetadata.Location = new System.Drawing.Point(3, 3);
-            this.ucMetadata.MainWindow = null;
-            this.ucMetadata.Margin = new System.Windows.Forms.Padding(4);
-            this.ucMetadata.Name = "ucMetadata";
-            this.ucMetadata.Size = new System.Drawing.Size(495, 604);
-            this.ucMetadata.TabIndex = 0;
+            ucMetadata.Dock = System.Windows.Forms.DockStyle.Fill;
+            ucMetadata.Location = new System.Drawing.Point(4, 3);
+            ucMetadata.Margin = new System.Windows.Forms.Padding(5, 5, 5, 5);
+            ucMetadata.Name = "ucMetadata";
+            ucMetadata.Size = new System.Drawing.Size(578, 700);
+            ucMetadata.TabIndex = 0;
             // 
             // tabLanguageMappings
             // 
-            this.tabLanguageMappings.Controls.Add(this.ucMappings);
-            this.tabLanguageMappings.Location = new System.Drawing.Point(4, 22);
-            this.tabLanguageMappings.Name = "tabLanguageMappings";
-            this.tabLanguageMappings.Padding = new System.Windows.Forms.Padding(3);
-            this.tabLanguageMappings.Size = new System.Drawing.Size(501, 610);
-            this.tabLanguageMappings.TabIndex = 4;
-            this.tabLanguageMappings.Text = "Mappings";
-            this.tabLanguageMappings.UseVisualStyleBackColor = true;
-            this.tabLanguageMappings.Enter += new System.EventHandler(this.TabPage_Enter);
+            tabLanguageMappings.Controls.Add(ucMappings);
+            tabLanguageMappings.Location = new System.Drawing.Point(4, 24);
+            tabLanguageMappings.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
+            tabLanguageMappings.Name = "tabLanguageMappings";
+            tabLanguageMappings.Padding = new System.Windows.Forms.Padding(4, 3, 4, 3);
+            tabLanguageMappings.Size = new System.Drawing.Size(586, 706);
+            tabLanguageMappings.TabIndex = 4;
+            tabLanguageMappings.Text = "Mappings";
+            tabLanguageMappings.UseVisualStyleBackColor = true;
+            tabLanguageMappings.Enter += TabPage_Enter;
             // 
             // ucMappings
             // 
-            this.ucMappings.BackColor = System.Drawing.SystemColors.Window;
-            this.ucMappings.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.ucMappings.Location = new System.Drawing.Point(3, 3);
-            this.ucMappings.MainWindow = null;
-            this.ucMappings.Margin = new System.Windows.Forms.Padding(2);
-            this.ucMappings.Name = "ucMappings";
-            this.ucMappings.Size = new System.Drawing.Size(495, 604);
-            this.ucMappings.TabIndex = 1;
+            ucMappings.BackColor = System.Drawing.SystemColors.Window;
+            ucMappings.Dock = System.Windows.Forms.DockStyle.Fill;
+            ucMappings.Location = new System.Drawing.Point(4, 3);
+            ucMappings.Margin = new System.Windows.Forms.Padding(2);
+            ucMappings.Name = "ucMappings";
+            ucMappings.Size = new System.Drawing.Size(578, 700);
+            ucMappings.TabIndex = 1;
             // 
             // tableLayoutPanel3
             // 
-            this.tableLayoutPanel3.ColumnCount = 1;
-            this.tableLayoutPanel3.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.tableLayoutPanel3.Controls.Add(this.tabControlTemplateUI, 0, 0);
-            this.tableLayoutPanel3.Controls.Add(this.panel1, 0, 1);
-            this.tableLayoutPanel3.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.tableLayoutPanel3.Location = new System.Drawing.Point(0, 0);
-            this.tableLayoutPanel3.Name = "tableLayoutPanel3";
-            this.tableLayoutPanel3.RowCount = 2;
-            this.tableLayoutPanel3.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.tableLayoutPanel3.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 40F));
-            this.tableLayoutPanel3.Size = new System.Drawing.Size(96, 100);
-            this.tableLayoutPanel3.TabIndex = 2;
+            tableLayoutPanel3.ColumnCount = 1;
+            tableLayoutPanel3.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            tableLayoutPanel3.Controls.Add(tabControlTemplateUI, 0, 0);
+            tableLayoutPanel3.Controls.Add(panel1, 0, 1);
+            tableLayoutPanel3.Dock = System.Windows.Forms.DockStyle.Fill;
+            tableLayoutPanel3.Location = new System.Drawing.Point(0, 0);
+            tableLayoutPanel3.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
+            tableLayoutPanel3.Name = "tableLayoutPanel3";
+            tableLayoutPanel3.RowCount = 2;
+            tableLayoutPanel3.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            tableLayoutPanel3.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 46F));
+            tableLayoutPanel3.Size = new System.Drawing.Size(112, 115);
+            tableLayoutPanel3.TabIndex = 2;
             // 
             // tabControlTemplateUI
             // 
-            this.tabControlTemplateUI.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.tabControlTemplateUI.Location = new System.Drawing.Point(3, 3);
-            this.tabControlTemplateUI.Name = "tabControlTemplateUI";
-            this.tabControlTemplateUI.SelectedIndex = 0;
-            this.tabControlTemplateUI.Size = new System.Drawing.Size(90, 54);
-            this.tabControlTemplateUI.TabIndex = 0;
+            tabControlTemplateUI.Dock = System.Windows.Forms.DockStyle.Fill;
+            tabControlTemplateUI.Location = new System.Drawing.Point(4, 3);
+            tabControlTemplateUI.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
+            tabControlTemplateUI.Name = "tabControlTemplateUI";
+            tabControlTemplateUI.SelectedIndex = 0;
+            tabControlTemplateUI.Size = new System.Drawing.Size(104, 63);
+            tabControlTemplateUI.TabIndex = 0;
             // 
             // panel1
             // 
-            this.panel1.Controls.Add(this.buttonExecuteTemplateCancel);
-            this.panel1.Controls.Add(this.buttonExecuteTemplateOk);
-            this.panel1.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.panel1.Location = new System.Drawing.Point(3, 63);
-            this.panel1.Name = "panel1";
-            this.panel1.Size = new System.Drawing.Size(90, 34);
-            this.panel1.TabIndex = 1;
+            panel1.Controls.Add(buttonExecuteTemplateCancel);
+            panel1.Controls.Add(buttonExecuteTemplateOk);
+            panel1.Dock = System.Windows.Forms.DockStyle.Fill;
+            panel1.Location = new System.Drawing.Point(4, 72);
+            panel1.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
+            panel1.Name = "panel1";
+            panel1.Size = new System.Drawing.Size(104, 40);
+            panel1.TabIndex = 1;
             // 
             // buttonExecuteTemplateCancel
             // 
-            this.buttonExecuteTemplateCancel.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
-            this.buttonExecuteTemplateCancel.Location = new System.Drawing.Point(-69, 8);
-            this.buttonExecuteTemplateCancel.Name = "buttonExecuteTemplateCancel";
-            this.buttonExecuteTemplateCancel.Size = new System.Drawing.Size(75, 23);
-            this.buttonExecuteTemplateCancel.TabIndex = 3;
-            this.buttonExecuteTemplateCancel.Text = "&Cancel";
-            this.buttonExecuteTemplateCancel.UseVisualStyleBackColor = true;
-            this.buttonExecuteTemplateCancel.Click += new System.EventHandler(this.buttonExecuteTemplateCancel_Click);
+            buttonExecuteTemplateCancel.Anchor = System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right;
+            buttonExecuteTemplateCancel.Location = new System.Drawing.Point(-81, 10);
+            buttonExecuteTemplateCancel.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
+            buttonExecuteTemplateCancel.Name = "buttonExecuteTemplateCancel";
+            buttonExecuteTemplateCancel.Size = new System.Drawing.Size(88, 27);
+            buttonExecuteTemplateCancel.TabIndex = 3;
+            buttonExecuteTemplateCancel.Text = "&Cancel";
+            buttonExecuteTemplateCancel.UseVisualStyleBackColor = true;
+            buttonExecuteTemplateCancel.Click += buttonExecuteTemplateCancel_Click;
             // 
             // buttonExecuteTemplateOk
             // 
-            this.buttonExecuteTemplateOk.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
-            this.buttonExecuteTemplateOk.Location = new System.Drawing.Point(12, 8);
-            this.buttonExecuteTemplateOk.Name = "buttonExecuteTemplateOk";
-            this.buttonExecuteTemplateOk.Size = new System.Drawing.Size(75, 23);
-            this.buttonExecuteTemplateOk.TabIndex = 2;
-            this.buttonExecuteTemplateOk.Text = "&Ok";
-            this.buttonExecuteTemplateOk.UseVisualStyleBackColor = true;
-            this.buttonExecuteTemplateOk.Click += new System.EventHandler(this.buttonExecuteTemplateOk_Click);
+            buttonExecuteTemplateOk.Anchor = System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right;
+            buttonExecuteTemplateOk.Location = new System.Drawing.Point(13, 10);
+            buttonExecuteTemplateOk.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
+            buttonExecuteTemplateOk.Name = "buttonExecuteTemplateOk";
+            buttonExecuteTemplateOk.Size = new System.Drawing.Size(88, 27);
+            buttonExecuteTemplateOk.TabIndex = 2;
+            buttonExecuteTemplateOk.Text = "&Ok";
+            buttonExecuteTemplateOk.UseVisualStyleBackColor = true;
+            buttonExecuteTemplateOk.Click += buttonExecuteTemplateOk_Click;
             // 
             // tableLayoutPanel1
             // 
-            this.tableLayoutPanel1.BackColor = System.Drawing.Color.Black;
-            this.tableLayoutPanel1.ColumnCount = 2;
-            this.tableLayoutPanel1.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 70F));
-            this.tableLayoutPanel1.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.tableLayoutPanel1.Controls.Add(this.textBoxError, 1, 0);
-            this.tableLayoutPanel1.Controls.Add(this.tableLayoutPanel2, 0, 0);
-            this.tableLayoutPanel1.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.tableLayoutPanel1.Location = new System.Drawing.Point(0, 0);
-            this.tableLayoutPanel1.Name = "tableLayoutPanel1";
-            this.tableLayoutPanel1.RowCount = 1;
-            this.tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.tableLayoutPanel1.Size = new System.Drawing.Size(150, 46);
-            this.tableLayoutPanel1.TabIndex = 0;
+            tableLayoutPanel1.BackColor = System.Drawing.Color.Black;
+            tableLayoutPanel1.ColumnCount = 2;
+            tableLayoutPanel1.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 82F));
+            tableLayoutPanel1.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            tableLayoutPanel1.Controls.Add(textBoxError, 1, 0);
+            tableLayoutPanel1.Controls.Add(tableLayoutPanel2, 0, 0);
+            tableLayoutPanel1.Dock = System.Windows.Forms.DockStyle.Fill;
+            tableLayoutPanel1.Location = new System.Drawing.Point(0, 0);
+            tableLayoutPanel1.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
+            tableLayoutPanel1.Name = "tableLayoutPanel1";
+            tableLayoutPanel1.RowCount = 1;
+            tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            tableLayoutPanel1.Size = new System.Drawing.Size(175, 53);
+            tableLayoutPanel1.TabIndex = 0;
             // 
             // textBoxError
             // 
-            this.textBoxError.BackColor = System.Drawing.Color.Black;
-            this.textBoxError.BorderStyle = System.Windows.Forms.BorderStyle.None;
-            this.textBoxError.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.textBoxError.ForeColor = System.Drawing.Color.Yellow;
-            this.textBoxError.Location = new System.Drawing.Point(73, 3);
-            this.textBoxError.Multiline = true;
-            this.textBoxError.Name = "textBoxError";
-            this.textBoxError.ReadOnly = true;
-            this.textBoxError.ScrollBars = System.Windows.Forms.ScrollBars.Vertical;
-            this.textBoxError.Size = new System.Drawing.Size(74, 40);
-            this.textBoxError.TabIndex = 1;
+            textBoxError.BackColor = System.Drawing.Color.Black;
+            textBoxError.BorderStyle = System.Windows.Forms.BorderStyle.None;
+            textBoxError.Dock = System.Windows.Forms.DockStyle.Fill;
+            textBoxError.ForeColor = System.Drawing.Color.Yellow;
+            textBoxError.Location = new System.Drawing.Point(86, 3);
+            textBoxError.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
+            textBoxError.Multiline = true;
+            textBoxError.Name = "textBoxError";
+            textBoxError.ReadOnly = true;
+            textBoxError.ScrollBars = System.Windows.Forms.ScrollBars.Vertical;
+            textBoxError.Size = new System.Drawing.Size(85, 47);
+            textBoxError.TabIndex = 1;
             // 
             // tableLayoutPanel2
             // 
-            this.tableLayoutPanel2.BackColor = System.Drawing.Color.Black;
-            this.tableLayoutPanel2.ColumnCount = 1;
-            this.tableLayoutPanel2.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 64F));
-            this.tableLayoutPanel2.Controls.Add(this.pictureBoxError, 0, 1);
-            this.tableLayoutPanel2.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.tableLayoutPanel2.Location = new System.Drawing.Point(3, 3);
-            this.tableLayoutPanel2.Name = "tableLayoutPanel2";
-            this.tableLayoutPanel2.RowCount = 3;
-            this.tableLayoutPanel2.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 50F));
-            this.tableLayoutPanel2.RowStyles.Add(new System.Windows.Forms.RowStyle());
-            this.tableLayoutPanel2.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 50.00001F));
-            this.tableLayoutPanel2.Size = new System.Drawing.Size(64, 40);
-            this.tableLayoutPanel2.TabIndex = 2;
+            tableLayoutPanel2.BackColor = System.Drawing.Color.Black;
+            tableLayoutPanel2.ColumnCount = 1;
+            tableLayoutPanel2.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 75F));
+            tableLayoutPanel2.Controls.Add(pictureBoxError, 0, 1);
+            tableLayoutPanel2.Dock = System.Windows.Forms.DockStyle.Fill;
+            tableLayoutPanel2.Location = new System.Drawing.Point(4, 3);
+            tableLayoutPanel2.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
+            tableLayoutPanel2.Name = "tableLayoutPanel2";
+            tableLayoutPanel2.RowCount = 3;
+            tableLayoutPanel2.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 50F));
+            tableLayoutPanel2.RowStyles.Add(new System.Windows.Forms.RowStyle());
+            tableLayoutPanel2.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 50.00001F));
+            tableLayoutPanel2.Size = new System.Drawing.Size(74, 47);
+            tableLayoutPanel2.TabIndex = 2;
             // 
             // pictureBoxError
             // 
-            this.pictureBoxError.ErrorImage = null;
-            this.pictureBoxError.Image = global::EntitySpaces.AddIn.Resource.error;
-            this.pictureBoxError.InitialImage = null;
-            this.pictureBoxError.Location = new System.Drawing.Point(3, -3);
-            this.pictureBoxError.Name = "pictureBoxError";
-            this.pictureBoxError.Size = new System.Drawing.Size(51, 48);
-            this.pictureBoxError.TabIndex = 0;
-            this.pictureBoxError.TabStop = false;
-            this.pictureBoxError.Click += new System.EventHandler(this.pictureBoxError_Click);
+            pictureBoxError.ErrorImage = null;
+            pictureBoxError.Image = Resource.error;
+            pictureBoxError.InitialImage = null;
+            pictureBoxError.Location = new System.Drawing.Point(4, -3);
+            pictureBoxError.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
+            pictureBoxError.Name = "pictureBoxError";
+            pictureBoxError.Size = new System.Drawing.Size(59, 55);
+            pictureBoxError.TabIndex = 0;
+            pictureBoxError.TabStop = false;
+            pictureBoxError.Click += pictureBoxError_Click;
             // 
             // imageList1
             // 
-            this.imageList1.ImageStream = ((System.Windows.Forms.ImageListStreamer)(resources.GetObject("imageList1.ImageStream")));
-            this.imageList1.TransparentColor = System.Drawing.Color.Transparent;
-            this.imageList1.Images.SetKeyName(0, "error.png");
+            imageList1.ColorDepth = System.Windows.Forms.ColorDepth.Depth8Bit;
+            imageList1.ImageStream = (System.Windows.Forms.ImageListStreamer)resources.GetObject("imageList1.ImageStream");
+            imageList1.TransparentColor = System.Drawing.Color.Transparent;
+            imageList1.Images.SetKeyName(0, "error.png");
             // 
             // MainWindow
             // 
-            this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
-            this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.Controls.Add(this.splitContainer);
-            this.Name = "MainWindow";
-            this.Size = new System.Drawing.Size(509, 636);
-            this.splitContainer.Panel1.ResumeLayout(false);
-            this.splitContainer.Panel2.ResumeLayout(false);
-            ((System.ComponentModel.ISupportInitialize)(this.splitContainer)).EndInit();
-            this.splitContainer.ResumeLayout(false);
-            this.splitContainerTabControl.Panel1.ResumeLayout(false);
-            this.splitContainerTabControl.Panel2.ResumeLayout(false);
-            ((System.ComponentModel.ISupportInitialize)(this.splitContainerTabControl)).EndInit();
-            this.splitContainerTabControl.ResumeLayout(false);
-            this.tabControl.ResumeLayout(false);
-            this.tabProjects.ResumeLayout(false);
-            this.tabTemplates.ResumeLayout(false);
-            this.tabSettings.ResumeLayout(false);
-            this.tabMetadata.ResumeLayout(false);
-            this.tabLanguageMappings.ResumeLayout(false);
-            this.tableLayoutPanel3.ResumeLayout(false);
-            this.panel1.ResumeLayout(false);
-            this.tableLayoutPanel1.ResumeLayout(false);
-            this.tableLayoutPanel1.PerformLayout();
-            this.tableLayoutPanel2.ResumeLayout(false);
-            ((System.ComponentModel.ISupportInitialize)(this.pictureBoxError)).EndInit();
-            this.ResumeLayout(false);
+            AutoScaleDimensions = new System.Drawing.SizeF(7F, 15F);
+            AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
+            Controls.Add(splitContainer);
+            Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
+            Name = "MainWindow";
+            Size = new System.Drawing.Size(594, 734);
+            splitContainer.Panel1.ResumeLayout(false);
+            splitContainer.Panel2.ResumeLayout(false);
+            ((System.ComponentModel.ISupportInitialize)splitContainer).EndInit();
+            splitContainer.ResumeLayout(false);
+            splitContainerTabControl.Panel1.ResumeLayout(false);
+            splitContainerTabControl.Panel2.ResumeLayout(false);
+            ((System.ComponentModel.ISupportInitialize)splitContainerTabControl).EndInit();
+            splitContainerTabControl.ResumeLayout(false);
+            tabControl.ResumeLayout(false);
+            tabProjects.ResumeLayout(false);
+            tabTemplates.ResumeLayout(false);
+            tabSettings.ResumeLayout(false);
+            tabMetadata.ResumeLayout(false);
+            tabLanguageMappings.ResumeLayout(false);
+            tableLayoutPanel3.ResumeLayout(false);
+            panel1.ResumeLayout(false);
+            tableLayoutPanel1.ResumeLayout(false);
+            tableLayoutPanel1.PerformLayout();
+            tableLayoutPanel2.ResumeLayout(false);
+            ((System.ComponentModel.ISupportInitialize)pictureBoxError).EndInit();
+            ResumeLayout(false);
 
         }
 

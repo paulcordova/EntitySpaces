@@ -98,6 +98,39 @@ namespace EntitySpaces.TemplateUI
         {
             try
             {
+
+                // =====================================================================
+                // [FIX] RESTRUCTURE THE LAYOUT TO PREVENT THE LISTBOX FROM OVERLAPPING BUTTONS
+                // =====================================================================
+
+                // 1. Check if we have already restructured to avoid doing it twice
+                if (!this.Controls.ContainsKey("pnlListContainer"))
+                {
+                    // Create the panel that will hold the ListBox
+                    Panel pnlListContainer = new Panel();
+                    pnlListContainer.Name = "pnlListContainer";
+                    pnlListContainer.Dock = DockStyle.Fill;
+                    pnlListContainer.Padding = new Padding(0, 0, 0, 0);
+
+                    // Move the ListBox into the new Panel
+                    this.Controls.Remove(this.lboxTablesViews);
+                    pnlListContainer.Controls.Add(this.lboxTablesViews);
+
+                    // Configure the ListBox to fill the Panel completely
+                    this.lboxTablesViews.Dock = DockStyle.Fill;
+                    this.lboxTablesViews.IntegralHeight = false; // Prevent item height rounding issues
+                    this.lboxTablesViews.ScrollAlwaysVisible = true;
+
+                    // Add the Panel to the UserControl, and put it *behind* the other controls (like buttons)
+                    this.Controls.Add(pnlListContainer);
+
+                    // Ensure it's at the bottom of the Z-order so it doesn't cover the buttons
+                    pnlListContainer.BringToFront();
+                    // Note: If the buttons are in the main TabPage and not in this UserControl,
+                    // Dock=Fill will make the ListBox respect the bounds of this UserControl.
+                }
+                // =====================================================================
+
                 //-----------------------------------------------------------
                 // OutputPath
                 //-----------------------------------------------------------
@@ -236,6 +269,7 @@ namespace EntitySpaces.TemplateUI
                 if (database != null)
                 {
                     this.lboxTablesViews.DataSource = null;
+                    this.lboxTablesViews.Items.Clear();
 
                     if (ShowTables())
                     {
@@ -247,6 +281,21 @@ namespace EntitySpaces.TemplateUI
                         this.lboxTablesViews.DataSource = database.Views;
                         this.lboxTablesViews.DisplayMember = "FullName";
                     }
+
+                    // [FIX] Force the ListBox to recalculate its visible area.
+                    // This prevents it from overlapping the bottom buttons and cutting off the last items.
+                    this.lboxTablesViews.IntegralHeight = false;
+                    this.lboxTablesViews.ScrollAlwaysVisible = true;
+
+                    // [FIX] Limit the height dynamically so it doesn't go behind the buttons.
+                    // We leave a 50-pixel margin at the bottom for the buttons.
+                    int maxAllowedHeight = this.ClientSize.Height - this.lboxTablesViews.Top - 50;
+                    if (this.lboxTablesViews.Height > maxAllowedHeight && maxAllowedHeight > 0)
+                    {
+                        this.lboxTablesViews.Height = maxAllowedHeight;
+                    }
+
+                    this.lboxTablesViews.Refresh();
                 }
             }
             catch { }
