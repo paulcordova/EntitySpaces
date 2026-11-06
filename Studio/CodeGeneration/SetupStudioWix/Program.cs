@@ -17,14 +17,24 @@ namespace EntitySpaces.Installer
         {
             public const string ProjectRoot = @"D:\Work\src\04_proyectos\Internos\EntitySpaces";
 
-            // Publish output of the application (net10 x64)
-            public static readonly string Publish = Path.Combine(ProjectRoot, "publish_EntitySpaceStudio");
-            public static readonly string[] PublishPatterns = { "*.exe", "*.dll", "*.json", "*.config" };
-
             // Repository
             public static readonly string Studio = Path.Combine(ProjectRoot, @"git-paul-EntitySpaces\Studio");
             public static readonly string CodeGeneration = Path.Combine(Studio, "CodeGeneration");
             public static readonly string Setup = Path.Combine(CodeGeneration, "SetupStudio");
+
+            // Installer project folder. What lives inside it:
+            //   EntitySpaces.Installer.csproj, Program.cs, Images\   -> source code (Git)
+            //   publish_EntitySpacesStudio\                          -> build output: published application (gitignored)
+            //   installer_EntitySpacesStudio\                        -> build output: MSI, .wxs, WixSharp helper files (gitignored)
+            //   bin\, obj\                                           -> build output (gitignored)
+            public static readonly string InstallerDir = Path.Combine(CodeGeneration, "SetupStudioWix");
+
+            // Publish output of the application (net10 x64), produced by Build-EntitySpaces.ps1
+            public static readonly string Publish = Path.Combine(InstallerDir, "publish_EntitySpacesStudio");
+            public static readonly string[] PublishPatterns = { "*.exe", "*.dll", "*.json", "*.config" };
+
+            // Folder where the installer build WRITES its results (not a source)
+            public static readonly string OutputDir = Path.Combine(InstallerDir, "installer_EntitySpacesStudio");
 
             // Documentation
             public static readonly string Documentation = Path.Combine(Studio, "Documentation");
@@ -32,7 +42,7 @@ namespace EntitySpaces.Installer
 
             // Loose files
             public static readonly string EsLanguagesXml = Path.Combine(Setup, @"_ConfigFiles\esLanguages.xml");
-            public static readonly string EsSettingsXml = Path.Combine(Setup, @"_ProgramData\esSettings.xml");
+            //public static readonly string EsSettingsXml = Path.Combine(Setup, @"_ProgramData\esSettings.xml");
             public static readonly string EsUserDataXml = Path.Combine(Setup, @"_ProgramData\esUserData.xml");
 
             // CodeGeneration subfolders
@@ -44,8 +54,8 @@ namespace EntitySpaces.Installer
             public static readonly string TemplatesStoredProcedures = Path.Combine(Templates, "StoredProcedures");
             public static readonly string TemplatesDotNetNuke = Path.Combine(TemplatesStoredProcedures, "DotNetNuke");
 
-            // Installer branding images (kept inside the installer project, folder "Images")
-            public static readonly string Images = Path.Combine(Studio, @"CodeGeneration\SetupStudioWix\Images");
+            // Installer branding files: images and license text (kept inside the installer project, folder "Images")
+            public static readonly string Images = Path.Combine(InstallerDir, "Images");
             public static readonly string AppIcon = Path.Combine(Images, "EntitySpaces.ico");   // Programs and Features
             public static readonly string BannerImage = Path.Combine(Images, "Banner.bmp");     // 493x58, top of dialogs
             public static readonly string SideImage = Path.Combine(Images, "Welcome_156x312.bmp"); // 156x312, left side of the dialogs
@@ -167,7 +177,10 @@ namespace EntitySpaces.Installer
         // =====================================================================
         //  4) OTHER SETTINGS
         // =====================================================================
-        const string LogPath = @"C:\Temp\wix_errors.txt";
+        // Log folder: the build script passes it in this environment variable so every log ends up next to
+        // the script. When the program is run by hand (e.g. from Visual Studio) the log goes to the output folder.
+        const string LogDirVariable = "ES_LOG_DIR";
+        const string LogFileName = "wix_errors.txt";
 
         // Shown as "Publisher" in Programs and Features. TODO: confirm the exact company/team name.
         const string Publisher = "EntitySpaces";
@@ -199,6 +212,11 @@ namespace EntitySpaces.Installer
 
                 Console.WriteLine("Start: " + DateTime.Now);
                 Compiler.VerboseOutput = true;
+
+                // The MSI, the .wxs and the WixSharp helper files (CA dlls, .config) are written to the
+                // current directory unless told otherwise, so move it to the output folder.
+                Directory.CreateDirectory(SourcePaths.OutputDir);
+                Environment.CurrentDirectory = SourcePaths.OutputDir;
 
                 string releaseVersion = ResolveReleaseVersion();
                 Console.WriteLine("Release version: " + releaseVersion +
@@ -271,6 +289,7 @@ namespace EntitySpaces.Installer
 
             // Output file name, e.g. EntitySpaces-2026.11.00-x64.msi
             project.OutFileName = "EntitySpaces-" + releaseVersion + "-x64";
+            project.OutDir = SourcePaths.OutputDir;
 
             // Newer versions replace older ones. The old product is removed AFTER the new files are
             // installed, so files shared by both versions (such as the user's ProgramData XML files)
@@ -443,7 +462,7 @@ namespace EntitySpaces.Installer
         {
             var items = new List<WixEntity>();
 
-            foreach (string xml in new[] { SourcePaths.EsSettingsXml, SourcePaths.EsUserDataXml })
+            foreach (string xml in new[] { SourcePaths.EsUserDataXml })
             {
                 if (System.IO.File.Exists(xml))
                     items.Add(new WixSharp.File(xml) { NeverOverwrite = true });
@@ -694,17 +713,24 @@ namespace EntitySpaces.Installer
         /// <summary>Mirrors everything written to the console into the log file.</summary>
         static void InitLog()
         {
+            string logDir = Environment.GetEnvironmentVariable(LogDirVariable);
+            if (string.IsNullOrWhiteSpace(logDir))
+                logDir = SourcePaths.OutputDir;
+
+            string logPath = Path.Combine(logDir, LogFileName);
+
             try
             {
-                Directory.CreateDirectory(Path.GetDirectoryName(LogPath));
-                _logWriter = new StreamWriter(LogPath, false, Encoding.UTF8) { AutoFlush = true };
+                Directory.CreateDirectory(logDir);
+                _logWriter = new StreamWriter(logPath, false, Encoding.UTF8) { AutoFlush = true };
                 Console.SetOut(new TeeWriter(Console.Out, _logWriter));
                 Console.SetError(new TeeWriter(Console.Error, _logWriter));
+                Console.WriteLine("Log file: " + logPath);
             }
             catch (Exception ex)
             {
                 // If the log cannot be created we keep going with the console only
-                Console.WriteLine("Could not create the log file at " + LogPath + ": " + ex.Message);
+                Console.WriteLine("Could not create the log file at " + logPath + ": " + ex.Message);
             }
         }
 

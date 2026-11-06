@@ -18,6 +18,7 @@
 
 	<ItemGroup>
 		<PackageReference Include="WixSharp_wix4" />
+		<PackageReference Include="WixSharp_wix4.bin" />
 	</ItemGroup>
 
 </Project>
