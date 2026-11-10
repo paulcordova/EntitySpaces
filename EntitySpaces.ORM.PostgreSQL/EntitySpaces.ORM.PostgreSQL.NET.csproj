@@ -1,10 +1,10 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
 		<TargetFrameworks>net48;net8.0;net9.0;net10.0</TargetFrameworks>
-		<AssemblyVersion>2026.8.0.0</AssemblyVersion>
-		<FileVersion>2026.8.0.0</FileVersion>
-		<Version>2026.8.0</Version>
+		<AssemblyVersion>2026.11.0.0</AssemblyVersion>
+		<FileVersion>2026.11.0.0</FileVersion>
+		<Version>2026.11.0</Version>
 		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
 
 		<Description>PostgreSQL provider for EntitySpaces ORM. Fully modernized for .NET Framework 4.8, .NET 8, 9, and 10. Features strongly-typed entities, dynamic SQL, stored procedures, safe connection pooling, thread‑safe caching, and automatic concurrency detection.</Description>
@@ -144,4 +144,18 @@ Copyright © 2026 Paul Córdova.</Copyright>
 	</None>
   </ItemGroup>
 
+	<ItemGroup>
+		<None Include="..\LICENSE">
+			<Pack>True</Pack>
+			<PackagePath>\</PackagePath>
+		</None>
+		<None Include="..\NOTICE">
+			<Pack>True</Pack>
+			<PackagePath>\</PackagePath>
+		</None>
+		<None Include="..\THIRD-PARTY-NOTICES.md">
+			<Pack>True</Pack>
+			<PackagePath>\</PackagePath>
+		</None>
+	</ItemGroup>
 </Project>
