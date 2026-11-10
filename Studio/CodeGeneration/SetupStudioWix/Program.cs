@@ -38,7 +38,7 @@ namespace EntitySpaces.Installer
 
             // Documentation
             public static readonly string Documentation = Path.Combine(Studio, "Documentation");
-            public const string DocumentationPattern = "*.pdf";
+            public static readonly string[] DocumentationPatterns = { "*.pdf", "*.txt" };
 
             // Loose files
             public static readonly string EsLanguagesXml = Path.Combine(Setup, @"_ConfigFiles\esLanguages.xml");
@@ -60,6 +60,7 @@ namespace EntitySpaces.Installer
             public static readonly string BannerImage = Path.Combine(Images, "Banner.bmp");     // 493x58, top of dialogs
             public static readonly string SideImage = Path.Combine(Images, "Welcome_156x312.bmp"); // 156x312, left side of the dialogs
             public static readonly string LicenseFile = Path.Combine(Images, "License.rtf");        // text of the license page (RTF)
+            public static readonly string ThirdPartyNotices = Path.Combine(Documentation, "THIRD-PARTY-NOTICES.txt"); // Oracle license text, shipped with the MSI
 
             // Languages and subfolders repeated in CustomBase and Templates
             public static readonly string[] Languages = { "C#", "VB" };
@@ -337,6 +338,7 @@ namespace EntitySpaces.Installer
             RequireFile(SourcePaths.BannerImage);
             RequireFile(SourcePaths.SideImage);
             RequireFile(SourcePaths.LicenseFile);
+            RequireFile(SourcePaths.ThirdPartyNotices);
 
             // "Programs and Features": icon (.ico with several sizes) and publisher
             project.ControlPanelInfo.ProductIcon = SourcePaths.AppIcon;
@@ -451,7 +453,7 @@ namespace EntitySpaces.Installer
         static Dir BuildDocumentationDir()
         {
             return new Dir(new Id(TargetPaths.SubDocumentation),
-                CollectFiles(Path.Combine(SourcePaths.Documentation, SourcePaths.DocumentationPattern)));
+                SourcePaths.DocumentationPatterns.SelectMany(p => CollectFiles(Path.Combine(SourcePaths.Documentation, p))).ToArray());
         }
 
         /// <summary>

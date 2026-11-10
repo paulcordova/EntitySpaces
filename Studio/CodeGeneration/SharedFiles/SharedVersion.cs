@@ -31,7 +31,7 @@ namespace EntitySpaces
         public const string RegistryPath = @"Software\EntitySpaces " + Year;
 
         // Assembly attributes (no interpolation needed)
-        public const string Copyright = "Copyright © EntitySpaces, LLC. 2005 - " + Year;
+        public const string Copyright = "Copyright © EntitySpaces, LLC. 2006-2012 · Copyright © " + Year + " Paul Córdova";
         public const string AssemblyDescription = "The EntitySpaces Studio Stand Alone Version";
         public const string AssemblyTitle = "EntitySpaces";
         public const string AssemblyProduct = "EntitySpacesArchitecture";
