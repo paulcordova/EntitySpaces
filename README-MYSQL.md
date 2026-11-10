@@ -16,8 +16,10 @@ Part of the modernized EntitySpaces ORM — MySQL / MariaDB data provider. Activ
 
 This package provides the MySQL / MariaDB runtime only — it does not generate code. Entity and Collection classes are generated from your database schema using **EntitySpaces Studio**, a separate WinForms tool.
 
-- Get it from the repo: [EntitySpaces.Studio](https://github.com/paulcordova/EntitySpaces/tree/master/EntitySpaces.Studio)
-- Download the **most recent** `.zip` — avoid any file tagged `-deprecated`, that build is kept for reference only.
+- Download the **latest MSI** from [Releases](https://github.com/paulcordova/EntitySpaces/releases/latest) and run it. Requires the .NET 10 Desktop Runtime (x64).
+- Older builds stay in [EntitySpaces.Studio](https://github.com/paulcordova/EntitySpaces/tree/master/EntitySpaces.Studio), tagged `-deprecated`, for reference only.
+
+> **Version alignment.** Studio 2026.11 and the NuGet packages 2026.11.0 ship as one unit: the templates depend on provider changes from the same release. Do not mix a newer Studio with older packages, or the reverse. The previous Studio build (2026.08) remains available for projects still on packages 2026.8.0.
 - Connect to your database under Settings → Connection, then run the Generated and Custom class templates.
 - If you plan to use the Stored Procedure save path (`esSqlAccessType.StoredProcedure`), configure the **Custom Fields** tabs before generating the procedures. The names entered there must match the physical column names in your database — see the Stored Procedure Support section below for the full setup checklist.
 

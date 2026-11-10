@@ -32,9 +32,10 @@ intacto.
 
 Usa siempre la versión más reciente de **EntitySpaces Studio**.
 
-- Descárgala del repositorio: [EntitySpaces.Studio](https://github.com/paulcordova/EntitySpaces/tree/master/EntitySpaces.Studio)
-- Baja el `.zip` **más reciente** — evita cualquier archivo marcado `-Deprecated`, que se conserva
-  solo como referencia.
+- Descarga el **MSI más reciente** desde [Releases](https://github.com/paulcordova/EntitySpaces/releases/latest) y ejecútalo. Requiere .NET 10 Desktop Runtime (x64).
+- Las versiones anteriores quedan en [EntitySpaces.Studio](https://github.com/paulcordova/EntitySpaces/tree/master/EntitySpaces.Studio), marcadas `-Deprecated`, solo como referencia.
+
+> **Alineación de versiones.** Studio 2026.11 y los paquetes NuGet 2026.11.0 se publican como una unidad: las plantillas dependen de los cambios de los providers de esa misma versión. No mezcles un Studio más nuevo con paquetes anteriores, ni al revés. La versión anterior de Studio (2026.08) se mantiene para proyectos que siguen en los paquetes 2026.8.0.
 - Conéctate a tu base de datos en *Settings → Connection* y ejecuta las plantillas de clases
   Generated y Custom.
 
