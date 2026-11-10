@@ -1,0 +1,204 @@
+<img src="https://es-banner.paul-netstep.workers.dev?src=github" alt="EntitySpaces" width="531" height="268">
+
+# Changelog — EntitySpaces
+
+All notable changes to this project are documented in this file.
+The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
+adheres to calendar versioning (`YYYY.MM.patch`).
+
+Scope of this file: **ORM packages (5 providers) + EntitySpaces Studio**.
+
+---
+
+## [Unreleased]
+
+### Added
+- Nothing yet.
+
+### Planned
+- **Firebird provider** — project structure and provider sources are in place
+  (`Providers/EntitySpaces.FirebirdProvider`, `EntitySpaces.ORM.Firebird`), but it is **not a
+  deliverable** for 2026.11: it has no dedicated NuGet README, no published package, and no test
+  evidence in the release record.
+
+---
+
+## [2026.11.0] — 2026-11-09
+
+### Baseline and diff
+
+| | |
+|---|---|
+| Previous release | **2026.8.0** (commit `f3baaa9`, 2026-08-19) |
+| ORM packages | `2026.11.0` — SQL Server · PostgreSQL · MySQL · SQLite · Oracle Managed Client |
+| Studio | `2026.11.0000.0` |
+| Diff since 2026.8.0 | 171 files changed, +17,147 / −7,945 |
+
+### Added
+
+**EntitySpaces Studio**
+- **MSI installer** (WixSharp) for EntitySpaces Studio 2026 — self-contained Windows installer with
+  branding, install-folder layout, `ProgramData` configuration, shortcuts, registry entries and
+  full install / modify / repair / remove dialog sequences.
+- **Dynamic theme system** — three selectable themes: `Standard`, `EntitySpaces`, `Dark`, applied
+  at runtime across the Studio shell.
+- **Prerequisite check for .NET 10** in the installer, with an actionable message instead of a
+  raw host failure.
+- **.NET version shown in the About box**, so support requests can identify the runtime at a glance.
+- **Central Package Management** — a single `Directory.Packages.props` declares every package
+  version once for the whole solution; all Studio projects migrated from `packages.config` to
+  `PackageReference`.
+- **`AutoGenerateBindingRedirects`** on the Studio host project, replacing hand-maintained
+  `app.config` redirects.
+
+**Providers**
+- **MySQL / MariaDB** — full stored procedure support: correct parameter directions, concurrency
+  token mapping, per-packet iteration when saving through a collection, and a corrected dynamic
+  UPDATE path.
+- **PostgreSQL** — stored procedure save path implemented through `SELECT FROM function`,
+  reading the returned row set instead of relying on output parameters.
+- **Oracle** — stored procedure path: parameter lookup by property name, native type conversion,
+  correct `Dispose` ordering, and collection FK resolution.
+- **SQLite** — complete PK/FK propagation coverage and special-column support.
+- **EntitySpaces.Core** — collection FK synchronisation now applies the collection's `fks` to each
+  child's `CurrentValues` in `Save()`, `BulkInsert()` and `Combine()`, so typed FK getters return
+  the persisted value without reloading.
+- **Templates (C# and VB.NET)** — user-supplied primary keys (business codes, GUIDs, composite
+  keys) are propagated to child collections in memory, matching the behaviour that already existed
+  for auto-increment parents.
+
+### Changed
+
+- **Multi-targeting finalised** — every provider targets `net48;net8.0;net9.0;net10.0`.
+  .NET Standard is no longer part of the ORM target set.
+- **EntitySpaces Studio migrated to .NET 10** (`net10.0-windows10.0.19041.0`, **x64**). The
+  2026.08 Studio shipped on .NET Framework 4.8.1; this is a **breaking change** — the 2026.11
+  installer requires the **.NET 10 Desktop Runtime** and a 64-bit Windows 10 2004+ host.
+- **MySQL driver replaced: `MySql.Data` → `MySqlConnector` 2.6.2.** Behavioural differences in
+  parameter binding and error surfaces are absorbed by the provider; connection strings remain
+  compatible.
+- **Dependency baseline** — Microsoft.Data.SqlClient `7.1.1`, Npgsql `10.0.3`,
+  Oracle.ManagedDataAccess `23.26.400`, System.Data.SQLite.Core `1.0.119`,
+  System.Configuration.ConfigurationManager `10.0.14`, System.Security.Cryptography.Pkcs `10.0.14`.
+- **Studio templates bumped to `2026.11`.**
+- **Documentation restructured** — one `README-<PROVIDER>.md` per provider is the single source of
+  truth for provider behaviour; the root README no longer duplicates it.
+
+#### EntitySpaces Studio — platform and template engine
+
+The move from .NET Framework 4.8.1 to .NET 10 was done in two steps (4.8.1 → .NET 8 for
+stabilization → .NET 10) and was not a `TargetFramework` change alone:
+
+- **CodeDom → Roslyn** — the dynamic `.est` template compiler was reimplemented on
+  `Microsoft.CodeAnalysis.CSharp`. Faster generation and compatibility with modern C#.
+- **In-memory assembly resolution** — `Template.cs` registers an
+  `AppDomain.CurrentDomain.AssemblyResolve` subscriber that resolves the `FileNotFoundException`
+  raised by `PublicKeyToken` mismatches between on-disk and in-memory assemblies. Constructor lookup
+  via reflection was relaxed to ignore legacy strong signatures.
+- **Strong-name signing removed** — the `.snk` was incompatible with the modern .NET assembly
+  loading model.
+- **SDK-style projects** — every project converted to `Microsoft.NET.Sdk`, typed `Library` except
+  the `Standalone` executable.
+- **WinForms on .NET 10** — runtime state properties decorated with `[Browsable(false)]` and
+  `[DesignerSerializationVisibility(Hidden)]`; rule `WFO1000` added to `NoWarn` for the visual
+  designer.
+- **Retired components** — **SQL Server Compact Edition (SqlCe)** support removed as out of support;
+  the **`CommandLine`** and **`esGacInstall`** projects excluded pending re-evaluation (the latter
+  because .NET 5+ has no GAC).
+
+### Fixed
+
+**EntitySpaces Studio**
+- **Truncated table names on MySQL** — from .NET 5 onward the globalization engine moved from NLS
+  to **ICU**, where the null character is zero-weight: `"TestMetadata".EndsWith("\0")` evaluated to
+  `true`, and the following `Remove()` dropped the last real character (`TestMetadat`). Fixed in
+  `MetadataEngine/Single.cs` by forcing an ordinal comparison
+  (`EndsWith(dbRoot.TrailingNull, StringComparison.Ordinal)`).
+- **Oracle metadata resolution with a local wallet** — corrected in `dbRoot` for schemas that
+  authenticate against a wallet on a local path.
+- **MySQL driver in the metadata engine** — `MySql.Data` replaced by `MySqlConnector`, resolving the
+  `DbConnection.GetSchema()` incompatibilities and the connection-pool session reset. Obsolete
+  `Assembly.LoadWithPartialName` calls removed.
+
+**SQL Server**
+- Special columns, the `DEFAULT VALUES` branch, empty `Added` entities, stored-procedure paths and
+  bareword resolution in dynamic INSERT/UPDATE.
+- Metadata-aware column/property resolution replaces case-insensitive string comparison, so
+  snake_case schemas and case-sensitive collations work correctly.
+- Hierarchical save now propagates the parent PK to the child FK even when the column name and the
+  generated property name differ only in casing (previously `SqlException 515`).
+- **Defensive `ROLLBACK` removed** from the provider's `finally` blocks — on current
+  `Microsoft.Data.SqlClient` it aborted the transaction held by an ambient `esTransactionScope`.
+  Rollback is now delegated to `esTransactionScope.Dispose` (see *Removed*).
+
+**PostgreSQL**
+- `IsConcurrency` columns handled on both INSERT and UPDATE, including user-settable nullable
+  timestamps and multiple concurrency columns per table; `IS NOT DISTINCT FROM` for NULL-safe
+  matching.
+- Empty `CurrentValues` no longer breaks the save path.
+- Dynamic UPDATE returns values via `RETURNING` instead of a second `SELECT`.
+- Stored-procedure DELETE enforces optimistic concurrency.
+
+**MySQL / MariaDB**
+- Empty-entity INSERT uses portable MySQL syntax.
+- Key-sync ordering corrected and error surfacing hardened.
+- `Version` column recognised as an EntitySpaces concurrency token.
+- Stored-procedure save iterates per packet when invoked through a collection.
+
+**Oracle**
+- Empty inserts and explicit PK inserts on `IDENTITY` columns.
+- Strict concurrency control; centralized native type conversion in `MapOutputValue`.
+- Tolerant column/property resolution when FK names diverge.
+
+**SQLite**
+- **Decimal precision preserved** and parameter loss on save fixed — removes silent truncation on
+  comma-decimal cultures (e.g. `es-CL`).
+- Tolerant column/property resolution extended to snake_case names.
+- FK propagation resolved when column and property names diverge.
+
+**EntitySpaces.Core**
+- Column/property keys synchronised in `AcceptChanges` and before save; extra columns filtered.
+- `Combine()` uses `SetProperty` instead of `SetColumn(..., false)`, so combining a freshly loaded
+  collection no longer flips every `Unchanged` entity to `Modified`.
+
+### Removed
+
+- **SQL Server provider** — `IF @@TRANCOUNT > 0 ROLLBACK` from all `finally` blocks. Replacement
+  mechanism: `SET XACT_ABORT ON` on generated statements + `esTransactionScope.Dispose`.
+- **Defensive `ROLLBACK` on enlisted connections** in the PostgreSQL and MySQL providers, for the
+  same reason: under Npgsql 6+ / MySqlConnector it could abort the *ambient* transaction rather
+  than only the current command.
+
+### Known limitations (documented, not fixed in this release)
+
+| Provider | Limitation |
+|---|---|
+| SQL Server 2025 Express | CHECK/FK violations inside parameterized batches are silently swallowed by the server. Columns with `HasDefault` are therefore fetched with a post-insert `SELECT ... WHERE pk = SCOPE_IDENTITY()` instead of `OUTPUT INSERTED ... INTO @output_vals`. |
+| PostgreSQL | Changes to `IsConcurrency` columns on a **loaded** entity are not persisted by the dynamic UPDATE path. |
+| All providers | Setting both `parent.Children.Add(child)` and `child.UpToParent = parent` triggers a `StackOverflowException` in navigation-property recursion. Choose one direction. |
+| Firebird | Not shipped in 2026.11. |
+
+### Validated against
+
+| Engine | Versions in the release record |
+|---|---|
+| SQL Server | 2016 Express (13.00.5026) · 2022 · 2025 Express (17.0.4085.5 / CU8+GDR) |
+| PostgreSQL | 17.x · 18.x · Npgsql 7.x–10.x · Neon |
+| MySQL / MariaDB | MySQL 8.0.14+ · MariaDB 10.2+ · MySqlConnector 2.6.2 |
+| SQLite | 3.x · System.Data.SQLite 1.0.119 |
+| Oracle | 12c–19c · Oracle Cloud ATP · ODP.NET Managed 23.x |
+| Firebird | — (out of scope) |
+
+### Upgrade notes
+
+1. **Studio is now .NET 10 / x64 only.** Uninstall the 2026.08 Studio before installing 2026.11;
+   the MSI uses a dedicated `UpgradeCode` and handles the upgrade, but the .NET Framework 4.8.1
+   build will not run side by side as a drop-in replacement.
+2. **MySQL consumers** must not reference `MySql.Data` alongside `EntitySpaces.ORM.MySQL.NET`;
+   the package now depends on `MySqlConnector`.
+3. **Do not wrap EntitySpaces calls in `System.Transactions.TransactionScope`** — use
+   `esTransactionScope`. This was already true in 2026.08 and is now enforced consistently across
+   all five providers.
+4. Generated code from the 2026.08 templates remains compatible; regenerating with the 2026.11
+   templates adds `CharacterMaxLength`, `NumericPrecision`, `NumericScale`, `IsComputed` and
+   `DataTypeNameComplete` to the `Metadata` classes.
