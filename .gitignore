@@ -329,3 +329,9 @@ ASALocalRun/
 # MFractors (Xamarin productivity tool) working folder 
 .mfractor/
 /SampleApplication
+
+# Project-specific: transient build and editor output
+*.bak
+*.vdproj.txt
+wix_errors.txt
+.svn/
