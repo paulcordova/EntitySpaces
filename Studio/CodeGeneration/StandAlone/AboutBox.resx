@@ -118,18 +118,21 @@
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <data name="richTextBox1.Text" xml:space="preserve">
-    <value>Copyright © 2005 - 2026 by EntitySpaces, LLC.
-All Rights Reserved.
+    <value>Copyright © 2006-2012 EntitySpaces, LLC. All Rights Reserved.
+Copyright © 2021 Stefan D.
+Copyright © 2023-2026 Paul Córdova. All Rights Reserved.
 
 -------------------------------------------------------------------------------
 
-This modern fork is actively maintained and enhanced by Paul Córdova (2024–present).
+This modern fork is maintained and enhanced by Paul Córdova since 2023.
 
 Building upon the proven EntitySpaces architecture, this edition adds:
 • Native support for .NET Framework 4.8, .NET 8, 9, and 10
 • Modernized metadata engine for SQL Server, PostgreSQL, MySQL, SQLite, Oracle and Firebird
 • Provider-specific optimizations (LATERAL JOIN, OUTPUT INSERTED, RETURNING, etc.)
 • Thread-safe caching and safe connection pooling for web and cloud environments
+
+Distributed under the BSD 3-Clause License.
 
 Source code and documentation:
 https://github.com/paulcordova/EntitySpaces</value>
