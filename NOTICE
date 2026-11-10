@@ -1,7 +1,7 @@
 EntitySpaces
 
 Copyright (c) 2006-2012, EntitySpaces, LLC. All rights reserved.
-Copyright (c) 2021, Stefan D. All rights reserved.
+Copyright (c) 2021, Stefan Dicker. All rights reserved.
 Copyright (c) 2023-2026, Paul Córdova. All rights reserved.
 
 This product is distributed under the BSD 3-Clause License. The binding license
@@ -25,7 +25,9 @@ EntitySpaces was created by Mike Griffin and released by EntitySpaces, LLC under
 the New BSD License (BSD 3-Clause).
 
     Original work:   2005-2012   Mike Griffin / EntitySpaces, LLC
-    Contribution:    2021        Stefan D. (configuration section reader)
+    Contribution:    2021        Stefan Dicker (initial Oracle provider and the
+                                 configuration section reader; the provider was
+                                 substantially rewritten and hardened in 2025)
     This fork:       2023-2026   Paul Córdova (maintainer)
 
 The first commit in this repository is dated 2019-06-28; the maintainer's own
