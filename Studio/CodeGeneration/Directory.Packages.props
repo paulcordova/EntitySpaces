@@ -28,9 +28,9 @@
     <!-- Infraestructura y Extensiones de .NET -->
     <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.14" />
     <PackageVersion Include="System.Configuration.ConfigurationManager" Version="10.0.14" />
-    <PackageVersion Include="System.Diagnostics.DiagnosticSource" Version="10.0.13" />
+    <PackageVersion Include="System.Diagnostics.DiagnosticSource" Version="10.0.14	" />
     <PackageVersion Include="System.Management" Version="10.0.14" />
-	<PackageVersion Include="System.Security.Cryptography.Pkcs" Version="10.0.13" />
+	<PackageVersion Include="System.Security.Cryptography.Pkcs" Version="10.0.14" />
 
     <!-- Interop y Extensibilidad de Visual Studio -->
     <PackageVersion Include="EnvDTE" Version="16.7.30328.74" />
