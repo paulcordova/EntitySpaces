@@ -1,4 +1,4 @@
-<img src="https://es-banner.paul-netstep.workers.dev?src=nuget_readme" alt="EntitySpaces" width="531" height="268">
+<img src="https://es-banner.paul-netstep.workers.dev?src=nuget_readme" alt="EntitySpaces" width="250" height="126">
 
 # EntitySpaces.ORM.MySQL.NET
 
@@ -11,16 +11,6 @@ Part of the modernized EntitySpaces ORM — MySQL / MariaDB data provider. Activ
 | **.NET targets** | .NET Framework 4.8 - .NET 8 - .NET 9 - .NET 10 |
 | **MySQL / MariaDB** | MySQL 8.0.14+ (validated with 8.0.28) - MariaDB 10.2+ (validated with 10.2 / 10.6 / 10.11) |
 | **Driver** | MySqlConnector 2.6.2 |
-
-## ❤️ Support this project
-
-If this provider has saved you time on a project, [support its development](https://netstep.cl/entityspaces/support/) — every contribution helps keep it free and maintained.
-
-You can also sponsor via the ❤️ Sponsor link on this NuGet package (powered by Ko-fi).
-
-## 📋 Help Shape the Roadmap
-
-> [Take the 3-minute survey](https://docs.google.com/forms/d/e/1FAIpQLSd-FVQiC3deoaIarYnsOCH4pdj-4zjGKznN68uUtyx9CpuKgA/viewform) — your feedback keeps EntitySpaces alive and evolving.
 
 ## 🛠️ Requires EntitySpaces Studio
 
@@ -430,7 +420,7 @@ the current release.
   - Consistent behavior across .NET Framework 4.8 and .NET 8–10.
   - Faster, allocation-light parameter handling.
 
-- **System.Configuration.ConfigurationManager** — updated from `10.0.10` to `10.0.11`. Maintenance release. No API changes affecting EntitySpaces.
+- **System.Configuration.ConfigurationManager** — updated from `10.0.13` to `10.0.14`. Maintenance release. No API changes affecting EntitySpaces.
 
 ## Quick Samples
 
@@ -496,3 +486,7 @@ More usage examples (joins, paging, transactions, and the full Fluent SQL API): 
 ### Generating your entity classes
 
 See **Requires EntitySpaces Studio** above.
+
+---
+
+*If this provider saved you time, you can [support its development via PayPal](https://netstep.cl/entityspaces/support/). Feedback is welcome through the [3‑minute roadmap survey](https://docs.google.com/forms/d/e/1FAIpQLSd-FVQiC3deoaIarYnsOCH4pdj-4zjGKznN68uUtyx9CpuKgA/viewform).*

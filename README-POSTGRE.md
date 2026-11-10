@@ -1,4 +1,4 @@
-<img src="https://es-banner.paul-netstep.workers.dev?src=nuget_readme" alt="EntitySpaces" width="531" height="268">
+<img src="https://es-banner.paul-netstep.workers.dev?src=nuget_readme" alt="EntitySpaces" width="250" height="126">
 
 # EntitySpaces.ORM.PostgreSQL.NET
 
@@ -9,18 +9,8 @@ Part of the modernized EntitySpaces ORM — PostgreSQL data provider. Actively m
 | | |
 |---|---|
 | **.NET targets** | .NET Framework 4.8 · .NET 8 · .NET 9 · .NET 10 |
-| **PostgreSQL** | PostgreSQL 13 – 18 · Neon PostgreSQL (serverless cloud) compatible |
+| **PostgreSQL** | PostgreSQL 13 – 18 (validated with 17.11.0 and 18.6.0) · Neon PostgreSQL (serverless cloud) compatible |
 | **Driver** | Npgsql 7.x – 10.x |
-
-## ❤️ Support this project
-
-If this provider has saved you time on a project, [support its development](https://netstep.cl/entityspaces/support/) — every contribution helps keep it free and maintained.
-
-You can also sponsor via the ❤️ Sponsor link on this NuGet package (powered by Ko-fi).
-
-## 📋 Help Shape the Roadmap
-
-> [Take the 3‑minute survey](https://docs.google.com/forms/d/e/1FAIpQLSd-FVQiC3deoaIarYnsOCH4pdj-4zjGKznN68uUtyx9CpuKgA/viewform) – your feedback keeps EntitySpaces alive and evolving.
 
 ## 🛠️ Requires EntitySpaces Studio
 
@@ -218,7 +208,7 @@ The fixes documented in this README were originally validated against SQL Server
   
 The SP suite is validated at 159 green tests on two consecutive runs against PostgreSQL 17 and PostgreSQL 18, with no provider-specific behaviour differences.
 
-The Billing domain test suite (ported from SQL Server) adds **accounts for 42 of those tests** — Billing00–Billing06 (35 ported) plus Billing08 (7 additional: 6 green + 1 `[Ignore]`d for the known limitation documented above) — all validated against **PostgreSQL 17.11.0** and **PostgreSQL 18.6.0**, with the pre-existing Northwind suite still green.
+The Billing domain test suite (ported from SQL Server) accounts for **42 of those tests** — Billing00–Billing06 (35 ported) plus Billing08 (7 additional: 6 green + 1 `[Ignore]`d for the known limitation documented above) — all validated against **PostgreSQL 17.11.0** and **PostgreSQL 18.6.0**, with the pre-existing Northwind suite still green.
   
 ## StoredProcedure Path
 
@@ -285,7 +275,7 @@ If you extend the SP template or the provider, keep both sides in sync. A signat
 
 ## Dependency Updates
 
-- Updated `System.Configuration.ConfigurationManager` from `10.0.10` to `10.0.11`
+- Updated `System.Configuration.ConfigurationManager` from `10.0.13` to `10.0.14`
 - Maintenance release. No API changes affecting EntitySpaces.
 
 ## Quick Samples
@@ -335,3 +325,7 @@ More usage examples (joins, paging, transactions, and the full Fluent SQL API): 
 ### Generating your entity classes
 
 See **Requires EntitySpaces Studio** above.
+
+---
+
+*If this provider saved you time, you can [support its development via PayPal](https://netstep.cl/entityspaces/support/). Feedback is welcome through the [3‑minute roadmap survey](https://docs.google.com/forms/d/e/1FAIpQLSd-FVQiC3deoaIarYnsOCH4pdj-4zjGKznN68uUtyx9CpuKgA/viewform).*

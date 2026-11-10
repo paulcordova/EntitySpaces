@@ -1,4 +1,4 @@
-<img src="https://es-banner.paul-netstep.workers.dev?src=github" alt="EntitySpaces" width="531" height="268">
+<img src="https://es-banner.paul-netstep.workers.dev?src=github" alt="EntitySpaces" width="250" height="126">
 
 # EntitySpaces ORM — .NET 4.8 to .NET 10
 
@@ -7,12 +7,6 @@ Actively modernized .NET ORM — concurrency-safe, connection-pool-safe, and clo
 Generated database code and your business logic live in separate, isolated classes — regenerate your schema anytime without ever touching a line of your own code. A lightweight architecture built for one or two developers who'd rather focus on what actually delivers value.
 
 The same architecture Mike Griffin created, extended and hardened for .NET Framework 4.8 through .NET 10.
-
-## ❤️ [Support this project](https://netstep.cl/entityspaces/support) — every contribution helps keep it free and maintained.
-
-## 📋 Help Shape the Roadmap
-
-> [Take the 3‑minute survey](https://docs.google.com/forms/d/e/1FAIpQLSd-FVQiC3deoaIarYnsOCH4pdj-4zjGKznN68uUtyx9CpuKgA/viewform) – your feedback keeps EntitySpaces alive and evolving.
 
 ## 🛠️ Requires EntitySpaces Studio
 
@@ -52,6 +46,20 @@ Always use the most recent version of **EntitySpaces Studio**.
 | Oracle Managed Client | [EntitySpaces.ORM.OracleManagedClient.NET](https://www.nuget.org/packages/EntitySpaces.ORM.OracleManagedClient.NET/) |
 | Firebird | 🚧 Work in Progress (próximamente) |
 
+**Support & feedback** — [one-time donation via PayPal](https://netstep.cl/entityspaces/support/) · [3‑minute roadmap survey](https://docs.google.com/forms/d/e/1FAIpQLSd-FVQiC3deoaIarYnsOCH4pdj-4zjGKznN68uUtyx9CpuKgA/viewform)
+
+## License
+
+**BSD 3-Clause.** Free for commercial and closed-source use; keep the copyright notice.
+
+- [`LICENSE`](LICENSE) — the binding license text
+- [`NOTICE`](NOTICE) — provenance, trademarks, contribution policy, and why the code your Studio
+  generates belongs to you
+- [`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md) — bundled components and their terms
+
+Commercial support, consulting and training are available separately; the license does not include
+any of them, and none of them is required to use the software.
+
 Original project site: [https://mikegriffinreborn.github.io/EntitySpaces/](https://mikegriffinreborn.github.io/EntitySpaces/)
 
 ---
@@ -73,7 +81,7 @@ This fork focuses on:
 - Provider alignment across database engines
 - SQL Server modernization for SQL Server 2016–2025 and Microsoft.Data.SqlClient
 - MySQL / MariaDB modernization for MySQL 8.0.14+ and MariaDB 10.2+ — LATERAL JOIN support with automatic engine detection, tolerant column/property name resolution, hierarchical parent-child save, explicit AUTO_INCREMENT PK insert, safe transaction handling (no explicit `ROLLBACK` on enlisted connections), and server-side column sync for AutoInc / Timestamp / Defaults
-- PostgreSQL modernization for PG 17–18 and Npgsql 7–10 — tolerant column/property name resolution, single-pass RETURNING reader, safe transaction handling (no explicit `ROLLBACK` on enlisted connections), corrected server-side column RETURNING for auditing fields, and correct handling of user-settable nullable `IsConcurrency` columns on both INSERT and UPDATE, including multiple concurrency columns per table
+- PostgreSQL modernization for PG 13–18 (validated with 17 and 18) and Npgsql 7–10 — tolerant column/property name resolution, single-pass RETURNING reader, safe transaction handling (no explicit `ROLLBACK` on enlisted connections), corrected server-side column RETURNING for auditing fields, and correct handling of user-settable nullable `IsConcurrency` columns on both INSERT and UPDATE, including multiple concurrency columns per table
 - Oracle modernization for Oracle 12c–19c and Oracle Cloud (ATP) with ODP.NET Managed 23.x — robust dynamic and stored-procedure paths, optimistic concurrency for `TIMESTAMP` and `Version` columns, NULL-safe equality, empty entity insert support, explicit PK inserts on IDENTITY, and connection pool safety.
 - SQLite modernization for SQLite 3.x and System.Data.SQLite 1.0.119 — culture-independent DECIMAL storage (fixing silent truncation on comma-decimal cultures like es-CL), robust dynamic INSERT parameter binding, automatic FK enforcement, and concurrency exception translation.
 - Clean compilation with warnings resolved
@@ -369,7 +377,7 @@ If your team understands SQL, you already understand EntitySpaces.
 | Database | Package | Status | Notes |
 |----------|---------|--------|-------|
 | SQL Server | EntitySpaces.ORM.SqlServer.NET | ✅ Modernized | SQL Server 2016–2025 · Concurrency exception detection · Connection pool safety (no explicit ROLLBACK on enlisted connections) |
-| PostgreSQL | EntitySpaces.ORM.PostgreSQL.NET | ✅ Modernized | PG 17–18 · Npgsql 7–10 · Neon compatible · `IsConcurrency` multi-column INSERT/UPDATE fixed |
+| PostgreSQL | EntitySpaces.ORM.PostgreSQL.NET | ✅ Modernized | PG 13–18 (validated 17/18) · Npgsql 7–10 · Neon compatible · `IsConcurrency` multi-column INSERT/UPDATE fixed |
 | MySQL | EntitySpaces.ORM.MySQL.NET | ✅ Modernized | MySQL 8.0.14+ · MariaDB 10.2+ · MySqlConnector 2.6.2 · Concurrency exception detection · Hierarchical save · Explicit AUTO_INCREMENT PK insert |
 | SQLite | EntitySpaces.ORM.SQLite.NET | ✅ Modernized | SQLite 3.x · System.Data.SQLite 1.0.119 · Culture-independent DECIMAL storage (REAL) · Auto-increment detection · FK enforcement (NO ACTION) · Concurrency exception detection · 50-test suite |
 | Oracle | EntitySpaces.ORM.OracleManagedClient.NET | ✅ Modernized | Oracle 12c–19c · ODP.NET Managed 23.x · Oracle Cloud ATP · Concurrency exception detection (ORA-20101, ORA-00001) · Connection pool safety · Navigation properties · Thread-safe parameter cache · .NET 8 compatible · Empty insert support · Explicit PK on IDENTITY |
@@ -911,22 +919,26 @@ var products = cat.ProductCollectionByCategoryId;
 
 ## Studio — Standalone Code Generator
 
-The EntitySpaces Standalone Studio is a WinForms application (net481) used to connect to databases and generate C# entity classes.
+The EntitySpaces Standalone Studio is a WinForms application targeting **.NET 10 (64-bit)**. Studio 2026.11 requires the **.NET 10 Desktop Runtime** on Windows 10 2004 or later; it connects to databases and generates C# entity classes from the schema.
+
+> **Platform change:** Studio shipped on .NET Framework 4.8.1 through the 2025.8 line and moved to .NET 10 in the 2026.09 cycle. The `net481` guidance further down applies **only** to those older builds.
 
 ### Supported databases in Studio
 
 | Database | Driver | Version |
 |----------|--------|---------|
-| SQL Server / Azure SQL | System.Data.SqlClient | — |
-| PostgreSQL | Npgsql | 8.0.8 |
-| MySQL | MySql.Data | 9.7.0 |
+| SQL Server / Azure SQL | Microsoft.Data.SqlClient | 7.x |
+| PostgreSQL | Npgsql | 10.x |
+| MySQL / MariaDB | MySqlConnector | 2.6.x |
 | SQLite | System.Data.SQLite | 1.0.119 |
 | Oracle | Oracle.ManagedDataAccess | 23.x |
-| Firebird | FirebirdSql.Data.FirebirdClient | work in progress, not yet published |
+| Firebird | FirebirdSql.Data.FirebirdClient 10.3.4 | Metadata support present in the engine; the ORM package is not published yet |
 
-### Assembly copy requirements (net481)
+### Assembly copy requirements (legacy `net481` Studio only)
 
-The Studio loads database drivers via reflection at runtime. For net481 projects using the legacy `.csproj` format, NuGet references that resolve from the GAC are **not copied** to the output directory automatically — causing runtime assembly load failures when the metadata engine tries to instantiate the driver.
+> Applies to Studio builds up to the 2025.8 line. Studio 2026.11 uses `PackageReference`, central package management and `CopyLocalLockFileAssemblies`, so the workarounds below are no longer needed.
+
+The old Studio loaded database drivers via reflection at runtime. For net481 projects using the legacy `.csproj` format, NuGet references that resolve from the GAC are **not copied** to the output directory automatically — causing runtime assembly load failures when the metadata engine tries to instantiate the driver.
 
 Affected assemblies require explicit `HintPath` and `Private=True` in the `.csproj`:
 
@@ -944,7 +956,9 @@ Affected assemblies require explicit `HintPath` and `Private=True` in the `.cspr
 </Reference>
 ```
 
-### Binding redirects (app.config)
+### Binding redirects (legacy `net481` Studio only)
+
+> Studio 2026.11 generates its binding redirects at build time (`AutoGenerateBindingRedirects`). This section documents the manual setup required by the retired `net481` builds.
 
 The `app.config` of both the Standalone and the `MetadataEngine` project must include binding redirects aligned with the **exact versions** of installed packages. Mismatched redirects cause silent resolution failures. Key entries that must match installed versions:
 

@@ -1,4 +1,4 @@
-<img src="https://es-banner.paul-netstep.workers.dev?src=nuget_readme" alt="EntitySpaces" width="531" height="268">
+<img src="https://es-banner.paul-netstep.workers.dev?src=nuget_readme" alt="EntitySpaces" width="250" height="126">
 
 # EntitySpaces.ORM.SqlServer.NET
 
@@ -12,16 +12,6 @@ Part of the modernized EntitySpaces ORM — SQL Server data provider. Actively m
 | **SQL Server** | SQL Server 2016 – 2025 (17.x) |
 | **Driver** | Microsoft.Data.SqlClient 6.x / 7.x |
 | **Tested against** | SQL Server 2016 Express (13.00.5026) · SQL Server 2022 · SQL Server 2025 Express (17.0.4085.5 / CU8+GDR) |
-
-## ❤️ Support this project
-
-If this provider has saved you time on a project, [support its development](https://netstep.cl/entityspaces/support/) — every contribution helps keep it free and maintained.
-
-You can also sponsor via the ❤️ Sponsor link on this NuGet package (powered by Ko-fi).
-
-## 📋 Help Shape the Roadmap
-
-> [Take the 3‑minute survey](https://docs.google.com/forms/d/e/1FAIpQLSd-FVQiC3deoaIarYnsOCH4pdj-4zjGKznN68uUtyx9CpuKgA/viewform) – your feedback keeps EntitySpaces alive and evolving.
 
 ## 🛠️ Requires EntitySpaces Studio
 
@@ -155,3 +145,7 @@ More usage examples (joins, paging, transactions, and the full Fluent SQL API): 
 ### Generating your entity classes
 
 See **Requires EntitySpaces Studio** above.
+
+---
+
+*If this provider saved you time, you can [support its development via PayPal](https://netstep.cl/entityspaces/support/). Feedback is welcome through the [3‑minute roadmap survey](https://docs.google.com/forms/d/e/1FAIpQLSd-FVQiC3deoaIarYnsOCH4pdj-4zjGKznN68uUtyx9CpuKgA/viewform).*
