@@ -113,7 +113,7 @@ namespace EntitySpaces.Installer
         // First release for .NET 10 x64: 2026.11.00. For another release in the same month use 2026.11.01, etc.
         // It can also be passed as the first command-line argument (handy for CI):
         //   EntitySpaces.Installer.exe 2026.11.01
-        const string DefaultReleaseVersion = "2026.11.00";
+        const string DefaultReleaseVersion = "2026.11.01";
 
         // UpgradeCode: must NEVER change between versions.
         static readonly Guid UpgradeCode = new Guid("D521D279-3D08-4C91-B500-2A8B5A045C60");
