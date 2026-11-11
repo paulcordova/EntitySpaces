@@ -315,33 +315,16 @@ namespace EntitySpaces.AddIn.ES2025
         {
             try
             {
+                // 1. Expand the right panel and collapse the left one
                 this.splitContainerTabControl.Panel1Collapsed = true;
                 this.splitContainerTabControl.Panel2Collapsed = false;
 
-                // Force parent layout
-                this.splitContainerTabControl.Panel2.PerformLayout();
+                // 2. Force the TableLayoutPanel to recalculate its row sizes immediately.
+                // This ensures the TabControl gets the correct height and respects the bottom buttons area.
                 this.tableLayoutPanel3.PerformLayout();
+
+                // 3. Force the TabControl to resize according to its new parent boundaries.
                 this.tabControlTemplateUI.PerformLayout();
-
-                // [CRITICAL FIX] Force a Resize event on the active TabPage.
-                // This forces the inner ListBox to recalculate its scrollbar dimensions.
-                if (this.tabControlTemplateUI.SelectedTab != null)
-                {
-                    TabPage activePage = this.tabControlTemplateUI.SelectedTab;
-
-                    // Trigger the resize manually by toggling a tiny bit of size
-                    Size originalSize = activePage.Size;
-                    activePage.Size = new Size(originalSize.Width, originalSize.Height - 1);
-                    activePage.Size = originalSize; // Restore original size
-
-                    // Apply layout to children
-                    activePage.PerformLayout();
-                    if (activePage.Controls.Count > 0)
-                    {
-                        activePage.Controls[0].PerformLayout();
-                        activePage.Controls[0].Refresh();
-                    }
-                }
             }
             catch (Exception ex)
             {

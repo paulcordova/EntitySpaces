@@ -93,7 +93,7 @@
             splitContainer.Panel2Collapsed = true;
             splitContainer.Panel2MinSize = 40;
             splitContainer.Size = new System.Drawing.Size(594, 734);
-            splitContainer.SplitterDistance = 29;
+            splitContainer.SplitterDistance = 25;
             splitContainer.SplitterWidth = 5;
             splitContainer.TabIndex = 1;
             // 
@@ -164,7 +164,7 @@
             tabTemplates.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
             tabTemplates.Name = "tabTemplates";
             tabTemplates.Padding = new System.Windows.Forms.Padding(4, 3, 4, 3);
-            tabTemplates.Size = new System.Drawing.Size(586, 706);
+            tabTemplates.Size = new System.Drawing.Size(192, 72);
             tabTemplates.TabIndex = 0;
             tabTemplates.Text = "Templates";
             tabTemplates.UseVisualStyleBackColor = true;
@@ -177,7 +177,7 @@
             ucTemplates.Location = new System.Drawing.Point(4, 3);
             ucTemplates.Margin = new System.Windows.Forms.Padding(2);
             ucTemplates.Name = "ucTemplates";
-            ucTemplates.Size = new System.Drawing.Size(578, 700);
+            ucTemplates.Size = new System.Drawing.Size(184, 66);
             ucTemplates.TabIndex = 0;
             // 
             // tabSettings
@@ -187,7 +187,7 @@
             tabSettings.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
             tabSettings.Name = "tabSettings";
             tabSettings.Padding = new System.Windows.Forms.Padding(4, 3, 4, 3);
-            tabSettings.Size = new System.Drawing.Size(586, 706);
+            tabSettings.Size = new System.Drawing.Size(192, 72);
             tabSettings.TabIndex = 3;
             tabSettings.Text = "Settings";
             tabSettings.UseVisualStyleBackColor = true;
@@ -197,10 +197,10 @@
             // 
             ucSettings.Dock = System.Windows.Forms.DockStyle.Fill;
             ucSettings.Location = new System.Drawing.Point(4, 3);
-            ucSettings.Margin = new System.Windows.Forms.Padding(5, 5, 5, 5);
+            ucSettings.Margin = new System.Windows.Forms.Padding(5);
             ucSettings.Name = "ucSettings";
             ucSettings.Padding = new System.Windows.Forms.Padding(4, 3, 4, 3);
-            ucSettings.Size = new System.Drawing.Size(578, 700);
+            ucSettings.Size = new System.Drawing.Size(184, 66);
             ucSettings.TabIndex = 0;
             // 
             // tabMetadata
@@ -211,7 +211,7 @@
             tabMetadata.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
             tabMetadata.Name = "tabMetadata";
             tabMetadata.Padding = new System.Windows.Forms.Padding(4, 3, 4, 3);
-            tabMetadata.Size = new System.Drawing.Size(586, 706);
+            tabMetadata.Size = new System.Drawing.Size(192, 72);
             tabMetadata.TabIndex = 1;
             tabMetadata.Text = "Metadata";
             tabMetadata.UseVisualStyleBackColor = true;
@@ -221,9 +221,9 @@
             // 
             ucMetadata.Dock = System.Windows.Forms.DockStyle.Fill;
             ucMetadata.Location = new System.Drawing.Point(4, 3);
-            ucMetadata.Margin = new System.Windows.Forms.Padding(5, 5, 5, 5);
+            ucMetadata.Margin = new System.Windows.Forms.Padding(5);
             ucMetadata.Name = "ucMetadata";
-            ucMetadata.Size = new System.Drawing.Size(578, 700);
+            ucMetadata.Size = new System.Drawing.Size(184, 66);
             ucMetadata.TabIndex = 0;
             // 
             // tabLanguageMappings
@@ -233,7 +233,7 @@
             tabLanguageMappings.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
             tabLanguageMappings.Name = "tabLanguageMappings";
             tabLanguageMappings.Padding = new System.Windows.Forms.Padding(4, 3, 4, 3);
-            tabLanguageMappings.Size = new System.Drawing.Size(586, 706);
+            tabLanguageMappings.Size = new System.Drawing.Size(192, 72);
             tabLanguageMappings.TabIndex = 4;
             tabLanguageMappings.Text = "Mappings";
             tabLanguageMappings.UseVisualStyleBackColor = true;
@@ -246,7 +246,7 @@
             ucMappings.Location = new System.Drawing.Point(4, 3);
             ucMappings.Margin = new System.Windows.Forms.Padding(2);
             ucMappings.Name = "ucMappings";
-            ucMappings.Size = new System.Drawing.Size(578, 700);
+            ucMappings.Size = new System.Drawing.Size(184, 66);
             ucMappings.TabIndex = 1;
             // 
             // tableLayoutPanel3
@@ -262,7 +262,7 @@
             tableLayoutPanel3.RowCount = 2;
             tableLayoutPanel3.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             tableLayoutPanel3.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 46F));
-            tableLayoutPanel3.Size = new System.Drawing.Size(112, 115);
+            tableLayoutPanel3.Size = new System.Drawing.Size(96, 100);
             tableLayoutPanel3.TabIndex = 2;
             // 
             // tabControlTemplateUI
@@ -272,7 +272,7 @@
             tabControlTemplateUI.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
             tabControlTemplateUI.Name = "tabControlTemplateUI";
             tabControlTemplateUI.SelectedIndex = 0;
-            tabControlTemplateUI.Size = new System.Drawing.Size(104, 63);
+            tabControlTemplateUI.Size = new System.Drawing.Size(88, 48);
             tabControlTemplateUI.TabIndex = 0;
             // 
             // panel1
@@ -280,16 +280,16 @@
             panel1.Controls.Add(buttonExecuteTemplateCancel);
             panel1.Controls.Add(buttonExecuteTemplateOk);
             panel1.Dock = System.Windows.Forms.DockStyle.Fill;
-            panel1.Location = new System.Drawing.Point(4, 72);
+            panel1.Location = new System.Drawing.Point(4, 57);
             panel1.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
             panel1.Name = "panel1";
-            panel1.Size = new System.Drawing.Size(104, 40);
+            panel1.Size = new System.Drawing.Size(88, 40);
             panel1.TabIndex = 1;
             // 
             // buttonExecuteTemplateCancel
             // 
             buttonExecuteTemplateCancel.Anchor = System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right;
-            buttonExecuteTemplateCancel.Location = new System.Drawing.Point(-81, 10);
+            buttonExecuteTemplateCancel.Location = new System.Drawing.Point(-97, 10);
             buttonExecuteTemplateCancel.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
             buttonExecuteTemplateCancel.Name = "buttonExecuteTemplateCancel";
             buttonExecuteTemplateCancel.Size = new System.Drawing.Size(88, 27);
@@ -301,7 +301,7 @@
             // buttonExecuteTemplateOk
             // 
             buttonExecuteTemplateOk.Anchor = System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right;
-            buttonExecuteTemplateOk.Location = new System.Drawing.Point(13, 10);
+            buttonExecuteTemplateOk.Location = new System.Drawing.Point(-3, 10);
             buttonExecuteTemplateOk.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
             buttonExecuteTemplateOk.Name = "buttonExecuteTemplateOk";
             buttonExecuteTemplateOk.Size = new System.Drawing.Size(88, 27);
@@ -324,7 +324,7 @@
             tableLayoutPanel1.Name = "tableLayoutPanel1";
             tableLayoutPanel1.RowCount = 1;
             tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            tableLayoutPanel1.Size = new System.Drawing.Size(175, 53);
+            tableLayoutPanel1.Size = new System.Drawing.Size(150, 46);
             tableLayoutPanel1.TabIndex = 0;
             // 
             // textBoxError
@@ -339,7 +339,7 @@
             textBoxError.Name = "textBoxError";
             textBoxError.ReadOnly = true;
             textBoxError.ScrollBars = System.Windows.Forms.ScrollBars.Vertical;
-            textBoxError.Size = new System.Drawing.Size(85, 47);
+            textBoxError.Size = new System.Drawing.Size(60, 40);
             textBoxError.TabIndex = 1;
             // 
             // tableLayoutPanel2
@@ -356,7 +356,7 @@
             tableLayoutPanel2.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 50F));
             tableLayoutPanel2.RowStyles.Add(new System.Windows.Forms.RowStyle());
             tableLayoutPanel2.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 50.00001F));
-            tableLayoutPanel2.Size = new System.Drawing.Size(74, 47);
+            tableLayoutPanel2.Size = new System.Drawing.Size(74, 40);
             tableLayoutPanel2.TabIndex = 2;
             // 
             // pictureBoxError
@@ -364,7 +364,7 @@
             pictureBoxError.ErrorImage = null;
             pictureBoxError.Image = Resource.error;
             pictureBoxError.InitialImage = null;
-            pictureBoxError.Location = new System.Drawing.Point(4, -3);
+            pictureBoxError.Location = new System.Drawing.Point(4, -7);
             pictureBoxError.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
             pictureBoxError.Name = "pictureBoxError";
             pictureBoxError.Size = new System.Drawing.Size(59, 55);
