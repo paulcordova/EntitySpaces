@@ -31,8 +31,12 @@ Scope of this file: **ORM packages (5 providers) + EntitySpaces Studio**.
 |---|---|
 | Previous release | **2026.8.0** (commit `f3baaa9`, 2026-08-19) |
 | ORM packages | `2026.11.0` — SQL Server · PostgreSQL · MySQL · SQLite · Oracle Managed Client |
-| Studio | `2026.11.0000.0` |
+| Studio | `2026.11.0001.0` · installer `2026.11.01` (ProductVersion `26.11.1`) |
 | Diff since 2026.8.0 | 206 files changed, +19,061 / −8,649 · 98 commits |
+
+> **Installer rebuilt.** The first build of this release shipped a Custom class generator with its
+> text fields hidden. The installer was rebuilt as `2026.11.01` (ProductVersion `26.11.1`) and
+> replaces that build. The NuGet packages are not affected and stay at `2026.11.0`.
 
 ### Added
 
@@ -134,6 +138,10 @@ stabilization → .NET 10) and was not a `TargetFramework` change alone:
 ### Fixed
 
 **EntitySpaces Studio**
+- **Custom template fields not rendered** — the Custom class generator opened its panel with the
+  text boxes missing. A `Panel` was created at runtime with `Dock = Fill`, the `ListBox` moved
+  inside it and the panel brought to the front of the Z-order, covering the rest of the controls.
+  The workaround is gone; the `ListBox` is configured at bind time instead.
 - **Truncated table names on MySQL** — from .NET 5 onward the globalization engine moved from NLS
   to **ICU**, where the null character is zero-weight: `"TestMetadata".EndsWith("\0")` evaluated to
   `true`, and the following `Remove()` dropped the last real character (`TestMetadat`). Fixed in
