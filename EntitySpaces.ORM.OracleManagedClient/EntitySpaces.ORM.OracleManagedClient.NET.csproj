@@ -30,8 +30,7 @@ Full release notes: https://github.com/paulcordova/EntitySpaces/blob/master/CHAN
 		<IncludeSymbols>true</IncludeSymbols>
 		<SymbolPackageFormat>snupkg</SymbolPackageFormat>
 		<PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-		<Copyright>Copyright (c) 2006-2012, EntitySpaces, LLC. All rights reserved.
-Copyright © 2026 Paul Córdova.</Copyright>
+		<Copyright>Copyright (c) 2006-2012, EntitySpaces, LLC. Copyright (c) 2021, Stefan Dicker. Copyright (c) 2023-2026, Paul Córdova.</Copyright>
 	</PropertyGroup>
 
 
