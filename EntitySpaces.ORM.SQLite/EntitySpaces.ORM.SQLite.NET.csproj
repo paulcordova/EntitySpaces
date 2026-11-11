@@ -10,7 +10,11 @@
 		<Description>SQLite provider for EntitySpaces ORM. Fully modernized for .NET Framework 4.8, .NET 8, 9, and 10. Features strongly-typed entities, dynamic SQL, stored procedures, safe connection pooling, thread‑safe caching, and automatic concurrency detection.</Description>
 		<PackageProjectUrl>https://github.com/paulcordova/EntitySpaces</PackageProjectUrl>
 		<PackageTags>orm;entityspaces;fluent-api;code-generation;micro-orm;database;sql;netcore;netframework;sqlite;system-data-sqlite;embedded-database;winforms;webforms;wisej</PackageTags>
-		<PackageReleaseNotes>This is an actively maintained fork of the EntitySpaces ORM, built on the original architecture. This release modernizes the runtime for .NET Framework 4.8, .NET 8, .NET 9, and .NET 10.&amp;#10;&amp;#10;• Thread‑safe parameter cache using ConcurrentDictionary (eliminates lock contention).&amp;#10;• Safe connection pool management with automatic rollback on errors (prevents connection leaks).&amp;#10;• Automatic concurrency exception detection and translation.&amp;#10;&amp;#10;SQLite specific improvements:&amp;#10;• Enhanced auto‑increment detection (INTEGER PRIMARY KEY alias and explicit AUTOINCREMENT).&amp;#10;• Automatic Foreign Key enforcement (appends Foreign Keys=True to connection string).&amp;#10;• Navigation property generation from DDL foreign key constraints.&amp;#10;• Metadata engine rewritten to use native PRAGMA commands (replacing unsupported information_schema).&amp;#10;• Concurrency exception translation for SQLITE_CONSTRAINT (19).&amp;#10;• Compatible with SQLite 3.x and System.Data.SQLite 1.0.119+.</PackageReleaseNotes>
+		<PackageReleaseNotes>Actively maintained fork of the EntitySpaces ORM, modernized for .NET Framework 4.8 through .NET 10 and aligned with EntitySpaces Studio 2026.11.
+
+SQLite: culture-independent DECIMAL storage, automatic foreign key enforcement, metadata read through native PRAGMA commands, SQLITE_CONSTRAINT translation, SQLite 3.x.
+
+Full release notes: https://github.com/paulcordova/EntitySpaces/blob/master/CHANGELOG.md</PackageReleaseNotes>
 		<Product>EntitySpaces</Product>
 		<PackageIcon>esIcon.png</PackageIcon>
 		<RepositoryType>git</RepositoryType>

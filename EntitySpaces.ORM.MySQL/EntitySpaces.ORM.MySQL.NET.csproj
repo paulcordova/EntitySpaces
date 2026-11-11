@@ -10,7 +10,11 @@
 		 <Description>MySQL provider for EntitySpaces ORM. Fully modernized for .NET Framework 4.8, .NET 8, 9, and 10. Features strongly-typed entities, dynamic SQL, stored procedures, safe connection pooling, thread‑safe caching, and automatic concurrency detection.</Description>
 		 <PackageProjectUrl>https://github.com/paulcordova/EntitySpaces/</PackageProjectUrl>
 		 <PackageTags>orm;entityspaces;fluent-api;code-generation;micro-orm;database;sql;netcore;netframework;mysql;mariadb;mysql-connector;winforms;webforms;wisej</PackageTags>
-		 <PackageReleaseNotes>This is an actively maintained fork of the EntitySpaces ORM, built on the original architecture. This release modernizes the runtime for .NET Framework 4.8, .NET 8, .NET 9, and .NET 10.&amp;#10;&amp;#10;• Thread‑safe parameter cache using ConcurrentDictionary (eliminates lock contention).&amp;#10;• Safe connection pool management with automatic rollback on errors (prevents connection leaks).&amp;#10;• Automatic concurrency exception detection and translation.&amp;#10;&amp;#10;MySQL/MariaDB specific improvements:&amp;#10;• LATERAL JOIN translation for OUTER/CROSS APPLY (native LATERAL on MySQL 8.0.14+; ROW_NUMBER emulation on MariaDB 10.2+).&amp;#10;• Automatic server version detection (cached per connection string).&amp;#10;• Safe handling of MySQL/MariaDB concurrency errors (1062, 1213, 1205).&amp;#10;• Compatible with MySQL 8.0+ and MariaDB 10.2+.</PackageReleaseNotes>
+		 <PackageReleaseNotes>Actively maintained fork of the EntitySpaces ORM, modernized for .NET Framework 4.8 through .NET 10 and aligned with EntitySpaces Studio 2026.11.
+
+MySQL / MariaDB: LATERAL JOIN translation (native on MySQL 8.0.14+, ROW_NUMBER fallback on MariaDB), concurrency errors 1062, 1213 and 1205, MySqlConnector 2.6, MySQL 8.0.14+ and MariaDB 10.2+.
+
+Full release notes: https://github.com/paulcordova/EntitySpaces/blob/master/CHANGELOG.md</PackageReleaseNotes>
 		 <Product>EntitySpaces</Product>
 		 <PackageIcon>esIcon.png</PackageIcon>
 		 <RepositoryType>git</RepositoryType>
