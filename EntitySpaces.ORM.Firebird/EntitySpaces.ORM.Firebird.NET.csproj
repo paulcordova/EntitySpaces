@@ -116,20 +116,20 @@
 
 	<ItemGroup>
 
-		<PackageReference Include="FirebirdSql.Data.FirebirdClient" Version="10.3.4" />
+		<PackageReference Include="FirebirdSql.Data.FirebirdClient" />
 	</ItemGroup>
 
 	<ItemGroup Condition="'$(TargetFramework)' == 'net48'">
 		<Reference Include="Microsoft.CSharp" />
 		<Reference Include="System.Configuration" />
-
+		
 		<!--<PackageReference Include="System.ValueTuple" Version="4.5.0" />
         <PackageReference Include="System.ComponentModel" Version="4.3.0" />-->
 	</ItemGroup>
 
 
 	<ItemGroup Condition="'$(TargetFramework)' != 'net48'">
-		<PackageReference Include="System.Configuration.ConfigurationManager" Version="10.0.13" />
+		<PackageReference Include="System.Configuration.ConfigurationManager" />
 	</ItemGroup>
 
 
