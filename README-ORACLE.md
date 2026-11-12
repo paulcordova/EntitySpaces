@@ -4,6 +4,11 @@
 
 Part of the modernized EntitySpaces ORM — Oracle data provider. Actively maintained fork with full .NET Framework 4.8 to .NET 10 support.
 
+> **Origin.** The Oracle provider in this fork began as the work of **Stefan Dicker**
+> ([SCLStefan/EntitySpaces](https://github.com/SCLStefan/EntitySpaces), 2021) and was rewritten in 2025
+> to use ODP.NET Managed Client. His copyright notice is retained in the provider source files, in
+> `LICENSE` and in `NOTICE`.
+
 ## Supportability
 
 | | |
