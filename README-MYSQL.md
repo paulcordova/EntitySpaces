@@ -10,7 +10,7 @@ Part of the modernized EntitySpaces ORM — MySQL / MariaDB data provider. Activ
 |---|---|
 | **.NET targets** | .NET Framework 4.8 - .NET 8 - .NET 9 - .NET 10 |
 | **MySQL / MariaDB** | MySQL 8.0.14+ (validated with 8.0.28) - MariaDB 10.2+ (validated with 10.2 / 10.6 / 10.11) |
-| **Driver** | MySqlConnector 2.6.2 |
+| **Driver** | MySqlConnector 2.6.2 (2026.11+; 2026.08 and earlier used MySql.Data) |
 
 ## 🛠️ Requires EntitySpaces Studio
 
@@ -356,6 +356,47 @@ EntitySpaces generates class metadata (`meta.Source`, `meta.Destination`) using 
 | MariaDB (all) | Case-insensitive | No special action needed |
 
 
+## ⚠️ Zero Dates (`0000-00-00`)
+
+> **Driver baseline.** `EntitySpaces.ORM.MySQL.NET` **2026.11** is the first release
+> built on **MySqlConnector 2.6.2**. Versions **2026.08 and earlier** used the legacy
+> **MySql.Data** driver. This provider no longer ships, references, or develops
+> against MySql.Data: all current and future work targets MySqlConnector, which
+> follows MySQL and MariaDB changes more frequently. Every option, table row and
+> example in this README refers to **MySqlConnector**.
+
+Legacy MySQL and MariaDB schemas often store an "empty" date as
+`0000-00-00 00:00:00`. That value cannot be represented by
+`System.DateTime`, and MySqlConnector surfaces it as follows:
+
+| MySqlConnector connection string | What the reader returns | Result in EntitySpaces |
+|---|---|---|
+| No zero-date option | Throws `InvalidCastException` while reading | `Load` fails with *"Unable to convert MySQL date/time to System.DateTime, set AllowZeroDateTime=True or ConvertZeroDateTime=True..."* |
+| `AllowZeroDateTime=True` | `MySqlDateTime` (`IsValidDateTime = false`) | The entity loads, but the generated `DateTime` getter throws `InvalidCastException: Specified cast is not valid.` (`Convert.ToDateTime` on an invalid `MySqlDateTime`) |
+| `ConvertZeroDateTime=True` | `System.DateTime.MinValue` | The entity loads and the getter returns `DateTime.MinValue` |
+
+**Fix:** add `ConvertZeroDateTime=True;` to the MySqlConnector connection string:
+
+```
+Server=myserver;Port=3306;Database=mydb;Uid=myuser;Pwd=mypassword;
+SslMode=Required;ConvertZeroDateTime=True;
+```
+
+`ConvertZeroDateTime` takes precedence over `AllowZeroDateTime` when both
+are present, so a legacy `AllowZeroDateTime=True` entry can stay in place.
+
+> **Upgrading from 2026.08 or earlier.** A connection string carried over from
+> MySql.Data that contains `Allow Zero Datetime=True` is accepted by
+> MySqlConnector and still returns `MySqlDateTime`; that is the value that makes
+> the generated getter throw. Add `ConvertZeroDateTime=True` when migrating.
+> MySql.Data is not a supported driver for this provider.
+
+> **Data quality.** `ConvertZeroDateTime=True` maps the invalid value to
+> `DateTime.MinValue`; it does not repair the database. Consider migrating
+> those rows to `NULL` and, on MySQL 8 / MariaDB, enforcing `NO_ZERO_DATE`
+> in `sql_mode` for new data.
+
+
 ## ⚠️ Known Limitations
 
 ### `IsComputed` columns with a generic DEFAULT do not receive the value in-memory
@@ -417,10 +458,12 @@ the current release.
 
 ## Dependency Updates
 
-- **MySqlConnector 2.6.2** — migrated from the legacy `MySql.Data` driver. `MySqlConnector` is the actively maintained, .NET-8+-first ADO.NET provider for MySQL/MariaDB. Both drivers are wire-compatible, but `MySqlConnector` has:
+- **MySqlConnector 2.6.2** — the provider moved from the legacy `MySql.Data` driver in 2026.11. `MySqlConnector` is the actively maintained, .NET-8+-first ADO.NET provider for MySQL/MariaDB, with:
   - First-class support for `System.Transactions` with explicit opt-in (previously automatic).
   - Consistent behavior across .NET Framework 4.8 and .NET 8–10.
   - Faster, allocation-light parameter handling.
+
+  `MySql.Data` is no longer referenced or supported, and no further development targets it; 2026.08 and earlier were the last releases that used it.
 
 - **System.Configuration.ConfigurationManager** — updated from `10.0.13` to `10.0.14`. Maintenance release. No API changes affecting EntitySpaces.
 
