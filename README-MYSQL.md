@@ -372,23 +372,26 @@ Legacy MySQL and MariaDB schemas often store an "empty" date as
 | MySqlConnector connection string | What the reader returns | Result in EntitySpaces |
 |---|---|---|
 | No zero-date option | Throws `InvalidCastException` while reading | `Load` fails with *"Unable to convert MySQL date/time to System.DateTime, set AllowZeroDateTime=True or ConvertZeroDateTime=True..."* |
-| `AllowZeroDateTime=True` | `MySqlDateTime` (`IsValidDateTime = false`) | The entity loads, but the generated `DateTime` getter throws `InvalidCastException: Specified cast is not valid.` (`Convert.ToDateTime` on an invalid `MySqlDateTime`) |
-| `ConvertZeroDateTime=True` | `System.DateTime.MinValue` | The entity loads and the getter returns `DateTime.MinValue` |
+| `AllowZeroDateTime=True` only | `MySqlDateTime` (`IsValidDateTime = false`) | The entity may load, but the generated `DateTime` getter throws `InvalidCastException: Specified cast is not valid.` (`Convert.ToDateTime` on an invalid `MySqlDateTime`) |
+| `ConvertZeroDateTime=True` only | `System.DateTime.MinValue` | **Recommended.** The entity loads and the getter returns `DateTime.MinValue` |
+| `AllowZeroDateTime=True` **and** `ConvertZeroDateTime=True` | Values are `DateTime.MinValue`, but the column schema still reports `MySqlDateTime` | `Query.Load()` / `LoadByPrimaryKey` fail with `ArgumentException: Type of value has a mismatch with column type. Couldn't store <01.01.0001 00:00:00> in <column> Column. Expected type is MySqlDateTime.` |
 
-**Fix:** add `ConvertZeroDateTime=True;` to the MySqlConnector connection string:
+**Fix:** replace any `AllowZeroDateTime=True` (or legacy `Allow Zero Datetime=True`)
+entry with `ConvertZeroDateTime=True;`:
 
 ```
 Server=myserver;Port=3306;Database=mydb;Uid=myuser;Pwd=mypassword;
 SslMode=Required;ConvertZeroDateTime=True;
 ```
 
-`ConvertZeroDateTime` takes precedence over `AllowZeroDateTime` when both
-are present, so a legacy `AllowZeroDateTime=True` entry can stay in place.
+Do **not** keep both options. `ConvertZeroDateTime` turns the values into
+`DateTime.MinValue`, but `AllowZeroDateTime` still makes MySqlConnector report the
+column type as `MySqlDateTime`; that mix breaks the `DataTable` created by the
+query/load path.
 
-> **Upgrading from 2026.08 or earlier.** A connection string carried over from
-> MySql.Data that contains `Allow Zero Datetime=True` is accepted by
-> MySqlConnector and still returns `MySqlDateTime`; that is the value that makes
-> the generated getter throw. Add `ConvertZeroDateTime=True` when migrating.
+> **Upgrading from 2026.08 or earlier.** Connection strings carried over from
+> MySql.Data commonly contain `Allow Zero Datetime=True`. Replace that entry with
+> `ConvertZeroDateTime=True`; keeping both produces the `ArgumentException` above.
 > MySql.Data is not a supported driver for this provider.
 
 > **Data quality.** `ConvertZeroDateTime=True` maps the invalid value to
