@@ -173,14 +173,21 @@ namespace EntitySpaces.MetadataEngine.MySql
         }
 
         /// <summary>
-        /// Indicates whether the column is used for optimistic concurrency (e.g., TIMESTAMP)
+        /// MySQL <c>TIMESTAMP</c> is a temporal type, not a rowversion.
+        ///
+        /// H1a hotfix: the 2026 metadata modernization marked every TIMESTAMP
+        /// column as a native concurrency token. That broke UPDATE (the
+        /// provider built an InputOutput parameter rejected by MySqlConnector),
+        /// produced a non-existent LastTimestamp() readback, and treated
+        /// business dates such as last_change as concurrency tokens.
+        ///
+        /// Native timestamp concurrency will be opt-in in a later release.
         /// </summary>
         public override Boolean IsConcurrency
         {
             get
             {
-                string type = this.DataTypeName.ToUpper();
-                return type == "TIMESTAMP";
+                return false;
             }
         }
 

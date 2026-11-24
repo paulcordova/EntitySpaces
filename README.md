@@ -110,7 +110,7 @@ The metadata engine has been enhanced across **PostgreSQL, Oracle, SQL Server, M
 | `NumericPrecision` | Total digits for `DECIMAL(p,s)`, `NUMERIC(p,s)` | Ensures financial and high‑precision operations respect database constraints |
 | `NumericScale` | Decimal places for `DECIMAL(p,s)`, `NUMERIC(p,s)` | Prevents rounding errors and maintains exact numeric semantics |
 | `IsComputed` | Columns defined as `GENERATED ALWAYS AS ...` or `AS computed_column` | EntitySpaces omits computed columns from `INSERT`/`UPDATE` — avoiding SQL errors and improving performance |
-| `IsConcurrency` | Columns of type `TIMESTAMP` / `ROWVERSION` (and equivalent) | Enables optimistic concurrency control in `UPDATE` statements automatically |
+| `IsConcurrency` | Native concurrency tokens (`rowversion` on SQL Server; opt-in temporal timestamps where supported). MySQL `TIMESTAMP` is not auto-detected. | Enables optimistic concurrency control in `UPDATE` statements for the columns explicitly marked or natively typed |
 | `IsAutoIncrement` | Identity columns (`IDENTITY`, `SERIAL`, `AUTO_INCREMENT`, `INTEGER PRIMARY KEY` rowid alias) | Ensures correct post‑insert value retrieval |
 | `HasDefault` / `Default` | Columns with `DEFAULT` constraints | Preserves database‑side defaults and server‑side expressions like `GETDATE()` |
 | `DataTypeNameComplete` | Full type with precision/length: `varchar(100)`, `decimal(10,2)` | Generated code shows exact database types — self‑documenting and precise |
@@ -122,7 +122,7 @@ The metadata engine has been enhanced across **PostgreSQL, Oracle, SQL Server, M
 | **PostgreSQL** | `is_generated` for computed columns; `is_identity` and `pg_get_serial_sequence` for auto‑increment; `numeric_precision` / `numeric_scale`; `timestamp` concurrency detection; `udt_name` + `data_type` dual mapping for type resolution |
 | **Oracle** | `LEFT JOIN ALL_TAB_COLS` for `VIRTUAL_COLUMN` (computed) detection; `IDENTITY_COLUMN = 'YES'` for identity columns; `REGEXP_SUBSTR` for type name normalisation (`TIMESTAMP(6)` → `TIMESTAMP`); `DATA_PRECISION` / `DATA_SCALE` |
 | **SQL Server** | `sys.columns.is_computed` for computed columns; `sys.columns.precision` / `scale` / `max_length` for numeric and length metadata; `rowversion` / `timestamp` concurrency detection; corrected `IsComputed` (no longer mis‑identifies `timestamp` as computed) |
-| **MySQL** | `EXTRA` column (`VIRTUAL GENERATED` / `STORED GENERATED`) for computed detection; `TIMESTAMP` concurrency detection; already parsed `CharacterMaxLength`, `NumericPrecision`, `NumericScale` from `DataTypeNameComplete` |
+| **MySQL** | `EXTRA` column (`VIRTUAL GENERATED` / `STORED GENERATED`) for computed detection; `TIMESTAMP` is treated as a temporal type (not auto-marked as native concurrency; use a `version` column); already parsed `CharacterMaxLength`, `NumericPrecision`, `NumericScale` from `DataTypeNameComplete` |
 | **SQLite** | `PRAGMA table_xinfo` (`hidden = 2`/`3`) for computed columns (SQLite 3.31+), with DDL fallback for older versions; rowid alias detection (`INTEGER PRIMARY KEY`) for auto‑increment; `CHARACTER_MAXIMUM_LENGTH`, `NUMERIC_PRECISION`, `NUMERIC_SCALE` |
 
 ### Benefits for Developers
