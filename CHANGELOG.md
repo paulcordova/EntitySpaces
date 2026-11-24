@@ -23,6 +23,26 @@ Scope of this file: **ORM packages (5 providers) + EntitySpaces Studio**.
 
 ---
 
+## [2026.11.02] — 2026-11-24
+
+### Fixed
+
+- **Studio: MySQL `TIMESTAMP` is no longer treated as native concurrency.**
+  The 2026.11 metadata modernization mapped every MySQL `TIMESTAMP` column to
+  `IsConcurrency = true`, regardless of its name or purpose. That caused the
+  provider to build an `InputOutput` parameter for `UPDATE` (rejected by
+  MySqlConnector), emitted a non-existent `LastTimestamp()` readback, and
+  treated business dates such as `last_change` as concurrency tokens. The
+  metadata engine now returns `false` for `MySqlColumn.IsConcurrency`; use a
+  `version` column (`IsEntitySpacesConcurrency`) for portable optimistic
+  concurrency.
+
+  **Action required:** regenerate classes generated with 2026.11.00/01 to
+  remove `c.IsConcurrency = true` from MySQL `TIMESTAMP` columns. Existing
+  generated classes keep the old flag until regenerated.
+
+---
+
 ## [2026.11.0] — 2026-11-10
 
 ### Baseline and diff

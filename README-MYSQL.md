@@ -58,7 +58,7 @@ This package provides the MySQL / MariaDB runtime only — it does not generate 
 
 - **Thread-safe parameter cache** — the parameter cache is a `ConcurrentDictionary` keyed by `DataID`. No lock contention in multi-threaded environments; the cache is built once per entity type and reused safely across threads.
 
-- **Studio metadata engine now extracts the `EXTRA` column** (`VIRTUAL GENERATED` / `STORED GENERATED`) for computed-column detection and `TIMESTAMP` concurrency detection. See the main README's Studio Modernization section for the full metadata matrix (character max length, numeric precision/scale, computed columns, auto-increment, defaults).
+- **Studio metadata engine now extracts the `EXTRA` column** (`VIRTUAL GENERATED` / `STORED GENERATED`) for computed-column detection. MySQL `TIMESTAMP` is treated as a temporal type, not as a native concurrency token: Studio no longer marks it as `IsConcurrency` automatically. Use a `version` column (`IsEntitySpacesConcurrency`) for portable optimistic concurrency. See the main README's Studio Modernization section for the full metadata matrix (character max length, numeric precision/scale, computed columns, auto-increment, defaults).
 
 ## Fixes
 
